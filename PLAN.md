@@ -36,6 +36,11 @@ manifest.webmanifest  installation PWA
 - Évaluations : items issus du référentiel ou libres ; feuille élève imprimable (cases NA/PA/A/D) ;
   saisie des résultats par élève (touche pour changer le niveau) et total « Atteint ou + ».
 - Liste d'élèves (prénoms), données d'exemple, export / import / effacement.
+- **v0.2** : accueil « Aujourd'hui » (créneaux du jour, accès rapides), barre d'onglets sur mobile,
+  interface pastel arrondie. Boîte à outils « En classe » (à projeter ou sur téléphone) : minuteur,
+  tirage au sort, groupes, niveaux de voix, feu tricolore, date du jour, dés, calcul mental, horloge,
+  cadre de dix, droite graduée, barres de fractions, pendu, ardoise (uni / carreaux / Seyès).
+  Inspirée d'un post Instagram montrant ce type d'outils ; design et code originaux.
 
 ## Limites connues du prototype
 - **Référentiel très partiel** : 26 objectifs de français cycle 3 (CM1-CM2, Lecture + Écriture CM1),
@@ -53,8 +58,9 @@ manifest.webmanifest  installation PWA
 2. Compléter le référentiel : cycles 1, 2, 3, toutes disciplines, à partir des textes du BO en vigueur
    (attention : programmes de français et maths renouvelés à partir de 2024-2025, d'autres disciplines
    encore sur les programmes 2015/2020). Garder une source par entrée.
-3. Cahier journal (vue jour qui relie EDT + fiches), export PDF propre, modèles de fiches.
-4. Livret / bilans par élève à partir des évaluations.
+3. Autres outils de classe possibles : flashcards, memory, mots mêlés, monnaie (euros), sondage.
+4. Cahier journal (vue jour qui relie EDT + fiches), export PDF propre, modèles de fiches.
+5. Livret / bilans par élève à partir des évaluations.
 
 ## Si on passe aux abonnements payants : ce que ça implique
 - **Comptes + synchronisation** : un backend devient nécessaire (ex. Supabase/Firebase ou API maison)

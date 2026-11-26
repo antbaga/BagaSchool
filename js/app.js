@@ -1,7 +1,8 @@
 import * as db from "./db.js";
 import { COMPETENCES, SOURCES, NIVEAUX, DISCIPLINES } from "./competences.js";
+import { OUTILS } from "./outils.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 
 // ---------- état ----------
 let state = {};
@@ -325,10 +326,11 @@ function viewEvals() {
     <div class="list">${state.evaluations.map((ev) => `
       <a class="item" href="#/evaluations/${ev.id}"><strong>${esc(ev.titre)}</strong>
       <span class="hint">${esc(ev.discipline)} ${esc(ev.niveau)} ${ev.date ? "· " + fmtDate(ev.date) : ""} · ${ev.items.length} item(s)</span></a>`).join("") || `<p class="hint">Aucune évaluation.</p>`}</div>`;
-  $("#add").onclick = () => {
-    const ev = { id: uid(), titre: "Nouvelle évaluation", discipline: "Français", niveau: "", date: "", consigne: "", items: [], resultats: {} };
-    state.evaluations.unshift(ev); save("evaluations"); location.hash = `#/evaluations/${ev.id}`;
-  };
+  $("#add").onclick = () => { location.hash = `#/evaluations/${newEval().id}`; };
+}
+function newEval() {
+  const ev = { id: uid(), titre: "Nouvelle évaluation", discipline: "Français", niveau: "", date: "", consigne: "", items: [], resultats: {} };
+  state.evaluations.unshift(ev); save("evaluations"); return ev;
 }
 function viewEval(id, tab = "prep") {
   const ev = state.evaluations.find((x) => x.id === id);
@@ -482,7 +484,7 @@ async function viewReglages() {
       alert("Sauvegarde importée."); route();
     } catch (err) { alert(err.message); }
   };
-  $("#demo").onclick = async () => { if (confirm("Ajouter des données d'exemple ?")) { await loadDemo(); location.hash = "#/edt"; } };
+  $("#demo").onclick = async () => { if (confirm("Ajouter des données d'exemple ?")) { await loadDemo(); location.hash = "#/accueil"; } };
   $("#wipe").onclick = async () => {
     if (!confirm("Effacer toutes les données de cet appareil ? Exporte une sauvegarde avant si besoin.")) return;
     await db.clear(); state = await db.loadAll(); route();
@@ -505,28 +507,102 @@ async function loadDemo() {
   for (const c of ["edt", "programmations", "eleves", "evaluations"]) await save(c);
 }
 
+// ---------- AUJOURD'HUI ----------
+const JOURS_JS = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+const toolTile = (o, desc = false) => `<a class="tile" href="#/outils/${o.id}" style="--tile:${o.couleur}"><span class="tile-ico">${o.icone}</span><span class="tile-name">${esc(o.nom)}</span>${desc ? `<span class="tile-desc">${esc(o.desc)}</span>` : ""}</a>`;
+const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function viewAccueil() {
+  const now = new Date();
+  const jour = JOURS_JS[now.getDay()];
+  const hm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const slots = state.edt.filter((s) => s.jour === jour).sort((a, b) => a.debut.localeCompare(b.debut));
+  const fiches = state.fiches.filter((f) => f.date === localISO(now));
+  const recent = state.fiches.slice(0, 3);
+  const dateTxt = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  app.innerHTML = `
+    <section class="hello"><h2>Bonjour ! 👋</h2><p>Nous sommes ${esc(dateTxt)}.</p></section>
+    <div class="home-grid">
+      <section class="panel">
+        <div class="panel-head"><h3>Ma journée</h3><a href="#/edt" class="link">Emploi du temps</a></div>
+        ${slots.length ? `<ol class="today">${slots.map((s) => {
+          const cls = s.fin <= hm ? "past" : s.debut <= hm ? "now" : "";
+          return `<li class="${cls}" style="--c:${s.couleur}"><span class="today-time">${esc(s.debut)}</span><span class="today-what"><b>${esc(s.discipline)}</b>${s.libelle ? ` · ${esc(s.libelle)}` : ""}</span>${cls === "now" ? `<span class="badge">en cours</span>` : ""}</li>`;
+        }).join("")}</ol>` : `<div class="empty"><span>🌤️</span><p>${state.edt.length ? `Pas de cours prévu ce ${jour.toLowerCase()}.` : "Ton emploi du temps est vide."}</p>${state.edt.length ? "" : `<a class="primary btn" href="#/edt">Remplir mon emploi du temps</a>`}</div>`}
+        ${fiches.length ? `<h4>Fiches prévues aujourd'hui</h4>${fiches.map((f) => `<a class="item" href="#/fiches/${f.id}">📝 ${esc(f.titre)}</a>`).join("")}` : ""}
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h3>En classe</h3><a href="#/outils" class="link">Tous les outils</a></div>
+        <div class="tiles small">${OUTILS.slice(0, 6).map((o) => toolTile(o)).join("")}</div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h3>Préparer</h3></div>
+        <div class="quick">
+          <a class="quick-btn" href="#/fiches/new"><span>📝</span>Nouvelle fiche</a>
+          <a class="quick-btn" href="#/evaluations/new"><span>✅</span>Nouvelle évaluation</a>
+          <a class="quick-btn" href="#/programmations"><span>🗂️</span>Programmations</a>
+        </div>
+        ${recent.length ? `<h4>Dernières fiches</h4>${recent.map((f) => `<a class="item" href="#/fiches/${f.id}">${esc(f.titre)}<span class="hint">${esc(f.discipline)}</span></a>`).join("")}` : ""}
+      </section>
+    </div>`;
+}
+
+// ---------- EN CLASSE (outils) ----------
+let toolCleanup = null;
+function viewOutils() {
+  app.innerHTML = `<p class="intro">Des outils à projeter au tableau ou à utiliser sur ton téléphone pendant la classe.</p>
+    <div class="tiles">${OUTILS.map((o) => toolTile(o, true)).join("")}</div>`;
+}
+function viewOutil(id) {
+  const o = OUTILS.find((x) => x.id === id);
+  if (!o) return notFound();
+  setTitle(o.nom);
+  app.innerHTML = `
+    <section class="board" id="board" style="--tile:${o.couleur}">
+      <header class="board-head">
+        <a href="#/outils" class="round-btn" aria-label="Retour aux outils">←</a>
+        <h2><span>${o.icone}</span> ${esc(o.nom)}</h2>
+        <button class="round-btn" id="fs" aria-label="Plein écran" title="Plein écran">⛶</button>
+      </header>
+      <div class="board-body" id="tool"></div>
+    </section>`;
+  toolCleanup = o.mount($("#tool"), { eleves: state.eleves, esc }) || null;
+  $("#fs").onclick = () => {
+    const b = $("#board");
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else { try { (b.requestFullscreen || b.webkitRequestFullscreen)?.call(b)?.catch?.(() => {}); } catch {} }
+  };
+}
+
 // ---------- routeur ----------
-const TITLES = { edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
-function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/edt">Retour</a></p>`; }
+function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route() {
   closeModal(true);
+  try { toolCleanup?.(); } catch {}
+  toolCleanup = null;
   app.onclick = app.oninput = app.onchange = null;
-  const [, name = "edt", id] = location.hash.split("/");
+  const [, name = "accueil", id] = location.hash.split("/");
+  if (id === "new" && name === "fiches") { location.replace(`#/fiches/${newFiche().id}`); return; }
+  if (id === "new" && name === "evaluations") { location.replace(`#/evaluations/${newEval().id}`); return; }
   setTitle(TITLES[name] ?? "");
-  $$(".sidebar a").forEach((a) => a.classList.toggle("on", a.dataset.route === name));
+  $$("[data-route]").forEach((a) => a.classList.toggle("on", a.dataset.route === name));
   document.body.classList.remove("nav-open");
   window.scrollTo(0, 0);
   const views = {
+    accueil: viewAccueil,
+    outils: () => (id ? viewOutil(id) : viewOutils()),
     edt: viewEdt,
     programmations: () => (id ? viewProg(id) : viewProgList()),
     fiches: () => (id ? viewFiche(id) : viewFiches()),
     evaluations: () => (id ? viewEval(id) : viewEvals()),
     classe: viewClasse, competences: viewCompetences, reglages: viewReglages,
   };
+  document.body.dataset.view = name;
   (views[name] ?? notFound)();
 }
 $("#menuBtn").onclick = () => document.body.classList.toggle("nav-open");
+$("#navBackdrop").onclick = () => document.body.classList.remove("nav-open");
 
 (async () => {
   state = await db.loadAll();

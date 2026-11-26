@@ -3,28 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2f5d8a">
+<meta name="theme-color" content="#fff7ef">
 <title>BagaSchool</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <header class="topbar">
-  <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
-  <h1 class="brand">BagaSchool</h1>
+  <a class="brand" href="#/accueil"><span class="brand-logo">🍎</span>BagaSchool</a>
   <span class="topbar-title" id="viewTitle"></span>
 </header>
 <nav class="sidebar" id="sidebar">
-  <a href="#/edt" data-route="edt">📅 Emploi du temps</a>
-  <a href="#/programmations" data-route="programmations">🗂️ Programmations</a>
-  <a href="#/fiches" data-route="fiches">📝 Fiches de prép</a>
-  <a href="#/evaluations" data-route="evaluations">✅ Évaluations</a>
-  <a href="#/classe" data-route="classe">👧 Ma classe</a>
-  <a href="#/competences" data-route="competences">📚 Compétences</a>
-  <a href="#/reglages" data-route="reglages">⚙️ Réglages</a>
+  <a href="#/accueil" data-route="accueil"><span>🏠</span>Aujourd'hui</a>
+  <a href="#/outils" data-route="outils"><span>🎒</span>En classe</a>
+  <div class="nav-sep">Préparer</div>
+  <a href="#/edt" data-route="edt"><span>📅</span>Emploi du temps</a>
+  <a href="#/programmations" data-route="programmations"><span>🗂️</span>Programmations</a>
+  <a href="#/fiches" data-route="fiches"><span>📝</span>Fiches de prép</a>
+  <a href="#/evaluations" data-route="evaluations"><span>✅</span>Évaluations</a>
+  <div class="nav-sep">Ma classe</div>
+  <a href="#/classe" data-route="classe"><span>👧</span>Mes élèves</a>
+  <a href="#/competences" data-route="competences"><span>📚</span>Compétences</a>
+  <a href="#/reglages" data-route="reglages"><span>⚙️</span>Réglages</a>
 </nav>
+<nav class="tabbar" aria-label="Navigation">
+  <a href="#/accueil" data-route="accueil"><span>🏠</span>Aujourd'hui</a>
+  <a href="#/outils" data-route="outils"><span>🎒</span>En classe</a>
+  <a href="#/fiches" data-route="fiches"><span>📝</span>Fiches</a>
+  <a href="#/evaluations" data-route="evaluations"><span>✅</span>Évals</a>
+  <button id="menuBtn" type="button"><span>☰</span>Plus</button>
+</nav>
+<div class="nav-backdrop" id="navBackdrop"></div>
 <main id="app"></main>
 <div class="modal-backdrop" id="modal" hidden><div class="modal" role="dialog" aria-modal="true"></div></div>
 <script type="module" src="js/app.js"></script>
