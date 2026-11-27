@@ -3,16 +3,18 @@ import { COMPETENCES, SOURCES, NIVEAUX, DISCIPLINES } from "./competences.js";
 import { OUTILS as OUTILS_CLASSE } from "./outils.js";
 import { DECOUVRIR } from "./decouvrir.js";
 import { JEUX } from "./jeux.js";
-const OUTILS = [...OUTILS_CLASSE, ...DECOUVRIR, ...JEUX];
+import { OUTILS2 } from "./outils2.js";
+import { ANGLAIS } from "./anglais.js";
+const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...ANGLAIS, ...DECOUVRIR, ...JEUX];
 import { GENERATEURS, seeded } from "./imprimer.js";
 import { CALENDRIERS, ZONES, joursFeries } from "./data/calendrier.js";
 import { SYNC_URL } from "./config.js";
 import { sync, initSync, marquer, creerEspace, rejoindre, delier, revoquer, lienAppairage, actif as syncActif, relaisConfigure, appareilsConnectes } from "./sync.js";
 import { ecran, surveiller, quitterProjection, surRcEcran, surRcTel, viewTelecommande, rafraichirTel } from "./telecommande.js";
 import qrcode from "./vendor/qrcode.mjs";
-import { initInstallation, ouvrirInstallation, estInstallee } from "./installer.js";
+import { initInstallation, estInstallee, contenuInstallation, lancerInstallation } from "./installer.js";
 
-export const VERSION = "0.6.1";
+export const VERSION = "0.7.0";
 
 // ---------- état ----------
 let state = {};
@@ -111,7 +113,7 @@ function viewEdt() {
     const slots = state.edt.filter((s) => s.jour === d).sort((a, b) => a.debut.localeCompare(b.debut));
     return `<section class="day"><h3>${d}</h3>${slots.map((s) => `
       <button class="slot" data-edit="${s.id}" style="background:${s.couleur}">
-        <span class="time">${esc(s.debut)}–${esc(s.fin)}</span>
+        <span class="time">${esc(s.debut)}–${esc(s.fin)} · ${dureeTxt(s.debut, s.fin)}</span>
         <strong>${esc(s.discipline || "")}</strong>${s.libelle ? `<span>${esc(s.libelle)}</span>` : ""}
       </button>`).join("") || `<p class="hint">Rien pour l'instant.</p>`}
       <button class="ghost small" data-add="${d}">+ Créneau</button></section>`;
@@ -131,21 +133,35 @@ function viewEdt() {
     const ed = e.target.closest("[data-edit]"); if (ed) return editSlot(state.edt.find((s) => s.id === ed.dataset.edit));
   };
 }
+const hm2min = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + (m || 0); };
+const min2hm = (n) => `${String(Math.floor(n / 60) % 24).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+const dureeTxt = (a, b) => { const d = hm2min(b) - hm2min(a); return d >= 60 ? `${Math.floor(d / 60)} h${d % 60 ? String(d % 60).padStart(2, "0") : ""}` : `${d} min`; };
 function editSlot(s) {
   const isNew = !s.id;
-  s = { debut: "08:30", fin: "09:30", couleur: COULEURS[0], ...s };
+  if (isNew) { // le nouveau créneau commence à la fin du dernier créneau du jour
+    const last = state.edt.filter((x) => x.jour === s.jour).sort((a, b) => b.fin.localeCompare(a.fin))[0];
+    const debut = last ? last.fin : "08:30";
+    s = { debut, fin: min2hm(hm2min(debut) + 45), ...s };
+  }
+  s = { couleur: COULEURS[0], ...s };
   openModal(`
     <h2>${isNew ? "Nouveau créneau" : "Modifier le créneau"}</h2>
     <form id="f">
       <label>Jour<select name="jour">${opts(JOURS, s.jour, null)}</select></label>
-      <div class="row"><label>Début<input type="time" name="debut" value="${s.debut}" required></label>
-      <label>Fin<input type="time" name="fin" value="${s.fin}" required></label></div>
+      <div class="row"><label>Début<input type="time" name="debut" value="${s.debut}" step="300" required></label>
+      <label>Fin<input type="time" name="fin" value="${s.fin}" step="300" required></label></div>
+      <div class="field"><span class="field-label">Durée</span><div class="seg wrap" id="durs">${[15, 20, 30, 45, 60, 90, 120].map((d) => `<button type="button" data-dur="${d}">${d < 60 ? d + " min" : d / 60 + " h" + (d % 60 ? "30" : "")}</button>`).join("")}</div></div>
       <label>Discipline<input name="discipline" list="disc" value="${esc(s.discipline)}" required></label>
       <datalist id="disc">${DISCIPLINES.map((d) => `<option value="${d}">`).join("")}<option value="Récréation"><option value="Pause méridienne"></datalist>
       <label>Précision (facultatif)<input name="libelle" value="${esc(s.libelle)}" placeholder="ex. Lecture compréhension, groupe CM1"></label>
       <label>Couleur</label><div class="colors">${COULEURS.map((c) => `<label class="sw" style="background:${c}"><input type="radio" name="couleur" value="${c}" ${c === s.couleur ? "checked" : ""}></label>`).join("")}</div>
       <div class="actions">${isNew ? "" : `<button type="button" class="danger" id="del">Supprimer</button>`}<button type="button" data-close class="ghost">Annuler</button><button class="primary">Enregistrer</button></div>
     </form>`, (m) => {
+    const f = $("#f", m);
+    const majDur = () => { const d = hm2min(f.fin.value) - hm2min(f.debut.value); $$("#durs button", m).forEach((b) => b.classList.toggle("on", +b.dataset.dur === d)); };
+    $("#durs", m).onclick = (e) => { const b = e.target.closest("[data-dur]"); if (!b) return; f.fin.value = min2hm(hm2min(f.debut.value) + +b.dataset.dur); majDur(); };
+    f.debut.addEventListener("change", () => { const b = $("#durs .on", m); if (b) f.fin.value = min2hm(hm2min(f.debut.value) + +b.dataset.dur); });
+    f.fin.addEventListener("input", majDur); majDur();
     $("#f", m).onsubmit = (e) => {
       e.preventDefault();
       const d = formData(e.target);
@@ -261,7 +277,7 @@ function editSeq(p, pi, s) {
 
 // ---------- FICHES DE PRÉPARATION ----------
 function newFiche(init = {}) {
-  const f = { id: uid(), titre: "Nouvelle fiche", discipline: "", niveau: "", date: "", duree: "45 min", objectif: "", competences: [], materiel: "",
+  const f = { id: uid(), titre: "Nouvelle fiche", discipline: "", niveau: "", date: "", duree: "45 min", periode: periodeCourante(), sequence: "", numSeance: "", typeSeance: "", objectif: "", criteresReussite: "", criteresRealisation: "", competences: [], materiel: "",
     phases: [{ duree: "10 min", phase: "Découverte", deroulement: "", modalite: "Collectif" }], differenciation: "", bilan: "", ...init };
   state.fiches.unshift(f); save("fiches"); return f;
 }
@@ -279,6 +295,10 @@ function viewFiches() {
   $("#add").onclick = choisirModele;
 }
 const MODALITES = ["Collectif", "Individuel", "Binômes", "Groupes", "Ateliers"];
+const TYPES_SEANCE = ["Découverte", "Recherche", "Investigation (sciences)", "Expérimentation", "Structuration", "Entraînement", "Réinvestissement", "Remédiation", "Évaluation"];
+function periodeCourante() {
+  try { const c = calendrierCourant(); const t = isoLocal(new Date()); const p = c?.periodes.find((x) => t <= x.fin); return p ? `P${p.n}` : ""; } catch { return ""; }
+}
 function viewFiche(id) {
   const f = state.fiches.find((x) => x.id === id);
   if (!f) return notFound();
@@ -288,7 +308,13 @@ function viewFiche(id) {
       <div class="toolbar no-print"><a href="#/fiches" class="ghost btn">← Fiches</a><span class="grow hint">Enregistrement automatique</span>
         <button class="ghost" id="dup">Dupliquer</button><button class="ghost" id="mod">⭐ Enregistrer comme modèle</button><button class="ghost" onclick="print()">Imprimer / PDF</button><button class="danger" id="del">Supprimer</button></div>
       <form class="sheet" id="f" autocomplete="off">
-        <input class="title-input" name="titre" value="${esc(f.titre)}" aria-label="Titre">
+        <input class="title-input" name="titre" value="${esc(f.titre)}" aria-label="Titre de la séance" placeholder="Titre de la séance">
+        <div class="grid4">
+          <label>Séquence<input name="sequence" value="${esc(f.sequence ?? "")}" placeholder="ex. Les fractions"></label>
+          <label>Séance n°<input name="numSeance" value="${esc(f.numSeance ?? "")}" inputmode="numeric"></label>
+          <label>Période<select name="periode">${opts(["P1", "P2", "P3", "P4", "P5"], f.periode ?? "")}</select></label>
+          <label>Type de séance<select name="typeSeance">${opts(TYPES_SEANCE, f.typeSeance ?? "")}</select></label>
+        </div>
         <div class="grid4">
           <label>Discipline<select name="discipline">${opts(DISCIPLINES, f.discipline)}</select></label>
           <label>Niveau<input name="niveau" value="${esc(f.niveau)}"></label>
@@ -296,7 +322,11 @@ function viewFiche(id) {
           <label>Durée<input name="duree" value="${esc(f.duree)}"></label>
         </div>
         <label>Objectif de la séance<textarea name="objectif" rows="2">${esc(f.objectif)}</textarea></label>
-        <div class="label-row"><span>Compétences des programmes</span><button type="button" class="ghost small no-print" id="addc">+ Insérer</button></div>
+        <div class="grid2">
+          <label>Critères de réussite <span class="hint">(« J'ai réussi si… »)</span><textarea name="criteresReussite" rows="3" placeholder="ex. Mes 10 calculs sont justes.">${esc(f.criteresReussite ?? "")}</textarea></label>
+          <label>Critères de réalisation <span class="hint">(« Pour réussir, je dois… »)</span><textarea name="criteresRealisation" rows="3" placeholder="ex. Aligner les unités sous les unités. Commencer par la droite.">${esc(f.criteresRealisation ?? "")}</textarea></label>
+        </div>
+        <div class="label-row"><span>Compétences des programmes officiels</span><button type="button" class="ghost small no-print" id="addc">+ Insérer</button></div>
         <div class="chips">${compChips(f.competences, true) || `<span class="hint">Aucune.</span>`}</div>
         <label>Matériel<textarea name="materiel" rows="2">${esc(f.materiel)}</textarea></label>
         <div class="label-row"><span>Déroulement</span></div>
@@ -584,6 +614,7 @@ function viewAccueil() {
   const dateTxt = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
   app.innerHTML = `
     ${rappelSauvegarde()}
+    ${!(matchMedia("(display-mode: standalone)").matches || navigator.standalone) && !state.reglages._aideVue ? `<a class="aide-card" href="#/aide">📲 <b>Première fois ?</b> Installer BagaSchool sur ton ordinateur et ton téléphone, et projeter au tableau.</a>` : ""}
     <section class="hello"><h2>Bonjour ! 👋</h2><p>Nous sommes ${esc(dateTxt)}.${(() => { const st = statutJour(localISO(now)); if (st && st.type !== "weekend") return ` ${esc(st.nom)} 🏖️`; const v = prochainesVacances(localISO(now)); return v ? ` Vacances ${v.nom} dans ${v.jours} jour${v.jours > 1 ? "s" : ""}.` : ""; })()}</p></section>
     <div class="home-grid">
       <section class="panel">
@@ -617,10 +648,12 @@ let toolCleanup = null;
 function viewOutils() {
   const GESTION = ["minuteur", "tirage", "groupes", "voix", "feu", "date"];
   const sections = [
-    ["🔭 Découvrir", "Sciences et géographie, à explorer ensemble.", DECOUVRIR],
+    ["☀️ Au tableau", "Rituels du matin, cahier, calcul posé, géométrie : à projeter et à manipuler.", OUTILS2],
     ["🧑‍🏫 Gérer la classe", "", OUTILS_CLASSE.filter((o) => GESTION.includes(o.id))],
     ["🧮 Maths, mots et dessin", "", OUTILS_CLASSE.filter((o) => !GESTION.includes(o.id))],
+    ["🇬🇧 Anglais", "Images et son pour les petits, mots écrits pour les CM.", ANGLAIS],
     ["🎲 Jeux", "Pour réviser en s'amusant, au tableau ou en petits groupes.", JEUX],
+    ["🔭 Découvrir", "Sciences et géographie, à explorer ensemble.", DECOUVRIR],
   ];
   app.innerHTML = `<p class="intro">Des outils à projeter au tableau ou à utiliser sur ton téléphone pendant la classe.</p>
     ${sections.map(([t, d, list]) => `<h2 class="section-title">${t}</h2>${d ? `<p class="hint section-desc">${d}</p>` : ""}<div class="tiles">${list.map((o) => toolTile(o, true)).join("")}</div>`).join("")}`;
@@ -638,7 +671,7 @@ function viewOutil(id) {
       </header>
       <div class="board-body" id="tool"></div>
     </section>`;
-  toolCleanup = o.mount($("#tool"), { eleves: state.eleves, esc, decks: state.decks, saveDecks: () => save("decks") }) || null;
+  toolCleanup = o.mount($("#tool"), { eleves: state.eleves, esc, decks: state.decks, saveDecks: () => save("decks"), cahier: state.cahier, saveCahier: () => save("cahier") }) || null;
   surveiller();
   $("#fs").onclick = () => {
     const b = $("#board");
@@ -840,13 +873,17 @@ function viewJournal(dateISO) {
             <td class="no-print jt-done"><input type="checkbox" data-fait="${s.id}" ${c.fait ? "checked" : ""} aria-label="Fait"></td></tr>`; }).join("")}
         </tbody></table>` : `<div class="empty"><span>📅</span><p>${st?.type === "weekend" ? "C'est le week-end !" : `Aucun créneau le ${jour.toLowerCase()} dans ton emploi du temps.`}</p>${st?.type === "weekend" ? "" : `<a class="primary btn" href="#/edt">Compléter l'emploi du temps</a>`}</div>`}
       ${fichesDuJour.length ? `<p class="hint">Fiches datées de ce jour : ${fichesDuJour.map((f) => `<a href="#/fiches/${f.id}">${esc(f.titre)}</a>`).join(", ")}</p>` : ""}
+      <div class="devoirs-box"><div class="label-row"><span>📚 Devoirs à donner pour le ${fmtCourt(prochainJourClasse(date))}</span><a class="link no-print" href="#/devoirs">Tous les devoirs</a></div>
+        ${devoirsEditeur(prochainJourClasse(date))}</div>
       <label>Remarques du jour<textarea id="jn" rows="3">${esc(J.notes)}</textarea></label>
     </div>
     <div id="weekPrint" class="print-week"></div>`;
   $("#dp").onchange = (e) => { if (e.target.value) location.hash = `#/journal/${e.target.value}`; };
   const persist = () => save("journal");
+  brancherDevoirs(app, () => viewJournal(date));
   app.oninput = (e) => {
     const t = e.target;
+    if (t.dataset.dv !== undefined) return;
     if (t.dataset.note) { (J.creneaux[t.dataset.note] ??= {}).notes = t.value; persist(); }
     if (t.id === "jn") { J.notes = t.value; persist(); }
   };
@@ -857,6 +894,7 @@ function viewJournal(dateISO) {
   };
   app.onclick = (e) => {
     const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.dvadd || t.dataset.dvrm) return;
     if (t.dataset.newfiche) {
       const s = state.edt.find((x) => x.id === t.dataset.newfiche);
       const f = newFiche({ titre: `${s.discipline}${s.libelle ? " – " + s.libelle : ""}`, discipline: DISCIPLINES.includes(s.discipline) ? s.discipline : "", date });
@@ -954,6 +992,9 @@ function viewEleve(id) {
         <p class="hint">${CODES.slice(1).map((c) => `<span class="legend-dot r-${c.code}"></span> ${c.label}`).join(" &nbsp; ")}</p>` : `<p class="hint">Pas encore de résultats saisis pour cet élève.</p>`}
       ${evs.map((ev) => `<h4>${esc(ev.titre)} <span class="hint">${esc(ev.discipline)} ${ev.date ? "· " + fmtDate(ev.date) : ""}</span></h4>
         <table class="items"><tbody>${ev.items.map((it, k) => { const v = ev.resultats[id]?.[k]; return v ? `<tr><td>${esc(itemText(it))}</td><td class="code"><span class="res r-${v}">${v}</span></td></tr>` : ""; }).join("")}</tbody></table>`).join("")}
+      ${(() => { const comps = resultatsParCompetence(null).filter((c) => c.res[id]); if (!comps.length) return "";
+        const parD = {}; for (const c of comps) (parD[c.discipline] ??= []).push(c);
+        return `<h3>Compétences évaluées (dernier résultat)</h3>${Object.entries(parD).map(([dd, cs]) => `<h4>${esc(dd)} <span class="hint">${cs.filter((c) => ["A", "D"].includes(c.res[id].code)).length} acquise(s) sur ${cs.length}</span></h4><table class="items"><tbody>${cs.map((c) => `<tr><td>${esc(c.texte)}</td><td class="code"><span class="res r-${c.res[id].code}">${c.res[id].code}</span></td></tr>`).join("")}</tbody></table>`).join("")}`; })()}
       <label>Observations (pour le livret, les rendez-vous avec les parents…)<textarea id="obs" rows="4">${esc(el.observations)}</textarea></label>
     </div>`;
   $("#obs").oninput = (e) => { el.observations = e.target.value; save("eleves"); };
@@ -961,9 +1002,12 @@ function viewEleve(id) {
 
 // ---------- MODÈLES DE FICHES ----------
 const MODELES_BASE = [
-  { nom: "Séance de découverte", phases: [["10 min", "Mise en situation", "Collectif"], ["15 min", "Recherche", "Groupes"], ["10 min", "Mise en commun", "Collectif"], ["10 min", "Institutionnalisation (trace écrite)", "Collectif"]] },
-  { nom: "Séance d'entraînement", phases: [["5 min", "Rappel", "Collectif"], ["25 min", "Exercices", "Individuel"], ["10 min", "Correction", "Collectif"], ["5 min", "Bilan", "Collectif"]] },
-  { nom: "Séance d'évaluation", phases: [["5 min", "Lecture des consignes", "Collectif"], ["35 min", "Évaluation", "Individuel"], ["5 min", "Ramassage", "Collectif"]] },
+  { nom: "Séance de découverte", type: "Découverte", phases: [["10 min", "Mise en situation", "Collectif"], ["15 min", "Recherche", "Groupes"], ["10 min", "Mise en commun", "Collectif"], ["10 min", "Institutionnalisation (trace écrite)", "Collectif"]] },
+  { nom: "Séance d'entraînement", type: "Entraînement", phases: [["5 min", "Rappel", "Collectif"], ["25 min", "Exercices", "Individuel"], ["10 min", "Correction", "Collectif"], ["5 min", "Bilan", "Collectif"]] },
+  { nom: "Séance d'évaluation", type: "Évaluation", phases: [["5 min", "Lecture des consignes", "Collectif"], ["35 min", "Évaluation", "Individuel"], ["5 min", "Ramassage", "Collectif"]] },
+  { nom: "Séance d'investigation (sciences)", type: "Investigation (sciences)", phases: [["5 min", "Situation de départ, question", "Collectif"], ["10 min", "Hypothèses (je pense que…)", "Groupes"], ["15 min", "Expérimentation / observation", "Groupes"], ["10 min", "Résultats et interprétation", "Collectif"], ["5 min", "Conclusion, trace écrite", "Collectif"]] },
+  { nom: "Séance d'expérimentation", type: "Expérimentation", phases: [["5 min", "Rappel de la question et du protocole", "Collectif"], ["20 min", "Expérience, relevé des observations", "Groupes"], ["10 min", "Mise en commun des résultats", "Collectif"], ["10 min", "Conclusion", "Collectif"]] },
+  { nom: "Séance de réinvestissement", type: "Réinvestissement", phases: [["5 min", "Rappel de la notion", "Collectif"], ["25 min", "Tâche complexe / problème", "Binômes"], ["10 min", "Mise en commun", "Collectif"]] },
   { nom: "Ateliers tournants", phases: [["5 min", "Présentation des ateliers", "Collectif"], ["15 min", "Atelier 1", "Ateliers"], ["15 min", "Atelier 2", "Ateliers"], ["5 min", "Bilan", "Collectif"]] },
 ];
 function choisirModele() {
@@ -980,7 +1024,7 @@ function choisirModele() {
       const t = e.target.closest("button"); if (!t) return;
       let f;
       if (t.dataset.m) f = newFiche();
-      if (t.dataset.base) { const b = MODELES_BASE[+t.dataset.base]; f = newFiche({ titre: b.nom, phases: b.phases.map(([duree, phase, modalite]) => ({ duree, phase, deroulement: "", modalite })) }); }
+      if (t.dataset.base) { const b = MODELES_BASE[+t.dataset.base]; f = newFiche({ titre: b.nom, typeSeance: b.type ?? "", phases: b.phases.map(([duree, phase, modalite]) => ({ duree, phase, deroulement: "", modalite })) }); }
       if (t.dataset.perso) f = newFiche({ ...structuredClone(state.modeles[+t.dataset.perso]), date: "" });
       if (t.dataset.rmm) { state.modeles.splice(+t.dataset.rmm, 1); save("modeles"); return choisirModele(); }
       if (f) { closeModal(true); location.hash = `#/fiches/${f.id}`; }
@@ -1163,8 +1207,252 @@ function viewLier(code) {
   };
 }
 
+// ---------- DEVOIRS ----------
+function prochainJourClasse(date) {
+  const jours = state.reglages.jours ?? ["Lundi", "Mardi", "Jeudi", "Vendredi"];
+  for (let i = 1; i <= 21; i++) { const d = addDays(date, i); if (jours.includes(JOURS_JS[new Date(d + "T12:00").getDay()]) && !statutJour(d)) return d; }
+  return addDays(date, 1);
+}
+function devoirsEditeur(date) {
+  const L = state.devoirs[date] ?? [];
+  return `<ul class="dv-list">${L.map((d) => `<li><span class="dv-disc">${esc(d.discipline || "")}</span><input data-dv="${date}" data-dvid="${d.id}" value="${esc(d.texte)}" aria-label="Devoir"><button type="button" class="ghost small no-print" data-dvrm="${date}" data-dvid="${d.id}" aria-label="Supprimer">×</button></li>`).join("")}</ul>
+    <div class="row no-print dv-add"><select data-dvdisc="${date}"><option value="">Matière</option>${opts(DISCIPLINES, "", null)}</select><input data-dvnew="${date}" placeholder="ex. Apprendre la table de 7, lire p. 12"><button type="button" class="ghost small" data-dvadd="${date}">Ajouter</button></div>`;
+}
+function brancherDevoirs(root, redraw) {
+  root._dvRedraw = redraw;
+  if (root._dvInstalled) return;
+  root._dvInstalled = true;
+  redraw = () => root._dvRedraw?.();
+  root.addEventListener("input", (e) => {
+    const t = e.target; if (t.dataset.dv === undefined) return;
+    const d = (state.devoirs[t.dataset.dv] ?? []).find((x) => x.id === t.dataset.dvid); if (d) { d.texte = t.value; save("devoirs"); }
+  });
+  const ajouter = (date) => {
+    const inp = root.querySelector(`[data-dvnew="${date}"]`), sel = root.querySelector(`[data-dvdisc="${date}"]`);
+    if (!inp.value.trim()) return inp.focus();
+    (state.devoirs[date] ??= []).push({ id: uid(), discipline: sel.value, texte: inp.value.trim() }); save("devoirs"); redraw();
+  };
+  root.addEventListener("click", (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.dvadd) ajouter(t.dataset.dvadd);
+    if (t.dataset.dvrm) { state.devoirs[t.dataset.dvrm] = (state.devoirs[t.dataset.dvrm] ?? []).filter((x) => x.id !== t.dataset.dvid); if (!state.devoirs[t.dataset.dvrm].length) delete state.devoirs[t.dataset.dvrm]; save("devoirs"); redraw(); }
+  });
+  root.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.dataset.dvnew) { e.preventDefault(); ajouter(e.target.dataset.dvnew); } });
+}
+function viewDevoirs(dateISO) {
+  const today = isoLocal(new Date());
+  const ref = dateISO || today;
+  const d = new Date(ref + "T12:00"), lundi = addDays(ref, -((d.getDay() + 6) % 7));
+  const jours = state.reglages.jours ?? ["Lundi", "Mardi", "Jeudi", "Vendredi"];
+  const dates = [0, 1, 2, 3, 4, 5].map((i) => addDays(lundi, i)).filter((x) => jours.includes(JOURS_JS[new Date(x + "T12:00").getDay()]));
+  const draw = () => {
+    app.innerHTML = `
+      <div class="toolbar no-print">
+        <a class="round-btn ghost" href="#/devoirs/${addDays(lundi, -7)}" aria-label="Semaine précédente">‹</a>
+        <b>Semaine du ${fmtCourt(lundi)}</b>
+        <a class="round-btn ghost" href="#/devoirs/${addDays(lundi, 7)}" aria-label="Semaine suivante">›</a>
+        <span class="grow"></span><button class="ghost" onclick="print()">🖨️ Imprimer</button>
+        <button class="primary" id="proj">📺 Afficher au tableau</button>
+      </div>
+      <p class="hint no-print">Les devoirs sont rangés par jour où ils sont à faire. Tu peux aussi les saisir depuis le cahier journal.</p>
+      <div class="dv-week">${dates.map((x) => `<section class="sheet dv-day ${x === today ? "now" : ""}"><h3>Pour le ${capit(fmtLong(x))}</h3>${statutJour(x) ? `<p class="hint">${esc(statutJour(x).nom)}</p>` : devoirsEditeur(x)}</section>`).join("")}</div>`;
+    $("#proj").onclick = () => projeterDevoirs(prochainJourClasse(addDays(today, 0) < lundi ? addDays(lundi, -1) : today));
+  };
+  brancherDevoirs(app, draw);
+  draw();
+}
+function projeterDevoirs(date) {
+  const L = state.devoirs[date] ?? [];
+  const ov = document.createElement("div");
+  ov.className = "projo";
+  ov.innerHTML = `<div class="projo-in"><h1>📚 Devoirs pour ${fmtLong(date)}</h1>${L.length ? `<ul>${L.map((d) => `<li>${d.discipline ? `<b>${esc(d.discipline)}</b> : ` : ""}${esc(d.texte)}</li>`).join("")}</ul>` : `<p>Pas de devoirs ! 🎉</p>`}<button class="round-btn" aria-label="Fermer">✕</button></div>`;
+  document.body.append(ov);
+  ov.querySelector("button").onclick = () => { ov.remove(); document.exitFullscreen?.().catch(() => {}); };
+  ov.requestFullscreen?.().catch(() => {});
+}
+
+// ---------- SUIVI DE CLASSE (compétences par matière, à partir des évaluations) ----------
+// Pour chaque élève et chaque compétence : le dernier résultat saisi dans une évaluation.
+function resultatsParCompetence(discipline) {
+  const evs = state.evaluations.filter((ev) => (!discipline || ev.discipline === discipline) && ev.items.length).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const comps = new Map(); // clé -> { texte, discipline, res: { eleveId: { code, ev } } }
+  for (const ev of evs) ev.items.forEach((it, k) => {
+    const key = it.compId || "t:" + (it.texte || "").trim().toLowerCase();
+    if (!comps.has(key)) comps.set(key, { key, texte: itemText(it), discipline: ev.discipline || "Autre", res: {} });
+    for (const el of state.eleves) { const v = ev.resultats[el.id]?.[k]; if (v) comps.get(key).res[el.id] = { code: v, ev }; }
+  });
+  return [...comps.values()];
+}
+function viewSuivi(disc) {
+  const discs = [...new Set(state.evaluations.filter((e) => e.items.length).map((e) => e.discipline || "Autre"))];
+  const d = disc ? decodeURIComponent(disc) : discs[0] ?? "";
+  const comps = d ? resultatsParCompetence(d) : [];
+  app.innerHTML = `
+    <p class="intro no-print">Le dernier résultat de chaque élève pour chaque compétence évaluée. Pour ajouter des résultats, crée une évaluation (elle peut porter sur n'importe quelle matière) et remplis sa grille.</p>
+    <div class="toolbar no-print"><div class="seg wrap">${discs.map((x) => `<a class="${x === d ? "on" : ""} seg-link" href="#/suivi/${encodeURIComponent(x)}">${esc(x)}</a>`).join("") || `<span class="hint">Pas encore d'évaluation avec des résultats.</span>`}</div><span class="grow"></span><a class="primary btn" href="#/evaluations/new">+ Évaluation</a><button class="ghost" onclick="print()">🖨️ Imprimer</button></div>
+    ${comps.length && state.eleves.length ? `<div class="suivi-wrap"><table class="suivi"><thead><tr><th>Élève</th>${comps.map((c, i) => `<th title="${esc(c.texte)}"><span>${i + 1}</span></th>`).join("")}<th>Acquis</th></tr></thead>
+      <tbody>${state.eleves.map((el) => { const vals = comps.map((c) => c.res[el.id]); const ok = vals.filter((v) => v && (v.code === "A" || v.code === "D")).length, n = vals.filter(Boolean).length;
+        return `<tr><th><a href="#/classe/${el.id}">${esc(el.prenom)}</a></th>${vals.map((v) => `<td>${v ? `<a class="res r-${v.code}" href="#/evaluations/${v.ev.id}" title="${esc(v.ev.titre)}">${v.code}</a>` : ""}</td>`).join("")}<td class="suivi-tot">${n ? `${ok}/${n}` : ""}</td></tr>`; }).join("")}</tbody></table></div>
+      <ol class="suivi-legend">${comps.map((c) => `<li>${esc(c.texte)}</li>`).join("")}</ol>
+      <p class="hint">${CODES.slice(1).map((c) => `<span class="legend-dot r-${c.code}"></span> ${c.code} : ${c.label}`).join(" &nbsp; ")}. « Acquis » = atteint ou dépassé.</p>` : d ? `<p class="hint">Aucun résultat saisi en ${esc(d)}.</p>` : ""}`;
+}
+
+// ---------- AIDE : INSTALLER ET PROJETER ----------
+function viewAide() {
+  if (!state.reglages._aideVue) { state.reglages._aideVue = true; save("reglages"); }
+  const standalone = estInstallee();
+  app.innerHTML = `<div class="sheet aide">
+    <h2>📲 Installer BagaSchool</h2>
+    ${standalone ? `<p class="ok-box">✅ BagaSchool est installée sur cet appareil.</p>` : `<div class="ok-box aide-ici"><h3>Sur cet appareil</h3>${contenuInstallation()}</div>`}
+    <div class="aide-grid">
+      <div><h3>💻 Ordinateur (Chrome ou Edge)</h3><ol><li>Ouvre <b>${esc(location.origin + location.pathname)}</b></li><li>Clique sur l'icône <b>Installer</b> à droite de la barre d'adresse (un écran avec une flèche), ou menu <b>⋮</b> > <b>Installer BagaSchool</b>.</li><li>BagaSchool s'ouvre dans sa propre fenêtre et a son icône sur le bureau.</li></ol></div>
+      <div><h3>📱 iPhone / iPad</h3><ol><li>Ouvre le lien dans <b>Safari</b>.</li><li>Touche <b>Partager</b> (carré avec une flèche vers le haut).</li><li>Touche <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li></ol></div>
+      <div><h3>🤖 Android</h3><ol><li>Ouvre le lien dans <b>Chrome</b>.</li><li>Menu <b>⋮</b> > <b>Installer l'application</b> (ou <b>Ajouter à l'écran d'accueil</b>).</li></ol></div>
+    </div>
+    <h2>📺 Projeter au tableau</h2>
+    <p>C'est <b>l'ordinateur branché au vidéoprojecteur (ou au TBI)</b> qui affiche BagaSchool. Le téléphone ne projette pas lui-même : il peut seulement servir de télécommande.</p>
+    <ol class="aide-steps">
+      <li><b>Branche</b> le câble du vidéoprojecteur (HDMI) sur l'ordinateur et allume le vidéoprojecteur.</li>
+      <li><b>Affiche le même écran au tableau</b> : sous Windows, appuie sur les touches <kbd>⊞ Windows</kbd> + <kbd>P</kbd> et choisis <b>Dupliquer</b>. Sur Mac : menu  > Réglages Système > Écrans > <b>Recopie vidéo</b>.</li>
+      <li>Ouvre BagaSchool, va dans <b>En classe</b> et choisis un outil.</li>
+      <li>Clique sur <b>⛶</b> en haut à droite de l'outil pour le mettre en <b>plein écran</b> (touche <kbd>Échap</kbd> pour sortir).</li>
+      <li>Avec un TBI, tu peux toucher directement le tableau : les boutons sont assez gros pour ça.</li>
+    </ol>
+    <h3>📱 Utiliser le téléphone comme télécommande (facultatif)</h3>
+    <ol class="aide-steps"><li>Sur l'ordinateur : Réglages > Synchroniser mes appareils > Activer, un QR code s'affiche.</li><li>Sur le téléphone (BagaSchool installée) : Réglages > Scanner le QR code.</li><li>En classe, sur le téléphone : <b>Télécommande</b>. Choisis un outil : il s'ouvre au tableau en plein écran, et tous ses boutons sont sur ton téléphone.</li></ol>
+  </div>`;
+  $("#instGo")?.addEventListener("click", async () => { await lancerInstallation(); viewAide(); });
+}
+
+// ---------- CALENDRIER DE REMPLACEMENT ----------
+// state.remplacements = { rattachement, ecoles: [{ id, nom, commune, km, couleur }], jours: { "AAAA-MM-JJ": { e, d: "j"|"m"|"a", classe, note } } }
+// Les km sont saisis à la main (distance depuis l'école de rattachement). Aucun montant d'indemnité n'est calculé.
+const COUL_ECOLES = ["#ffd0dc", "#cfe6ff", "#c9ecd4", "#ffe3a3", "#d7ccff", "#ffd7bf", "#bfeff0", "#f3c6f0"];
+const DUREES_R = { j: ["Journée", 1], m: ["Matin", 0.5], a: ["Après-midi", 0.5] };
+let moisRempl = null;
+function remplData() {
+  const r = state.remplacements;
+  r.ecoles ??= []; r.jours ??= {}; r.rattachement ??= "";
+  return r;
+}
+function recapRempl(prefixe) {
+  const r = remplData(), parEcole = {};
+  let jours = 0, km = 0;
+  for (const [d, j] of Object.entries(r.jours)) {
+    if (!d.startsWith(prefixe) || !j.e) continue;
+    const e = r.ecoles.find((x) => x.id === j.e); const n = DUREES_R[j.d]?.[1] ?? 1;
+    parEcole[j.e] ??= { nom: e?.nom ?? "École supprimée", km: +e?.km || 0, jours: 0, presences: 0 };
+    parEcole[j.e].jours += n; parEcole[j.e].presences++; jours += n; km += (+e?.km || 0);
+  }
+  return { parEcole: Object.values(parEcole).sort((a, b) => b.jours - a.jours), jours, km };
+}
+const nb1 = (x) => x.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+function viewRemplacements(partiel = false) {
+  const r = remplData();
+  const today = isoLocal(new Date());
+  moisRempl ??= today.slice(0, 7);
+  const [Y, M] = moisRempl.split("-").map(Number);
+  const premier = new Date(Y, M - 1, 1), nbJours = new Date(Y, M, 0).getDate();
+  const decal = (premier.getDay() + 6) % 7;
+  const cases = [];
+  for (let k = 0; k < decal; k++) cases.push(`<div class="rp-vide"></div>`);
+  for (let d = 1; d <= nbJours; d++) {
+    const iso = `${moisRempl}-${String(d).padStart(2, "0")}`, st = statutJour(iso), j = r.jours[iso];
+    const e = j?.e && r.ecoles.find((x) => x.id === j.e);
+    cases.push(`<button class="rp-jour ${st ? "rp-" + st.type : ""} ${iso === today ? "rp-auj" : ""} ${e ? "rp-pris" : ""}" data-jour="${iso}" ${e ? `style="--ec:${e.couleur}"` : ""} title="${esc(st?.nom ?? "")}">
+      <span class="rp-n">${d}</span>${e ? `<span class="rp-e">${esc(e.nom)}</span>${j.d !== "j" ? `<span class="rp-d">${DUREES_R[j.d][0]}</span>` : ""}` : st && st.type !== "weekend" ? `<span class="rp-st">${esc(st.nom.replace("Vacances", "Vac."))}</span>` : ""}</button>`);
+  }
+  const rec = recapRempl(moisRempl), an = anneeScolaire(), y1 = +an.slice(0, 4);
+  const recAn = (() => { const out = { jours: 0, km: 0 }; for (const [d, j] of Object.entries(r.jours)) { if (!j.e || d < `${y1}-09-01` || d > `${y1 + 1}-08-31`) continue; const e = r.ecoles.find((x) => x.id === j.e); out.jours += DUREES_R[j.d]?.[1] ?? 1; out.km += +e?.km || 0; } return out; })();
+  const nomMois = capit(premier.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
+  const html = `
+    <div class="rp">
+      <div class="sheet rp-ecoles">
+        <h2>🏫 Mes écoles</h2>
+        <label>École de rattachement <input id="rpRatt" value="${esc(r.rattachement)}" placeholder="Nom de l'école et commune"></label>
+        <p class="hint">Écoles où tu remplaces. Indique la distance en km depuis ton école de rattachement (aller simple), par exemple relevée sur une carte.</p>
+        <div class="rp-liste">${r.ecoles.map((e) => `
+          <div class="rp-ecole" data-ecole="${e.id}">
+            <button class="rp-coul" data-coul="${e.id}" style="background:${e.couleur}" aria-label="Changer la couleur"></button>
+            <input data-f="nom" value="${esc(e.nom)}" placeholder="Nom de l'école">
+            <input data-f="commune" value="${esc(e.commune ?? "")}" placeholder="Commune">
+            <label class="inline rp-km"><input data-f="km" type="number" min="0" step="0.1" value="${esc(e.km ?? "")}"> km</label>
+            <button class="round-btn sm" data-supprecole="${e.id}" aria-label="Supprimer l'école">✕</button>
+          </div>`).join("") || `<p class="muted">Aucune école pour l'instant.</p>`}</div>
+        <button class="pill" id="rpAdd">+ Ajouter une école</button>
+      </div>
+      <div class="sheet rp-cal">
+        <div class="rp-nav"><button class="round-btn" id="rpPrev" aria-label="Mois précédent">‹</button><h2>${nomMois}</h2><button class="round-btn" id="rpNext" aria-label="Mois suivant">›</button>${moisRempl !== today.slice(0, 7) ? `<button class="pill" id="rpAuj">Aujourd'hui</button>` : ""}</div>
+        <div class="rp-grille">${["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => `<div class="rp-tete">${d}</div>`).join("")}${cases.join("")}</div>
+        <p class="hint">Touche un jour pour noter où tu remplaces.</p>
+      </div>
+      <div class="sheet rp-recap">
+        <h2>📊 ${nomMois}</h2>
+        ${rec.parEcole.length ? `<table class="rp-table"><thead><tr><th>École</th><th>Jours</th><th>km (aller)</th></tr></thead><tbody>
+          ${rec.parEcole.map((x) => `<tr><td>${esc(x.nom)}</td><td>${nb1(x.jours)}</td><td>${x.km ? `${nb1(x.km)} × ${x.presences} = ${nb1(x.km * x.presences)}` : "—"}</td></tr>`).join("")}
+          </tbody><tfoot><tr><th>Total</th><th>${nb1(rec.jours)}</th><th>${nb1(rec.km)} km (aller-retour : ${nb1(2 * rec.km)} km)</th></tr></tfoot></table>` : `<p class="muted">Aucun remplacement noté ce mois-ci.</p>`}
+        <p><b>Année ${an} :</b> ${nb1(recAn.jours)} jour${recAn.jours > 1 ? "s" : ""} de remplacement, ${nb1(recAn.km)} km aller (${nb1(2 * recAn.km)} km aller-retour).</p>
+        <p class="hint">Ce récapitulatif t'aide à remplir tes états de frais. Les règles de calcul des indemnités (ISSR, frais de déplacement) dépendent de ta situation et de ton académie : l'application ne calcule pas de montant.</p>
+        <button class="pill" id="rpCsv">⬇️ Télécharger le mois (tableur)</button>
+      </div>
+    </div>`;
+  if (partiel && app.querySelector(".rp-ecoles")) {
+    // Ne redessine que le calendrier et le récap : la liste des écoles (en cours de saisie) reste intacte.
+    const tmp = document.createElement("div"); tmp.innerHTML = html;
+    for (const sel of [".rp-cal", ".rp-recap"]) app.querySelector(sel).replaceWith(tmp.querySelector(sel));
+    return;
+  }
+  app.innerHTML = html;
+  const majEcole = (id, f, v) => { const e = r.ecoles.find((x) => x.id === id); if (!e) return; e[f] = f === "km" ? (v === "" ? "" : +v) : v; save("remplacements"); };
+  app.oninput = (e) => {
+    if (e.target.id === "rpRatt") { r.rattachement = e.target.value; save("remplacements"); return; }
+    const row = e.target.closest("[data-ecole]"); if (row && e.target.dataset.f) { majEcole(row.dataset.ecole, e.target.dataset.f, e.target.value); clearTimeout(viewRemplacements._t); viewRemplacements._t = setTimeout(() => location.hash === "#/remplacements" && viewRemplacements(true), 300); }
+  };
+
+  app.onclick = (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.id === "rpAdd") { r.ecoles.push({ id: uid(), nom: "", commune: "", km: "", couleur: COUL_ECOLES[r.ecoles.length % COUL_ECOLES.length] }); save("remplacements"); viewRemplacements(); app.querySelector(".rp-ecole:last-child input")?.focus(); return; }
+    if (t.dataset.supprecole) { const e2 = r.ecoles.find((x) => x.id === t.dataset.supprecole); if (confirm(`Supprimer l'école « ${e2?.nom || "sans nom"} » ? Les jours déjà notés resteront comptés sous « École supprimée ».`)) { r.ecoles = r.ecoles.filter((x) => x.id !== t.dataset.supprecole); save("remplacements"); viewRemplacements(); } return; }
+    if (t.dataset.coul) { const e2 = r.ecoles.find((x) => x.id === t.dataset.coul); e2.couleur = COUL_ECOLES[(COUL_ECOLES.indexOf(e2.couleur) + 1) % COUL_ECOLES.length]; save("remplacements"); viewRemplacements(); return; }
+    if (t.id === "rpPrev" || t.id === "rpNext") { const d = new Date(Y, M - 1 + (t.id === "rpNext" ? 1 : -1), 1); moisRempl = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; viewRemplacements(); return; }
+    if (t.id === "rpAuj") { moisRempl = today.slice(0, 7); viewRemplacements(); return; }
+    if (t.id === "rpCsv") {
+      const lignes = [["Date", "École", "Commune", "Durée", "Classe", "km (aller)", "Note"]];
+      Object.entries(r.jours).filter(([d, j]) => d.startsWith(moisRempl) && j.e).sort().forEach(([d, j]) => { const e2 = r.ecoles.find((x) => x.id === j.e); lignes.push([d, e2?.nom ?? "", e2?.commune ?? "", DUREES_R[j.d]?.[0] ?? "", j.classe ?? "", e2?.km ?? "", j.note ?? ""]); });
+      const csv = "﻿" + lignes.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `remplacements-${moisRempl}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      return;
+    }
+    if (t.dataset.jour) jourRempl(t.dataset.jour);
+  };
+}
+function jourRempl(iso) {
+  const r = remplData(), j = { e: "", d: "j", classe: "", note: "", ...(r.jours[iso] ?? {}) }, st = statutJour(iso);
+  const corps = () => `
+    <h2>${capit(fmtLong(iso))}</h2>
+    ${st ? `<p class="hint">${esc(st.nom)}</p>` : ""}
+    ${r.ecoles.length ? `<p>Où remplaces-tu ?</p><div class="rp-choix">${r.ecoles.map((e) => `<button class="rp-btn ${j.e === e.id ? "on" : ""}" data-e="${e.id}" style="--ec:${e.couleur}">${esc(e.nom || "Sans nom")}${e.commune ? `<small>${esc(e.commune)}</small>` : ""}</button>`).join("")}<button class="rp-btn ${!j.e ? "on" : ""}" data-e="">Pas de remplacement</button></div>`
+      : `<p>Ajoute d'abord tes écoles dans « Mes écoles ».</p>`}
+    <div class="seg">${Object.entries(DUREES_R).map(([k, [v]]) => `<button data-d="${k}" class="${j.d === k ? "on" : ""}">${v}</button>`).join("")}</div>
+    <label>Classe, niveau, enseignant remplacé <input name="classe" value="${esc(j.classe)}" placeholder="Ex. CE1 de Mme Martin"></label>
+    <label>Note <input name="note" value="${esc(j.note)}"></label>
+    <div class="actions"><button data-close class="ghost">Annuler</button><button class="primary" id="rpOk">Enregistrer</button></div>`;
+  openModal(corps(), (m) => {
+    m.onclick = (e) => {
+      const t = e.target.closest("button"); if (!t) return;
+      if (t.dataset.e != null) { j.e = t.dataset.e; m.querySelectorAll("[data-e]").forEach((b) => b.classList.toggle("on", b === t)); }
+      if (t.dataset.d) { j.d = t.dataset.d; m.querySelectorAll("[data-d]").forEach((b) => b.classList.toggle("on", b === t)); }
+      if (t.id === "rpOk") {
+        j.classe = m.querySelector("[name=classe]").value.trim(); j.note = m.querySelector("[name=note]").value.trim();
+        if (j.e) r.jours[iso] = j; else delete r.jours[iso];
+        save("remplacements"); closeModal(true); viewRemplacements();
+      }
+    };
+  });
+}
+
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
@@ -1192,15 +1480,14 @@ function route(doux = false) {
     classe: () => (id ? viewEleve(id) : viewClasse()), competences: viewCompetences, reglages: viewReglages,
     telecommande: () => { toolCleanup = viewTelecommande(app, { outils: OUTILS, actif: syncActif() }); },
     lier: () => viewLier(id),
-    journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier,
+    devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), aide: viewAide,
+    journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements,
   };
   document.body.dataset.view = name;
   if (name !== "outils" && ecran.actif) surveiller();
   (views[name] ?? notFound)();
 }
 initInstallation();
-if (estInstallee()) $("#navInstall")?.remove();
-else $("#navInstall").onclick = (e) => { e.preventDefault(); document.body.classList.remove("nav-open"); ouvrirInstallation(); };
 $("#menuBtn").onclick = () => document.body.classList.toggle("nav-open");
 $("#navBackdrop").onclick = () => document.body.classList.remove("nav-open");
 

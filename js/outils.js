@@ -227,33 +227,86 @@ function des(el) {
 }
 
 // ---------- Calcul mental ----------
+// Calcul mental par niveau : types d'exercices choisis pour chaque classe (exemples, pas une liste officielle).
+const dec = (x) => (+x.toFixed(3)).toLocaleString("fr-FR");
+const CM_TYPES = {
+  comp10: ["Compléments à 10", () => { const a = rnd(11); return [`${a} + ? = 10`, 10 - a]; }],
+  dbl10: ["Doubles", () => { const a = 1 + rnd(10); return [`Le double de ${a}`, 2 * a]; }],
+  mo20: ["Moitiés", () => { const a = 2 * (1 + rnd(10)); return [`La moitié de ${a}`, a / 2]; }],
+  add20: ["Additions jusqu'à 20", () => { const a = rnd(11), b = rnd(21 - a); return [`${a} + ${b}`, a + b]; }],
+  sous10: ["Soustractions", () => { const a = rnd(11), b = rnd(a + 1); return [`${a} − ${b}`, a - b]; }],
+  plus10: ["Ajouter ou enlever 10", () => { const a = 10 + rnd(80); return rnd(2) ? [`${a} + 10`, a + 10] : [`${a} − 10`, a - 10]; }],
+  dbl50: ["Doubles", () => { const a = 1 + rnd(50); return [`Le double de ${a}`, 2 * a]; }],
+  mo100: ["Moitiés", () => { const a = 2 * (1 + rnd(50)); return [`La moitié de ${a}`, a / 2]; }],
+  compDiz: ["Compléments à la dizaine", () => { const a = 11 + rnd(88); const d = Math.ceil(a / 10) * 10 === a ? a + 10 : Math.ceil(a / 10) * 10; return [`${a} + ? = ${d}`, d - a]; }],
+  add2: ["Additions à deux chiffres", () => { const a = 10 + rnd(60), b = 10 + rnd(90 - a); return [`${a} + ${b}`, a + b]; }],
+  add2r: ["Additions à deux chiffres (avec retenue)", () => { const a = 15 + rnd(70), b = 10 + rnd(Math.max(1, 99 - a - 10)); return [`${a} + ${b}`, a + b]; }],
+  sous2: ["Soustractions à deux chiffres", () => { const a = 20 + rnd(80), b = 10 + rnd(a - 9); return [`${a} − ${b}`, a - b]; }],
+  t2510: ["Tables de 2, 5 et 10", () => { const t = [2, 5, 10][rnd(3)], b = 1 + rnd(10); return [`${t} × ${b}`, t * b]; }],
+  tables: ["Tables de 2 à 9", () => { const a = 2 + rnd(8), b = 2 + rnd(8); return [`${a} × ${b}`, a * b]; }],
+  tinv: ["Tables à l'envers", () => { const a = 2 + rnd(8), b = 2 + rnd(8); return [`${a * b} = ${a} × ?`, b]; }],
+  comp100: ["Compléments à 100", () => { const a = 5 + rnd(90); return [`${a} + ? = 100`, 100 - a]; }],
+  x10: ["× 10, × 100", () => { const a = 2 + rnd(98), m = rnd(2) ? 10 : 100; return [`${a} × ${m}`, a * m]; }],
+  dblmo: ["Doubles et moitiés", () => { const a = 10 + rnd(240); return rnd(2) ? [`Le double de ${a}`, 2 * a] : [`La moitié de ${2 * a}`, a]; }],
+  x1000: ["× et ÷ par 10, 100, 1 000", () => { const m = [10, 100, 1000][rnd(3)]; if (rnd(2)) { const a = 1 + rnd(99); return [`${a} × ${m.toLocaleString("fr-FR")}`, a * m]; } const r = 1 + rnd(99); return [`${(r * m).toLocaleString("fr-FR")} ÷ ${m.toLocaleString("fr-FR")}`, r]; }],
+  comp1000: ["Compléments à 1 000", () => { const a = 10 * (1 + rnd(99)); return [`${a} + ? = 1 000`, 1000 - a]; }],
+  x5: ["Multiplier par 5, 25, 50", () => { const m = [5, 25, 50][rnd(3)], a = 2 + rnd(m === 5 ? 98 : 18); return [`${a} × ${m}`, a * m]; }],
+  decAdd: ["Additions de décimaux", () => { const a = (1 + rnd(49)) / 10, b = (1 + rnd(49)) / 10; return [`${dec(a)} + ${dec(b)}`, dec(a + b)]; }],
+  comp1: ["Compléments à 1", () => { const a = (1 + rnd(99)) / 100; return [`${dec(a)} + ? = 1`, dec(1 - a)]; }],
+  decX: ["Décimaux × et ÷ par 10, 100", () => { const a = (1 + rnd(999)) / 100, m = rnd(2) ? 10 : 100; return rnd(2) ? [`${dec(a)} × ${m}`, dec(a * m)] : [`${dec(a)} ÷ ${m}`, dec(a / m)]; }],
+  dblmoDec: ["Doubles et moitiés (décimaux)", () => { const a = (1 + rnd(99)) / 10; return rnd(2) ? [`Le double de ${dec(a)}`, dec(2 * a)] : [`La moitié de ${dec(a)}`, dec(a / 2)]; }],
+};
+const CM_NIV = {
+  CP: ["comp10", "dbl10", "mo20", "add20", "sous10", "plus10"],
+  CE1: ["dbl50", "mo100", "compDiz", "add2", "sous2", "t2510", "plus10"],
+  CE2: ["tables", "comp100", "add2r", "sous2", "x10", "dblmo"],
+  CM1: ["tables", "tinv", "x1000", "comp1000", "x5", "decAdd"],
+  CM2: ["tinv", "x1000", "comp1", "decX", "dblmoDec", "decAdd"],
+};
 function calcul(el) {
   const OPS = { "+": "Additions", "−": "Soustractions", "×": "Multiplications", "÷": "Divisions" };
   let ops = new Set(["+"]), max = 20, tables = [2, 3, 4, 5], q = null, show = false;
+  let mode = localStorage.getItem("bagaschool-cm-mode") || "niveau", niv = localStorage.getItem("bagaschool-rituel-niv") || "CE1", types = new Set(CM_NIV[niv] || CM_NIV.CE1);
+  if (!CM_NIV[niv]) niv = "CE1";
   const gen = () => {
+    if (mode === "niveau") { const ks = [...types]; const k = ks[rnd(ks.length)]; const [txt, r] = CM_TYPES[k][1](); return { txt, r, k }; }
     const op = [...ops][rnd(ops.size)];
     let a, b, r;
     if (op === "+") { a = rnd(max + 1); b = rnd(max - a + 1); r = a + b; }
     if (op === "−") { a = rnd(max + 1); b = rnd(a + 1); r = a - b; }
     if (op === "×") { a = tables[rnd(tables.length)]; b = 1 + rnd(10); if (rnd(2)) [a, b] = [b, a]; r = a * b; }
     if (op === "÷") { b = tables[rnd(tables.length)]; r = 1 + rnd(10); a = b * r; }
-    return { a, b, op, r };
+    return { txt: `${a} ${op} ${b}`, r };
+  };
+  const question = () => {
+    if (!q) return "Prêt ?";
+    const rep = `<span class="calc-r ${show ? "" : "hide"}">${show ? (typeof q.r === "number" ? q.r.toLocaleString("fr-FR") : q.r) : "?"}</span>`;
+    if (q.txt.includes("?")) return q.txt.replace("?", rep);
+    return q.txt.startsWith("L") ? `${q.txt} : ${rep}` : `${q.txt} = ${rep}`;
   };
   const render = () => {
     el.innerHTML = `
       <div class="tool-top wrap">
+        <div class="seg"><button data-mode="niveau" class="${mode === "niveau" ? "on" : ""}">Par niveau</button><button data-mode="libre" class="${mode === "libre" ? "on" : ""}">Libre</button></div>
+        ${mode === "niveau" ? `
+        <div class="seg">${Object.keys(CM_NIV).map((n) => `<button data-niv="${n}" class="${niv === n ? "on" : ""}">${n}</button>`).join("")}</div>
+        <div class="tables">${CM_NIV[niv].map((k) => `<button class="mini ${types.has(k) ? "on" : ""}" data-ty="${k}">${CM_TYPES[k][0]}</button>`).join("")}</div>` : `
         <div class="seg">${Object.entries(OPS).map(([k, v]) => `<button class="${ops.has(k) ? "on" : ""}" data-op="${k}" title="${v}">${k}</button>`).join("")}</div>
         ${ops.has("+") || ops.has("−") ? `<label class="inline">Jusqu'à <select id="mx">${[10, 20, 50, 100, 1000].map((m) => `<option ${m === max ? "selected" : ""}>${m}</option>`).join("")}</select></label>` : ""}
-        ${ops.has("×") || ops.has("÷") ? `<div class="tables">Tables : ${[2, 3, 4, 5, 6, 7, 8, 9, 10].map((t) => `<button class="mini ${tables.includes(t) ? "on" : ""}" data-t="${t}">${t}</button>`).join("")}</div>` : ""}
+        ${ops.has("×") || ops.has("÷") ? `<div class="tables">Tables : ${[2, 3, 4, 5, 6, 7, 8, 9, 10].map((t) => `<button class="mini ${tables.includes(t) ? "on" : ""}" data-t="${t}">${t}</button>`).join("")}</div>` : ""}`}
       </div>
       <div class="tool-center">
-        <div class="calc-q">${q ? `${q.a} ${q.op} ${q.b} = <span class="calc-r ${show ? "" : "hide"}">${show ? q.r : "?"}</span>` : "Prêt ?"}</div>
+        ${q && q.k ? `<p class="muted">${CM_TYPES[q.k][0]}</p>` : ""}
+        <div class="calc-q">${question()}</div>
         <div class="pills"><button class="big-btn soft" id="sh" ${q ? "" : "disabled"}>👀 Réponse</button><button class="big-btn" id="nx">Suivant ➜</button></div>
       </div>`;
   };
   render();
   el.onclick = (e) => {
     const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.mode) { mode = t.dataset.mode; localStorage.setItem("bagaschool-cm-mode", mode); q = null; }
+    if (t.dataset.niv) { niv = t.dataset.niv; types = new Set(CM_NIV[niv]); q = null; }
+    if (t.dataset.ty) { const k = t.dataset.ty; if (types.has(k)) { if (types.size > 1) types.delete(k); } else types.add(k); q = null; }
     if (t.dataset.op) { ops.has(t.dataset.op) && ops.size > 1 ? ops.delete(t.dataset.op) : ops.add(t.dataset.op); q = null; }
     if (t.dataset.t) { const v = +t.dataset.t; tables = tables.includes(v) ? (tables.length > 1 ? tables.filter((x) => x !== v) : tables) : [...tables, v]; }
     if (t.id === "sh") show = true;
@@ -499,7 +552,7 @@ export const OUTILS = [
   { id: "feu", nom: "Feu tricolore", icone: "🚦", couleur: "#ffd7bf", desc: "Rouge, orange, vert", mount: feu },
   { id: "date", nom: "Date du jour", icone: "📅", couleur: "#cfe6ff", desc: "Date en grand et phrase du jour", mount: date },
   { id: "des", nom: "Dés", icone: "🎲", couleur: "#ffe3a3", desc: "De 1 à 6 dés", mount: des },
-  { id: "calcul", nom: "Calcul mental", icone: "🧮", couleur: "#cfe6ff", desc: "Additions, soustractions, tables", mount: calcul },
+  { id: "calcul", nom: "Calcul mental", icone: "🧮", couleur: "#cfe6ff", desc: "Par niveau, du CP au CM2", mount: calcul },
   { id: "horloge", nom: "Horloge", icone: "🕒", couleur: "#c9ecd4", desc: "Lire l'heure, aiguilles à bouger", mount: horloge },
   { id: "cadre", nom: "Cadre de dix", icone: "🔟", couleur: "#ffd7bf", desc: "Jetons à placer", mount: cadre },
   { id: "droite", nom: "Droite graduée", icone: "📏", couleur: "#d7ccff", desc: "Graduations, nombres cachés", mount: droite },

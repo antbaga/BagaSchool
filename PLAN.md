@@ -41,6 +41,18 @@ manifest.webmanifest  installation PWA
   tirage au sort, groupes, niveaux de voix, feu tricolore, date du jour, dés, calcul mental, horloge,
   cadre de dix, droite graduée, barres de fractions, pendu, ardoise (uni / carreaux / Seyès).
   Inspirée d'un post Instagram montrant ce type d'outils ; design et code originaux.
+- **v0.7** (retours de la prof) : bandeau d'installation à l'ouverture du lien (bouton sur Chrome / Edge / Android,
+  tuto Safari sur iPhone) et page « Installer et projeter » ; emploi du temps aux horaires libres (durées 15 à 120 min) ;
+  fiche de prép : période, séquence, n° et type de séance (dont investigation, expérimentation), critères de réussite
+  et de réalisation, 3 nouveaux modèles ; devoirs par jour (projetables) ; suivi de la classe par discipline
+  (dernier résultat par compétence). Outils au tableau : cahier (Seyès / petits carreaux / blanc, cursive alignée sur
+  les lignes, stylo), calcul posé (4 opérations, retenues, potence), fractions en images (pizza, tablette, bande :
+  représenter, comparer, égalités), étiquettes à déplacer (phrases à trous, mots à remettre en ordre), géométrie
+  (règle, équerre, rapporteur, compas, traits qui suivent la règle), rituels du matin (nombre du jour par niveau,
+  enquête grammaticale nature / fonction, phrases à transformer), calcul mental par niveau CP à CM2, jeux d'anglais
+  (12 thèmes, voix anglaise, flashcards, memory, morpion, What's missing?, Guess who?, mot au hasard ; images et son
+  pour CP-CE2, mots écrits pour les CM). « Mes remplacements » : école de rattachement, écoles avec km, calendrier,
+  jours et km par mois et par année, export tableur.
 - **v0.6** : synchronisation entre appareils sans compte : appairage par QR code, relais Cloudflare (worker/)
   qui ne voit que des données chiffrées (AES-GCM, clé uniquement dans les appareils et le QR), fusion des
   modifications faites en même temps, file d'attente hors ligne. Mode télécommande : le téléphone affiche
@@ -74,6 +86,12 @@ manifest.webmanifest  installation PWA
 - **Synchro** : demande le relais Cloudflare déployé (compte gratuit, secrets GitHub, URL dans js/config.js).
   Fusion : si le même champ est modifié sur deux appareils en même temps, la dernière version envoyée l'emporte.
   Pas de compte : perdre tous ses appareils = perdre l'accès à la copie serveur (d'où l'intérêt des exports).
+- **Contenus des rituels et de l'anglais** : phrases, corpus grammatical et vocabulaire rédigés pour l'app (pas des
+  textes officiels) ; à relire par la prof. La voix anglaise dépend de l'appareil (voix du système).
+- **Remplacements** : les km sont saisis à la main ; aucun montant d'indemnité (ISSR, frais) n'est calculé.
+- **Étiquettes** : les activités créées restent sur l'appareil (pas encore synchronisées).
+- **Programmes 2026** : le référentiel contient les programmes de français et maths 2024-2025 (C2, C3) ; le cycle 1
+  (programme 2026) et les autres disciplines restent à ajouter.
 - Modifier la liste des compétences d'une évaluation remet sa grille de résultats à zéro.
 - Safari iOS peut effacer les données d'un site non installé après une longue inactivité :
   conseiller d'**installer l'app sur l'écran d'accueil** et d'exporter régulièrement.
