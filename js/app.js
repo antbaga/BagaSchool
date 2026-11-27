@@ -8,13 +8,13 @@ import { ANGLAIS } from "./anglais.js";
 const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...ANGLAIS, ...DECOUVRIR, ...JEUX];
 import { GENERATEURS, seeded } from "./imprimer.js";
 import { CALENDRIERS, ZONES, joursFeries } from "./data/calendrier.js";
-import { SYNC_URL } from "./config.js";
-import { sync, initSync, marquer, creerEspace, rejoindre, delier, revoquer, lienAppairage, actif as syncActif, relaisConfigure, appareilsConnectes } from "./sync.js";
+import { sync, initSync, marquer, demarrer, arreter, oublier, appareil, actif as syncActif, appareilsConnectes } from "./sync.js";
+import * as compte from "./compte.js";
 import { ecran, surveiller, quitterProjection, surRcEcran, surRcTel, viewTelecommande, rafraichirTel } from "./telecommande.js";
 import qrcode from "./vendor/qrcode.mjs";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation } from "./installer.js";
 
-export const VERSION = "0.7.0";
+export const VERSION = "0.8.0";
 
 // ---------- état ----------
 let state = {};
@@ -525,8 +525,8 @@ async function viewReglages() {
   app.innerHTML = `
     <div class="sheet">
       <h2>Sauvegarde</h2>
-      <p>Tes données sont enregistrées <strong>uniquement sur cet appareil</strong>, dans ce navigateur. Elles ne passent par aucun serveur.
-      Pour ne rien perdre, ou pour passer du téléphone à l'ordinateur, exporte un fichier de sauvegarde puis importe-le sur l'autre appareil.</p>
+      <p>Tes données sont enregistrées <strong>sur cet appareil</strong>, dans ce navigateur.${compte.configure() ? " Avec un compte, tes préparations sont aussi copiées sur le serveur et synchronisées ; les élèves, les évaluations et l'appel restent uniquement ici." : ""}
+      Pour ne rien perdre, exporte régulièrement un fichier de sauvegarde.</p>
       <p class="hint">Stockage protégé par le navigateur : ${persisted ? "oui" : "non (le navigateur peut effacer les données s'il manque de place)"}.</p>
       <div class="row"><button class="primary" id="exp">Exporter une sauvegarde</button>
         <label class="btn ghost">Importer une sauvegarde<input type="file" id="imp" accept="application/json,.json" hidden></label></div>
@@ -540,8 +540,8 @@ async function viewReglages() {
       <p class="hint">Dernière sauvegarde : ${state.reglages._lastBackup ? new Date(state.reglages._lastBackup).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }) : "jamais"}.</p>
       <h3>Passer du téléphone à l'ordinateur (ou l'inverse)</h3>
       <p class="hint">Sur le premier appareil : « Exporter » (ou « Envoyer »). Sur l'autre : « Importer » et choisis le fichier. L'import remplace tout ce qu'il y a sur l'appareil qui reçoit.</p>
-      <h2>Synchroniser mes appareils</h2>
-      ${syncSection()}
+      <h2>Mon compte</h2>
+      <div id="compteBox"><p class="hint">…</p></div>
       <h2>Calendrier</h2>
       <p>Zone scolaire : <span class="seg">${["A", "B", "C"].map((z) => `<button data-zone="${z}" class="${state.reglages.zone === z ? "on" : ""}">${z}</button>`).join("")}</span> <a href="#/calendrier" class="link">Voir le calendrier</a></p>
       <h2>Données d'exemple</h2>
@@ -557,12 +557,7 @@ async function viewReglages() {
   app.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.zone) { state.reglages.zone = t.dataset.zone; await save("reglages"); viewReglages(); }
-    if (t.id === "syOn") { await creerEspace(db.COLLECTIONS); viewReglages(); afficherQR(); }
-    if (t.id === "syQR") afficherQR();
-    if (t.id === "syScan") scannerQR();
-    if (t.id === "syPaste") { const v = $("#syCode").value.trim(); const m = v.match(/lier\/([A-Za-z0-9_.-]+)/); if (m) location.hash = `#/lier/${m[1]}`; else alert("Ce lien n'est pas un lien d'appairage BagaSchool."); }
-    if (t.id === "syOff" && confirm("Délier cet appareil ? Ses données restent dessus, mais ne seront plus synchronisées.")) { await delier(); viewReglages(); }
-    if (t.id === "syRevoke" && confirm("Délier TOUS tes appareils et effacer la copie chiffrée sur le serveur ? Chaque appareil garde ses données. Tu pourras réactiver la synchro et relier tes appareils avec un nouveau QR code.")) { await revoquer(); viewReglages(); }
+    if (await actionCompte(t)) return;
     if (t.id === "bpick" && await choisirFichierBackup()) viewReglages();
     if (t.id === "bres") { await reprendreBackup(); viewReglages(); }
     if (t.id === "bshare" && await partagerSauvegarde()) viewReglages();
@@ -579,9 +574,13 @@ async function viewReglages() {
   };
   $("#demo").onclick = async () => { if (confirm("Ajouter des données d'exemple ?")) { await loadDemo(); location.hash = "#/accueil"; } };
   $("#wipe").onclick = async () => {
-    if (!confirm("Effacer toutes les données de cet appareil ? Exporte une sauvegarde avant si besoin.")) return;
-    await db.clear(); state = await db.loadAll(); rebuildComp(); backup.handle = null; backup.etat = "off"; route();
+    if (!confirm(syncActif() ? "Effacer toutes les données de cet appareil ? Tes préparations restent dans ton compte et reviendront ici ; les élèves, évaluations et l'appel seront perdus. Exporte une sauvegarde avant si besoin." : "Effacer toutes les données de cet appareil ? Exporte une sauvegarde avant si besoin.")) return;
+    const connecte = syncActif();
+    await oublier(); await db.clear(); state = await db.loadAll(); rebuildComp(); backup.handle = null; backup.etat = "off";
+    if (connecte) lancerSync();
+    route();
   };
+  remplirCompte($("#compteBox"));
 }
 
 async function loadDemo() {
@@ -1123,18 +1122,18 @@ function importerCompetences(apres = null) {
 }
 
 // ---------- SYNCHRO & TÉLÉCOMMANDE ----------
-const ETATS_SYNC = { off: "", connexion: "Connexion…", ok: "Synchronisé", "hors-ligne": "Hors ligne : les modifications seront envoyées au retour du réseau", "non-configure": "Service de synchronisation pas encore installé", revoque: "Appareils déliés" };
+const ETATS_SYNC = { off: "Synchronisation arrêtée", connexion: "Connexion…", ok: "Synchronisé", "hors-ligne": "Hors ligne : les modifications seront envoyées au retour du réseau" };
 function majEtatSync(e) {
   const dot = $("#syncDot");
   if (dot) { dot.hidden = !syncActif(); dot.className = "sync-dot s-" + e; dot.title = ETATS_SYNC[e] ?? ""; }
-  if (document.body.dataset.view === "reglages" && !document.querySelector(".modal-backdrop:not([hidden])")) { const el = $("#syEtat"); if (el) el.textContent = `${ETATS_SYNC[e] ?? e}${e === "ok" ? ` · ${appareilsConnectes()} appareil(s) connecté(s) en ce moment` : ""}`; }
+  const el = $("#syEtat"); if (el) el.textContent = texteEtatSync();
   rafraichirTel();
 }
 // Une autre machine a modifié des données : on redessine la vue, sauf si on est en train d'écrire.
 let rafraichirEnAttente = false;
 function rafraichir() {
   const v = document.body.dataset.view;
-  if (["outils", "imprimer", "telecommande", "lier"].includes(v)) return;
+  if (["outils", "imprimer", "telecommande", "connexion", "inscription", "admin"].includes(v)) return;
   const f = document.activeElement;
   const ecrit = f && app.contains(f) && (f.matches("input:not([type=checkbox]):not([type=radio]),textarea,select") );
   if (ecrit || !modal.hidden) { rafraichirEnAttente = true; return; }
@@ -1143,32 +1142,77 @@ function rafraichir() {
 document.addEventListener("focusout", () => setTimeout(() => { if (rafraichirEnAttente && !app.contains(document.activeElement)) { rafraichirEnAttente = false; rafraichir(); } }, 300));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && ecran.actif) quitterProjection(); });
 
-function syncSection() {
-  if (!relaisConfigure()) return `<p class="hint">La synchronisation entre ton téléphone et ton ordinateur n'est pas encore installée sur cette version.</p>`;
-  if (!syncActif()) return `
-    <p>Retrouve les mêmes cours, fiches et évaluations sur ton ordinateur et ton téléphone, et utilise ton téléphone comme télécommande du tableau.</p>
-    <div class="row"><button class="primary" id="syOn">Activer sur cet appareil</button><button class="ghost" id="syScan">📷 Scanner le QR code d'un autre appareil</button></div>
-    <p class="hint">Déjà activé ailleurs ? Scanne le QR code affiché sur l'autre appareil (Réglages > Ajouter un appareil), ou colle le lien ici :</p>
-    <div class="row"><input id="syCode" placeholder="Lien d'appairage" class="grow"><button class="ghost" id="syPaste">Lier</button></div>
-    <p class="hint">🔒 Tes données sont chiffrées sur l'appareil avant d'être envoyées : le serveur ne peut pas les lire. La clé n'est que dans tes appareils et dans le QR code, ne le partage pas.</p>`;
-  return `
-    <p>✅ Synchronisation activée. <span class="hint" id="syEtat">${ETATS_SYNC[sync.etat] ?? sync.etat}</span></p>
-    <div class="row"><button class="primary" id="syQR">📱 Ajouter un appareil (QR code)</button><a class="btn ghost" href="#/telecommande">Télécommande</a></div>
-    <div class="row"><button class="ghost" id="syOff">Délier cet appareil</button><button class="danger" id="syRevoke">Délier tous mes appareils</button></div>
-    <p class="hint">🔒 Données chiffrées de bout en bout. Si tu perds un téléphone, utilise « Délier tous mes appareils ».</p>`;
+// ---------- COMPTE ----------
+const ROLE_TXT = { pc: "ordinateur", tel: "téléphone" };
+async function lancerSync() {
+  try { await demarrer(await compte.transportSupabase(appareil())); } catch (e) { console.warn("sync", e); }
+}
+async function remplirCompte(box) {
+  if (!box) return;
+  if (!compte.configure()) { box.innerHTML = `<p class="hint">Les comptes (synchronisation entre ordinateur et téléphone) ne sont pas encore activés sur cette version. Tout fonctionne sans compte, sur cet appareil.</p>`; return; }
+  const u = await compte.utilisateur().catch(() => null);
+  if (!box.isConnected) return;
+  if (!u) {
+    box.innerHTML = `<p>Avec un compte, tu retrouves tes préparations (emploi du temps, fiches, programmations, devoirs, remplacements…) sur ton ordinateur et ton téléphone, et ton téléphone devient la télécommande du tableau.</p>
+      <p class="hint">🔒 Les prénoms des élèves, les évaluations et l'appel ne quittent jamais cet appareil.</p>
+      <div class="row"><a class="btn primary" href="#/connexion">Se connecter</a><a class="btn ghost" href="#/inscription">J'ai un code d'invitation</a><button class="ghost" id="cScan">📷 Scanner le QR code de mon ordinateur</button></div>`;
+    return;
+  }
+  const admin = await compte.estAdmin();
+  if (!box.isConnected) return;
+  box.innerHTML = `<p>Connectée avec <b>${esc(u.email)}</b>. <span class="hint" id="syEtat">${texteEtatSync()}</span></p>
+    <div class="row"><button class="primary" id="cQR">📱 Connecter un autre appareil (QR code)</button><button class="ghost" id="cScan">📷 Scanner un QR code</button><a class="btn ghost" href="#/telecommande">Télécommande</a></div>
+    <div class="row"><button class="ghost" id="cMdp">Changer de mot de passe</button><button class="ghost" id="cOut">Se déconnecter</button>${admin ? `<a class="btn ghost" href="#/admin">🛠️ Administration</a>` : ""}</div>
+    <p class="hint">Synchronisé : emploi du temps, programmations, fiches, modèles, cahier journal, devoirs, cahier au tableau, flashcards, remplacements, réglages. Jamais envoyé : élèves, évaluations, appel.</p>
+    <details class="hint"><summary>Supprimer mon compte</summary><p>Supprime ton compte et toutes les données copiées sur le serveur. Les données de cet appareil restent ici.</p><button class="danger" id="cDel">Supprimer définitivement mon compte</button></details>`;
+}
+function texteEtatSync() {
+  const e = sync.etat;
+  return `${ETATS_SYNC[e] ?? e}${e === "ok" ? ` · ${appareilsConnectes()} appareil${appareilsConnectes() > 1 ? "s" : ""} connecté${appareilsConnectes() > 1 ? "s" : ""} en ce moment` : ""}`;
+}
+async function actionCompte(t) {
+  if (t.id === "cQR") { afficherQR(); return true; }
+  if (t.id === "cScan") { scannerQR(); return true; }
+  if (t.id === "cMdp") {
+    openModal(`<h2>Changer de mot de passe</h2><form id="fm"><label>Nouveau mot de passe (8 caractères minimum)<input name="m" type="password" autocomplete="new-password" minlength="8" required></label><p class="hint" id="fmErr"></p>
+      <div class="actions"><button type="button" data-close class="ghost">Annuler</button><button class="primary">Enregistrer</button></div></form>`, (m) => {
+      m.querySelector("#fm").onsubmit = async (e) => { e.preventDefault(); try { await compte.changerMotDePasse(e.target.m.value); closeModal(true); alert("Mot de passe changé."); } catch (err) { m.querySelector("#fmErr").textContent = compte.messageErreur(err); } };
+    });
+    return true;
+  }
+  if (t.id === "cOut") {
+    openModal(`<h2>Se déconnecter</h2><p>Tes préparations restent dans ton compte.</p>
+      <div class="actions col"><button class="primary" id="o1">Se déconnecter et garder les données sur cet appareil</button><button class="ghost" id="o2">Se déconnecter et effacer les données de cet appareil</button><button data-close class="ghost">Annuler</button></div>`, (m) => {
+      m.querySelector("#o1").onclick = async () => { closeModal(true); await oublier(); await compte.deconnecter(); route(); };
+      m.querySelector("#o2").onclick = async () => {
+        if (!confirm("Effacer toutes les données de cet appareil, y compris les élèves, les évaluations et l'appel (qui ne sont pas dans ton compte) ?")) return;
+        closeModal(true); await oublier(); await compte.deconnecter(); await db.clear(); state = await db.loadAll(); rebuildComp(); route();
+      };
+    });
+    return true;
+  }
+  if (t.id === "cDel") {
+    if (!confirm("Supprimer définitivement ton compte et les données copiées sur le serveur ?")) return true;
+    try { await oublier(); await compte.supprimerCompte(); alert("Compte supprimé. Les données de cet appareil sont toujours là."); route(); }
+    catch (err) { alert(compte.messageErreur(err)); }
+    return true;
+  }
+  return false;
 }
 function afficherQR() {
-  const lien = lienAppairage();
-  const qr = qrcode(0, "M"); qr.addData(lien); qr.make();
-  openModal(`<h2>Ajouter un appareil</h2>
-    <p>Avec le téléphone, scanne ce code : ouvre BagaSchool, puis Réglages > « Scanner le QR code ». L'appareil photo du téléphone marche aussi.</p>
-    <div class="qr">${qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true })}</div>
-    <p class="hint">🔒 Ce code donne accès à tes données : ne l'affiche pas quand tu projettes devant la classe.</p>
-    <details class="hint"><summary>Pas d'appareil photo ?</summary><p>Copie ce lien et ouvre-le sur l'autre appareil (par exemple en te l'envoyant par mail) :</p><input readonly value="${esc(lien)}" onclick="this.select()"></details>
-    <div class="actions"><button data-close class="primary">Terminé</button></div>`);
+  compte.utilisateur().then((u) => {
+    if (!u) return;
+    const lien = `${location.origin}${location.pathname}#/connexion/${encodeURIComponent(u.email)}`;
+    const qr = qrcode(0, "M"); qr.addData(lien); qr.make();
+    openModal(`<h2>Connecter un autre appareil</h2>
+      <p>Sur le téléphone, scanne ce code avec l'appareil photo (ou dans BagaSchool : Réglages > « Scanner un QR code »). BagaSchool s'ouvre avec ton adresse déjà remplie : il ne reste qu'à taper ton mot de passe.</p>
+      <div class="qr">${qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true })}</div>
+      <p class="hint">Le code contient seulement ton adresse e-mail, pas ton mot de passe.</p>
+      <div class="actions"><button data-close class="primary">Terminé</button></div>`);
+  });
 }
 async function scannerQR() {
-  openModal(`<h2>Scanner le QR code</h2><p class="hint">Vise le QR code affiché sur l'autre appareil.</p>
+  openModal(`<h2>Scanner le QR code</h2><p class="hint">Vise le QR code affiché sur ton ordinateur (Réglages > Mon compte > Connecter un autre appareil).</p>
     <div class="scan"><video id="scv" playsinline muted></video></div><p class="hint" id="scm"></p>
     <div class="actions"><button data-close class="ghost">Annuler</button></div>`, null, () => { stop(); });
   let stream = null, timer = null;
@@ -1183,28 +1227,147 @@ async function scannerQR() {
       if (!v.videoWidth) return;
       c.width = v.videoWidth; c.height = v.videoHeight; g.drawImage(v, 0, 0);
       const r = window.jsQR(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: "dontInvert" });
-      const m = r?.data.match(/#\/lier\/([A-Za-z0-9_.-]+)/);
-      if (m) { stop(); closeModal(true); location.hash = `#/lier/${m[1]}`; }
+      const m = r?.data.match(/#\/connexion\/([^\s#]+)/);
+      if (m) { stop(); closeModal(true); location.hash = `#/connexion/${m[1]}`; }
     }, 250);
   } catch (e) {
-    stop(); const m = $("#scm"); if (m) m.textContent = "Impossible d'utiliser l'appareil photo ici. Utilise l'appareil photo du téléphone, ou colle le lien dans Réglages.";
+    stop(); const m = $("#scm"); if (m) m.textContent = "Impossible d'utiliser l'appareil photo ici. Utilise l'appareil photo du téléphone, ou connecte-toi avec ton e-mail et ton mot de passe.";
   }
 }
-function viewLier(code) {
-  if (!code) return notFound();
-  // On retire le secret de l'adresse affichée et de l'historique
-  history.replaceState(null, "", "#/lier");
-  if (!relaisConfigure()) { app.innerHTML = `<div class="sheet"><h2>Lier cet appareil</h2><p>La synchronisation n'est pas encore installée sur cette version.</p></div>`; return; }
-  const aDesDonnees = state.fiches.length || state.edt.length || state.evaluations.length || state.programmations.length;
-  app.innerHTML = `<div class="sheet"><h2>📱 Lier cet appareil</h2>
-    <p>Cet appareil va retrouver les cours, fiches, évaluations et élèves de ton autre appareil, et tout restera synchronisé.</p>
-    ${syncActif() ? `<p class="notice">Cet appareil est déjà lié. Le lier à nouveau le détachera de sa synchronisation actuelle.</p>` : ""}
-    ${aDesDonnees ? `<p class="notice">Cet appareil contient déjà des données. Celles qui existent aussi sur l'autre appareil (par exemple les fiches) seront <b>remplacées</b> par celles de l'autre appareil. Exporte une sauvegarde avant si besoin (Réglages).</p>` : ""}
-    <div class="actions"><a class="btn ghost" href="#/accueil">Annuler</a><button class="primary" id="ok">Lier cet appareil</button></div></div>`;
-  $("#ok").onclick = async () => {
-    try { if (syncActif()) await delier(); await rejoindre(code, db.COLLECTIONS); location.replace("#/reglages"); }
-    catch (e) { alert(e.message); }
+function pasConfigure() { app.innerHTML = `<div class="sheet"><h2>Comptes</h2><p>Les comptes ne sont pas encore activés sur cette version. BagaSchool fonctionne sans compte, sur cet appareil.</p><a class="btn ghost" href="#/accueil">Retour</a></div>`; }
+async function viewConnexion(emailPre) {
+  if (!compte.configure()) return pasConfigure();
+  const u = await compte.utilisateur().catch(() => null);
+  if (u) { location.replace("#/reglages"); return; }
+  const email = emailPre ? decodeURIComponent(emailPre) : "";
+  app.innerHTML = `<div class="sheet auth">
+    <h2>Se connecter</h2>
+    <form id="fc">
+      <label>Adresse e-mail<input name="email" type="email" autocomplete="username" required value="${esc(email)}"></label>
+      <label>Mot de passe<input name="mdp" type="password" autocomplete="current-password" required></label>
+      <p class="err" id="err"></p>
+      <button class="primary big">Se connecter</button>
+    </form>
+    <p class="hint">Les préparations déjà présentes sur cet appareil seront ajoutées à ton compte (rien n'est effacé).</p>
+    <p>Pas encore de compte ? <a href="#/inscription">J'ai un code d'invitation</a></p>
+    <p class="hint">Mot de passe oublié ? Demande un mot de passe provisoire à la personne qui t'a invitée, puis change-le dans Réglages.</p>
+  </div>`;
+  if (email) app.querySelector("[name=mdp]").focus();
+  $("#fc").onsubmit = async (e) => {
+    e.preventDefault(); const f = e.target, btn = f.querySelector("button");
+    btn.disabled = true; $("#err").textContent = "";
+    try { await compte.connecter(f.email.value, f.mdp.value); await lancerSync(); location.replace("#/reglages"); }
+    catch (err) { $("#err").textContent = compte.messageErreur(err); btn.disabled = false; }
   };
+}
+async function viewInscription(codePre) {
+  if (!compte.configure()) return pasConfigure();
+  const u = await compte.utilisateur().catch(() => null);
+  if (u) { location.replace("#/reglages"); return; }
+  app.innerHTML = `<div class="sheet auth">
+    <h2>Créer mon compte</h2>
+    <p>BagaSchool est en test privé : il faut un code d'invitation.</p>
+    <form id="fi">
+      <label>Code d'invitation<input name="code" required autocomplete="off" autocapitalize="characters" value="${esc(codePre ? decodeURIComponent(codePre) : "")}" placeholder="BAGA-XXXXXXXX"></label>
+      <label>Adresse e-mail<input name="email" type="email" autocomplete="username" required></label>
+      <label>Mot de passe (8 caractères minimum)<input name="mdp" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label class="check"><input type="checkbox" name="ok" required> J'ai compris : mes préparations sont copiées sur un serveur en Europe pour être synchronisées. Les prénoms des élèves, les évaluations et l'appel restent sur mes appareils.</label>
+      <p class="err" id="err"></p>
+      <button class="primary big">Créer mon compte</button>
+    </form>
+    <p class="hint">Les préparations déjà présentes sur cet appareil seront ajoutées à ton compte.</p>
+    <p>Déjà un compte ? <a href="#/connexion">Se connecter</a></p>
+  </div>`;
+  $("#fi").onsubmit = async (e) => {
+    e.preventDefault(); const f = e.target, btn = f.querySelector("button");
+    btn.disabled = true; $("#err").textContent = "";
+    try {
+      const r = await compte.inscrire(f.email.value, f.mdp.value, f.code.value);
+      if (r.aConfirmer) { app.innerHTML = `<div class="sheet auth"><h2>Presque fini</h2><p>Un e-mail de confirmation a été envoyé à <b>${esc(f.email.value)}</b>. Ouvre le lien, puis reviens te connecter.</p><a class="btn primary" href="#/connexion">Se connecter</a></div>`; return; }
+      await lancerSync(); location.replace("#/reglages");
+    } catch (err) { $("#err").textContent = compte.messageErreur(err); btn.disabled = false; }
+  };
+}
+
+// ---------- ADMINISTRATION (alpha) ----------
+async function viewAdmin() {
+  if (!compte.configure()) return pasConfigure();
+  if (!(await compte.estAdmin())) { app.innerHTML = `<div class="sheet"><h2>Administration</h2><p>Réservé à l'administratrice. <a href="#/reglages">Retour</a></p></div>`; return; }
+  app.innerHTML = `<p class="hint">Chargement…</p>`;
+  let inv = [], profils = [], avis = [];
+  try { [inv, profils, avis] = await Promise.all([compte.admin.invitations(), compte.admin.profils(), compte.admin.avis()]); }
+  catch (e) { app.innerHTML = `<div class="sheet"><p class="err">${esc(compte.messageErreur(e))}</p></div>`; return; }
+  const base = `${location.origin}${location.pathname}`;
+  const etatInv = (i) => i.revoquee ? "révoqué" : i.expire_le && new Date(i.expire_le) < new Date() ? "expiré" : i.utilisations >= i.max_utilisations ? "utilisé" : "disponible";
+  const date = (d) => d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—";
+  app.innerHTML = `<div class="admin">
+    <div class="sheet"><h2>✉️ Invitations</h2>
+      <form id="fInv" class="row wrap">
+        <label class="inline">Nombre <input name="n" type="number" min="1" max="100" value="5" style="width:70px"></label>
+        <label class="inline grow">Note <input name="note" placeholder="ex. collègues de l'école"></label>
+        <label class="inline">Utilisations par code <input name="max" type="number" min="1" value="1" style="width:70px"></label>
+        <label class="inline">Valable <select name="j"><option value="">sans limite</option><option value="7">7 jours</option><option value="30" selected>30 jours</option><option value="90">90 jours</option></select></label>
+        <button class="primary">Créer</button>
+      </form>
+      <p class="hint">Envoie le lien à la personne : il ouvre BagaSchool avec le code déjà rempli.</p>
+      <table class="adm-t"><thead><tr><th>Code</th><th>Note</th><th>État</th><th>Créé</th><th></th></tr></thead><tbody>
+        ${inv.map((i) => `<tr class="${etatInv(i) === "disponible" ? "" : "off"}"><td><code>${esc(i.code)}</code></td><td>${esc(i.note)}</td><td>${etatInv(i)} (${i.utilisations}/${i.max_utilisations})</td><td>${date(i.cree_le)}</td>
+          <td class="nowrap">${etatInv(i) === "disponible" ? `<button class="mini" data-copy="${esc(base + "#/inscription/" + i.code)}">Copier le lien</button> <button class="mini" data-revoke="${esc(i.code)}">Révoquer</button>` : ""}</td></tr>`).join("")}
+      </tbody></table></div>
+    <div class="sheet"><h2>👩‍🏫 Comptes (${profils.length})</h2>
+      <table class="adm-t"><thead><tr><th>E-mail</th><th>Inscrit</th><th>Dernière visite</th><th>Version</th><th></th></tr></thead><tbody>
+        ${profils.map((p) => `<tr><td>${esc(p.email)}</td><td>${date(p.cree_le)}</td><td>${date(p.vu_le)}</td><td>${esc(p.version_app ?? "")}</td><td><button class="mini" data-mdp="${p.user_id}" data-email="${esc(p.email)}">Mot de passe provisoire</button></td></tr>`).join("")}
+      </tbody></table></div>
+    <div class="sheet"><h2>💬 Avis (${avis.filter((a) => !a.traite).length} à lire)</h2>
+      ${avis.map((a) => `<div class="avis ${a.traite ? "traite" : ""}"><div class="avis-tete"><b>${esc(a.email || "anonyme")}</b> · ${date(a.cree_le)} · ${esc(a.page ?? "")} · v${esc(a.version_app ?? "")}
+        <label class="inline"><input type="checkbox" data-avis="${a.id}" ${a.traite ? "checked" : ""}> traité</label></div><p>${esc(a.message).replace(/\n/g, "<br>")}</p></div>`).join("") || `<p class="hint">Aucun avis pour l'instant.</p>`}
+    </div></div>`;
+  $("#fInv").onsubmit = async (e) => {
+    e.preventDefault(); const f = e.target;
+    try { await compte.admin.creerInvitations(+f.n.value, f.note.value.trim(), +f.max.value || 1, f.j.value ? +f.j.value : null); viewAdmin(); }
+    catch (err) { alert(compte.messageErreur(err)); }
+  };
+  app.onclick = async (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.copy) { try { await navigator.clipboard.writeText(t.dataset.copy); t.textContent = "Copié ✓"; } catch { prompt("Copie ce lien :", t.dataset.copy); } }
+    if (t.dataset.revoke && confirm(`Révoquer le code ${t.dataset.revoke} ?`)) { await compte.admin.revoquer(t.dataset.revoke).catch((err) => alert(compte.messageErreur(err))); viewAdmin(); }
+    if (t.dataset.mdp && confirm(`Créer un mot de passe provisoire pour ${t.dataset.email} ? L'ancien ne marchera plus.`)) {
+      try { const m = await compte.admin.motDePasseProvisoire(t.dataset.mdp); prompt(`Mot de passe provisoire pour ${t.dataset.email} (à lui transmettre ; elle pourra le changer dans Réglages) :`, m); }
+      catch (err) { alert(compte.messageErreur(err)); }
+    }
+  };
+  app.onchange = async (e) => { const id = e.target.dataset.avis; if (id) await compte.admin.marquerAvis(+id, e.target.checked).catch((err) => alert(compte.messageErreur(err))); };
+}
+
+// ---------- AVIS ----------
+function ouvrirAvis() {
+  document.body.classList.remove("nav-open");
+  if (!compte.configure()) { alert("L'envoi d'avis sera disponible avec les comptes."); return; }
+  const page = location.hash || "#/accueil";
+  openModal(`<h2>💬 Donner mon avis</h2>
+    <form id="fa"><label>Qu'est-ce qui marche bien, qui manque, qui ne marche pas ?<textarea name="m" rows="6" required maxlength="5000" placeholder="Un bug, une idée, un outil qui manque…"></textarea></label>
+    <label>Ton e-mail pour qu'on te réponde (facultatif)<input name="email" type="email" id="faMail"></label>
+    <p class="hint">Merci de ne pas écrire de nom d'élève. On joint automatiquement la page où tu étais (${esc(page)}), la version de l'app et le type d'appareil.</p>
+    <p class="err" id="faErr"></p>
+    <div class="actions"><button type="button" data-close class="ghost">Annuler</button><button class="primary">Envoyer</button></div></form>`, async (m) => {
+    compte.utilisateur().then((u) => { if (u && m.querySelector("#faMail")) m.querySelector("#faMail").value = u.email; }).catch(() => {});
+    m.querySelector("#fa").onsubmit = async (e) => {
+      e.preventDefault(); const f = e.target, b = f.querySelector(".primary"); b.disabled = true;
+      try { await compte.envoyerAvis({ message: f.m.value.trim(), email: f.email.value.trim(), page, version: VERSION }); m.innerHTML = `<h2>Merci ! 💜</h2><p>Ton avis est bien arrivé.</p><div class="actions"><button data-close class="primary">Fermer</button></div>`; }
+      catch (err) { m.querySelector("#faErr").textContent = compte.messageErreur(err); b.disabled = false; }
+    };
+  });
+}
+
+// ---------- MISES À JOUR ----------
+function afficherMiseAJour() {
+  if (document.getElementById("majBan")) return;
+  const d = document.createElement("div");
+  d.id = "majBan"; d.className = "maj-ban no-print";
+  d.innerHTML = `<span>✨ Une nouvelle version de BagaSchool est prête.</span><button class="primary" id="majGo">Recharger</button><button class="ghost" id="majX" aria-label="Plus tard">Plus tard</button>`;
+  document.body.append(d);
+  d.querySelector("#majGo").onclick = () => location.reload();
+  d.querySelector("#majX").onclick = () => d.remove();
 }
 
 // ---------- DEVOIRS ----------
@@ -1319,7 +1482,7 @@ function viewAide() {
       <li>Avec un TBI, tu peux toucher directement le tableau : les boutons sont assez gros pour ça.</li>
     </ol>
     <h3>📱 Utiliser le téléphone comme télécommande (facultatif)</h3>
-    <ol class="aide-steps"><li>Sur l'ordinateur : Réglages > Synchroniser mes appareils > Activer, un QR code s'affiche.</li><li>Sur le téléphone (BagaSchool installée) : Réglages > Scanner le QR code.</li><li>En classe, sur le téléphone : <b>Télécommande</b>. Choisis un outil : il s'ouvre au tableau en plein écran, et tous ses boutons sont sur ton téléphone.</li></ol>
+    <ol class="aide-steps"><li>Connecte-toi à ton compte sur l'ordinateur, puis Réglages > Mon compte > <b>Connecter un autre appareil</b> : un QR code s'affiche.</li><li>Scanne-le avec le téléphone et tape ton mot de passe.</li><li>En classe, sur le téléphone : <b>Télécommande</b>. Choisis un outil : il s'ouvre au tableau en plein écran, et tous ses boutons sont sur ton téléphone.</li></ol>
   </div>`;
   $("#instGo")?.addEventListener("click", async () => { await lancerInstallation(); viewAide(); });
 }
@@ -1452,7 +1615,7 @@ function jourRempl(iso) {
 }
 
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", connexion: "Se connecter", inscription: "Créer mon compte", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
@@ -1479,7 +1642,8 @@ function route(doux = false) {
     evaluations: () => (id ? viewEval(id) : viewEvals()),
     classe: () => (id ? viewEleve(id) : viewClasse()), competences: viewCompetences, reglages: viewReglages,
     telecommande: () => { toolCleanup = viewTelecommande(app, { outils: OUTILS, actif: syncActif() }); },
-    lier: () => viewLier(id),
+    lier: () => location.replace("#/connexion"),
+    connexion: () => viewConnexion(id), inscription: () => viewInscription(id), admin: viewAdmin,
     devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), aide: viewAide,
     journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements,
   };
@@ -1488,6 +1652,8 @@ function route(doux = false) {
   (views[name] ?? notFound)();
 }
 initInstallation();
+if (compte.configure()) $("#navAvis")?.addEventListener("click", (e) => { e.preventDefault(); ouvrirAvis(); });
+else $("#navAvis")?.remove();
 $("#menuBtn").onclick = () => document.body.classList.toggle("nav-open");
 $("#navBackdrop").onclick = () => document.body.classList.remove("nav-open");
 
@@ -1495,14 +1661,27 @@ $("#navBackdrop").onclick = () => document.body.classList.remove("nav-open");
   state = await db.loadAll();
   rebuildComp();
   await initBackup().catch(() => {});
-  await initSync({
+  initSync({
     lire: (c) => state[c],
     ecrire: async (c, v) => { state[c] = v; await db.set(c, v); planifierBackup(); if (c === "reglages") rebuildComp(); rafraichir(); },
     etat: majEtatSync,
     rc: (msg) => { surRcEcran(msg); surRcTel(msg); },
-  }, SYNC_URL).catch((e) => console.warn(e));
+  });
+  if (compte.configure()) {
+    // Démarre la synchro si un compte est connecté sur cet appareil (sans bloquer l'affichage).
+    compte.session().then((s) => { if (s) { lancerSync(); compte.signalerPresence(VERSION); } }).catch((e) => console.warn(e));
+    compte.surChangementSession((evt) => { if (evt === "SIGNED_OUT") arreter(); });
+  }
   db.requestPersistence();
   window.addEventListener("hashchange", route);
   route();
-  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    // Mises à jour : le service worker prend la nouvelle version dès qu'elle est publiée ; on propose de recharger.
+    const avaitUnSW = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (avaitUnSW) afficherMiseAJour(); });
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
+      setInterval(() => reg.update().catch(() => {}), 30 * 60e3);
+    }).catch(() => {});
+  }
 })();

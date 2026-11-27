@@ -109,7 +109,7 @@ async function garderEcranAllume() { try { tel.lock = await navigator.wakeLock?.
 export function viewTelecommande(app, { outils, actif }) {
   tel.app = app; tel.outils = outils;
   if (!actif) {
-    app.innerHTML = `<div class="sheet"><h2>📱 Télécommande</h2><p>Pour piloter le tableau depuis ton téléphone, lie d'abord tes appareils : sur l'ordinateur, va dans Réglages > Synchroniser mes appareils, puis scanne le QR code avec ce téléphone.</p><a class="primary btn" href="#/reglages">Réglages</a></div>`;
+    app.innerHTML = `<div class="sheet"><h2>📱 Télécommande</h2><p>Pour piloter le tableau depuis ton téléphone, connecte ce téléphone et l'ordinateur au même compte : sur l'ordinateur, Réglages > Mon compte > Connecter un autre appareil, puis scanne le QR code avec ce téléphone.</p><a class="primary btn" href="#/reglages">Réglages</a></div>`;
     return () => {};
   }
   document.body.classList.add("remote-mode");

@@ -1,48 +1,20 @@
-// Synchronisation entre les appareils de l'enseignante + canal de télécommande.
+// Synchronisation entre les appareils d'un même compte + canal de télécommande.
 //
-// - Un « espace » est créé sur un appareil ; les autres le rejoignent en scannant un QR code.
-// - Le QR contient l'identifiant d'espace et une clé AES-256 ; la clé ne passe jamais par le relais :
-//   tout est chiffré ici (AES-GCM) avant d'être envoyé.
-// - Chaque collection est envoyée en entier, avec un numéro de version. En cas de modifications
-//   simultanées sur deux appareils, on fusionne élément par élément (fusion à trois voies).
+// - Seules les données de préparation sont synchronisées (SYNC_COLLS). Les élèves, les évaluations
+//   (résultats) et l'appel restent sur l'appareil (RGPD).
+// - Chaque collection est envoyée en entier avec un numéro de version. Si deux appareils écrivent
+//   en même temps, on fusionne élément par élément (fusion à trois voies) puis on renvoie.
+// - Le « transport » (compte.js) fait le lien avec le serveur ; ce fichier n'en dépend pas, ce qui
+//   permet de le tester avec un faux serveur.
 import * as db from "./db.js";
 
-const DEBOUNCE = 700;
+export const SYNC_COLLS = ["edt", "programmations", "fiches", "reglages", "journal", "modeles", "decks", "devoirs", "cahier", "remplacements"];
+const DEBOUNCE = { cahier: 2500 };
 export const sync = {
-  cfg: null, ws: null, etat: "off", peers: [], moi: null,
-  ver: {}, base: {}, dirty: new Set(), enVol: new Set(), timers: {}, retry: 1000,
+  t: null, canal: null, etat: "off", peers: [], moi: null, cfg: null,
+  ver: {}, base: {}, dirty: new Set(), enVol: new Set(), timers: {}, retry: 2000, uid: null,
   hooks: { lire: () => null, ecrire: () => {}, etat: () => {}, rc: () => {} },
 };
-
-// ---------- encodage ----------
-const b64u = (bytes) => {
-  let s = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
-const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
-const alea = (n) => crypto.getRandomValues(new Uint8Array(n));
-const canZip = typeof CompressionStream !== "undefined";
-async function flux(bytes, Stream, mode) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new Stream(mode))).arrayBuffer()); }
-
-let cleCache = null;
-async function cle() {
-  if (!cleCache || cleCache.k !== sync.cfg.k) cleCache = { k: sync.cfg.k, key: await crypto.subtle.importKey("raw", unb64u(sync.cfg.k), "AES-GCM", false, ["encrypt", "decrypt"]) };
-  return cleCache.key;
-}
-async function chiffrer(obj) {
-  let bytes = new TextEncoder().encode(JSON.stringify(obj));
-  const z = canZip && bytes.length > 2000;
-  if (z) bytes = await flux(bytes, CompressionStream, "gzip");
-  const iv = alea(12);
-  const data = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await cle(), bytes));
-  return { iv: b64u(iv), data: b64u(data), z };
-}
-async function dechiffrer(blob) {
-  let bytes = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64u(blob.iv) }, await cle(), unb64u(blob.data)));
-  if (blob.z) bytes = await flux(bytes, DecompressionStream, "gzip");
-  return JSON.parse(new TextDecoder().decode(bytes));
-}
 
 // ---------- fusion à trois voies ----------
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -73,80 +45,112 @@ export function merge3(base, local, remote) {
   }
   return local;
 }
+const vide = (v) => v == null || (Array.isArray(v) ? !v.length : isObj(v) && !Object.keys(v).length);
 
 // ---------- état persistant ----------
 const persister = () => Promise.all([db.set("_syncVer", sync.ver), db.set("_syncBase", sync.base), db.set("_syncDirty", [...sync.dirty])]);
 function setEtat(e) { sync.etat = e; sync.hooks.etat(e); }
+export const actif = () => !!sync.t;
 
-export async function initSync(hooks, url) {
-  Object.assign(sync.hooks, hooks);
-  sync.defaultUrl = url;
-  sync.cfg = (await db.get("_sync").catch(() => null)) || null;
-  if (!sync.cfg) return;
-  sync.ver = (await db.get("_syncVer")) || {};
-  sync.base = (await db.get("_syncBase")) || {};
-  sync.dirty = new Set((await db.get("_syncDirty")) || []);
-  connecter();
+export function appareil() {
+  let id = localStorage.getItem("bagaschool-appareil");
+  if (!id) { id = crypto.randomUUID().slice(0, 8); localStorage.setItem("bagaschool-appareil", id); }
+  return { id, role: matchMedia("(pointer:coarse)").matches ? "tel" : "pc" };
 }
 
-export const actif = () => !!sync.cfg;
-export const relaisConfigure = () => !!(sync.cfg?.url || sync.defaultUrl);
-export const lienAppairage = () => `${location.origin}${location.pathname}#/lier/${sync.cfg.id}.${sync.cfg.k}`;
+export function initSync(hooks) { Object.assign(sync.hooks, hooks); }
 
-export async function creerEspace(collections) {
-  sync.cfg = { id: b64u(alea(16)), k: b64u(alea(32)), url: sync.defaultUrl, role: matchMedia("(pointer:coarse)").matches ? "tel" : "pc" };
-  sync.ver = {}; sync.base = {}; sync.dirty = new Set(collections);
-  await db.set("_sync", sync.cfg); await persister();
-  connecter();
+// Démarre la synchro avec un transport connecté à un compte.
+export async function demarrer(transport) {
+  await arreter();
+  if (!transport) return;
+  const moi = appareil();
+  sync.t = transport; sync.moi = moi.id; sync.cfg = { role: moi.role };
+  const ancien = await db.get("_syncUser").catch(() => null);
+  if (ancien !== transport.uid) {
+    // Premier passage de ce compte sur cet appareil : on fusionnera avec ce qui est sur le serveur.
+    sync.ver = {}; sync.base = {}; sync.dirty = new Set(); sync.premier = true;
+  } else {
+    sync.ver = (await db.get("_syncVer")) || {};
+    sync.base = (await db.get("_syncBase")) || {};
+    sync.dirty = new Set(((await db.get("_syncDirty")) || []).filter((c) => SYNC_COLLS.includes(c)));
+    sync.premier = false;
+  }
+  sync.uid = transport.uid;
+  setEtat("connexion");
+  try {
+    sync.canal = await transport.canal({
+      message: (m) => recevoir(m).catch((e) => console.warn("sync", e)),
+      appareils: (list) => { sync.peers = list; sync.hooks.etat(sync.etat); },
+      statut: (s) => { if (s === "ok" && sync.etat !== "ok") rattraper(); if (s === "ko" && sync.t) { setEtat("hors-ligne"); planifierReessai(); } },
+    });
+  } catch (e) { console.warn("canal", e); }
+  await rattraper();
 }
-export async function rejoindre(code, collections) {
-  const [id, k] = String(code).split(".");
-  if (!/^[A-Za-z0-9_-]{22}$/.test(id || "") || !/^[A-Za-z0-9_-]{43}$/.test(k || "")) throw new Error("Code d'appairage invalide.");
-  sync.cfg = { id, k, url: sync.defaultUrl, role: matchMedia("(pointer:coarse)").matches ? "tel" : "pc", rejoint: collections };
-  sync.ver = {}; sync.base = {}; sync.dirty = new Set();
-  await db.set("_sync", sync.cfg); await persister();
-  connecter();
-}
-export async function delier() {
-  const ws = sync.ws; sync.cfg = null; sync.ws = null;
-  try { ws?.close(); } catch {}
-  await db.set("_sync", null); sync.ver = {}; sync.base = {}; sync.dirty = new Set(); await persister();
+
+export async function arreter() {
+  clearTimeout(sync.timers._re);
+  for (const k of Object.keys(sync.timers)) if (!k.startsWith("s:")) clearTimeout(sync.timers[k]);
+  try { await sync.canal?.fermer(); } catch {}
+  sync.t = null; sync.canal = null; sync.peers = []; sync.enVol.clear(); sync.cfg = null;
   setEtat("off");
 }
-export function revoquer() {
-  if (sync.ws?.readyState === 1) sync.ws.send(JSON.stringify({ t: "wipe" }));
-  return delier();
+
+// Oublie l'état de synchro de cet appareil (à la déconnexion).
+export async function oublier() {
+  await arreter();
+  sync.ver = {}; sync.base = {}; sync.dirty = new Set();
+  await persister(); await db.set("_syncUser", null);
 }
 
-// ---------- connexion ----------
-function connecter() {
-  if (!sync.cfg) return;
-  const url = (sync.cfg.url || sync.defaultUrl || "").replace(/^http/, "ws").replace(/\/$/, "");
-  if (!url) { setEtat("non-configure"); return; }
-  if (sync.ws && sync.ws.readyState <= 1) return;
-  setEtat("connexion");
-  let ws;
-  try { ws = new WebSocket(`${url}/ws/${sync.cfg.id}`); } catch { return planifierReconnexion(); }
-  sync.ws = ws;
-  ws.onopen = () => { sync.retry = 1000; ws.send(JSON.stringify({ t: "hello", role: sync.cfg.role, have: sync.ver })); };
-  ws.onmessage = (e) => recevoir(JSON.parse(e.data)).catch((err) => console.warn("sync", err));
-  ws.onclose = (e) => {
-    if (sync.ws !== ws) return;
-    sync.ws = null; sync.enVol.clear(); sync.peers = [];
-    if (e.code === 1000 && e.reason === "wiped") return;
-    setEtat("hors-ligne"); planifierReconnexion();
-  };
+let enRattrapage = null;
+async function rattraper() {
+  if (!sync.t) return;
+  if (enRattrapage) return enRattrapage;
+  enRattrapage = (async () => {
+    try {
+      const t = sync.t;
+      const vers = await t.versions();
+      if (t !== sync.t) return;
+      const aLire = Object.keys(vers).filter((c) => SYNC_COLLS.includes(c) && vers[c] > (sync.ver[c] || 0));
+      const recs = await t.lire(aLire);
+      if (t !== sync.t) return;
+      if (sync.premier) {
+        for (const c of SYNC_COLLS) {
+          const local = sync.hooks.lire(c), rec = recs[c];
+          if (rec) {
+            const res = merge3(undefined, local, rec.data); // union : rien de ce qui existe des deux côtés n'est perdu
+            sync.base[c] = rec.data; sync.ver[c] = rec.v;
+            if (!same(res, local)) await sync.hooks.ecrire(c, res);
+            if (!same(res, rec.data)) sync.dirty.add(c);
+          } else if (!vide(local)) sync.dirty.add(c);
+        }
+        sync.premier = false;
+        await db.set("_syncUser", t.uid);
+      } else {
+        for (const [c, rec] of Object.entries(recs)) await appliquer(c, rec.v, rec.data);
+      }
+      await persister();
+      sync.retry = 2000;
+      setEtat("ok");
+      for (const c of sync.dirty) envoyer(c);
+    } catch (e) {
+      console.warn("sync", e);
+      if (sync.t) { setEtat("hors-ligne"); planifierReessai(); }
+    } finally { enRattrapage = null; }
+  })();
+  return enRattrapage;
 }
-function planifierReconnexion() {
+function planifierReessai() {
   clearTimeout(sync.timers._re);
-  sync.timers._re = setTimeout(connecter, sync.retry);
-  sync.retry = Math.min(sync.retry * 2, 30000);
+  sync.timers._re = setTimeout(rattraper, sync.retry);
+  sync.retry = Math.min(sync.retry * 2, 60000);
 }
-addEventListener("online", () => { sync.retry = 1000; connecter(); });
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sync.cfg && !sync.ws) { sync.retry = 1000; connecter(); } });
+addEventListener("online", () => { sync.retry = 2000; rattraper(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sync.t) rattraper(); });
 
-async function appliquer(coll, v, blob) {
-  const remote = await dechiffrer(blob);
+async function appliquer(coll, v, remote) {
+  if (v <= (sync.ver[coll] || 0)) return;
   const local = sync.hooks.lire(coll);
   let res = remote;
   if (sync.dirty.has(coll)) res = merge3(sync.base[coll], local, remote);
@@ -156,66 +160,56 @@ async function appliquer(coll, v, blob) {
 }
 
 async function recevoir(m) {
-  if (m.t === "state") {
-    sync.moi = m.you;
-    for (const [c, rec] of Object.entries(m.colls)) await appliquer(c, rec.v, rec.blob);
-    if (sync.cfg.rejoint) {
-      // Appareil qui vient de rejoindre : ce qui existe déjà dans l'espace remplace ses données ;
-      // ce qui n'y existe pas encore est envoyé.
-      for (const c of sync.cfg.rejoint) { const v = sync.hooks.lire(c); if (!(c in m.colls) && v && Object.keys(v).length) sync.dirty.add(c); }
-      delete sync.cfg.rejoint; await db.set("_sync", sync.cfg);
-    }
-    await persister();
-    setEtat("ok");
-    for (const c of sync.dirty) envoyer(c);
-  } else if (m.t === "upd") {
-    await appliquer(m.coll, m.v, m.blob); await persister();
+  if (m?.t === "upd" && SYNC_COLLS.includes(m.coll)) {
+    if (m.v <= (sync.ver[m.coll] || 0) || !sync.t) return;
+    const recs = await sync.t.lire([m.coll]);
+    if (recs[m.coll]) { await appliquer(m.coll, recs[m.coll].v, recs[m.coll].data); await persister(); }
     if (sync.dirty.has(m.coll)) planifier(m.coll);
-  } else if (m.t === "ok") {
-    sync.enVol.delete(m.coll); sync.ver[m.coll] = m.v;
-    const snap = sync.timers["s:" + m.coll];
-    sync.base[m.coll] = snap;
-    if (same(snap, sync.hooks.lire(m.coll))) sync.dirty.delete(m.coll); else planifier(m.coll);
-    await persister();
-  } else if (m.t === "conflict") {
-    sync.enVol.delete(m.coll);
-    if (m.blob) await appliquer(m.coll, m.v, m.blob); else { sync.ver[m.coll] = m.v; }
-    sync.dirty.add(m.coll); await persister(); envoyer(m.coll);
-  } else if (m.t === "peers") {
-    sync.peers = m.list; sync.hooks.etat(sync.etat);
-  } else if (m.t === "rc") {
-    try { sync.hooks.rc(await dechiffrer(m.blob), m.from); } catch {}
-  } else if (m.t === "wiped") {
-    await delier(); setEtat("revoque");
-  } else if (m.t === "error") console.warn("relais :", m.msg);
+  } else if (m?.t === "rc") {
+    try { sync.hooks.rc(m.msg, m.from); } catch {}
+  }
 }
 
 // ---------- envoi ----------
 export function marquer(coll) {
-  if (!sync.cfg) return;
+  if (!SYNC_COLLS.includes(coll)) return;
   sync.dirty.add(coll);
   db.set("_syncDirty", [...sync.dirty]);
-  planifier(coll);
+  if (sync.t) planifier(coll);
 }
 function planifier(coll) {
   clearTimeout(sync.timers[coll]);
-  sync.timers[coll] = setTimeout(() => envoyer(coll), DEBOUNCE);
+  sync.timers[coll] = setTimeout(() => envoyer(coll), DEBOUNCE[coll] ?? 700);
 }
 async function envoyer(coll) {
-  if (!sync.ws || sync.ws.readyState !== 1 || sync.etat !== "ok" || sync.enVol.has(coll)) return;
-  const snap = structuredClone(sync.hooks.lire(coll));
+  if (!sync.t || sync.etat !== "ok" || sync.enVol.has(coll)) return;
+  const t = sync.t, snap = structuredClone(sync.hooks.lire(coll));
   sync.enVol.add(coll);
-  sync.timers["s:" + coll] = snap;
-  const blob = await chiffrer(snap);
-  if (!sync.ws || sync.ws.readyState !== 1) { sync.enVol.delete(coll); return; }
-  sync.ws.send(JSON.stringify({ t: "put", coll, base: sync.ver[coll] || 0, blob }));
+  let relancer = false;
+  try {
+    const r = await t.ecrire(coll, sync.ver[coll] || 0, snap);
+    if (t !== sync.t) return;
+    if (r.ok) {
+      sync.ver[coll] = r.v; sync.base[coll] = snap;
+      if (same(snap, sync.hooks.lire(coll))) sync.dirty.delete(coll); else planifier(coll);
+      sync.canal?.envoyer({ t: "upd", coll, v: r.v }).catch(() => {});
+    } else {
+      if (r.data != null) { sync.dirty.add(coll); await appliquer(coll, r.v, r.data); } else sync.ver[coll] = r.v;
+      sync.dirty.add(coll);
+      relancer = true;
+    }
+    await persister();
+  } catch (e) {
+    console.warn("envoi", coll, e);
+    if (t === sync.t) { setEtat("hors-ligne"); planifierReessai(); }
+  } finally { sync.enVol.delete(coll); }
+  if (relancer) envoyer(coll);
 }
 
 // ---------- télécommande ----------
 export async function envoyerRc(msg) {
-  if (!sync.ws || sync.ws.readyState !== 1) return false;
-  sync.ws.send(JSON.stringify({ t: "rc", blob: await chiffrer(msg) }));
-  return true;
+  if (!sync.canal) return false;
+  return sync.canal.envoyer({ t: "rc", msg, from: sync.moi }).catch(() => false);
 }
 export const ecransConnectes = () => sync.peers.filter((p) => p.role === "pc" && p.id !== sync.moi).length;
 export const appareilsConnectes = () => sync.peers.length;
