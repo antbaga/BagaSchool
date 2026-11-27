@@ -1,0 +1,163 @@
+// Repères historiques pour les frises (À découvrir > Histoire).
+// Source principale : programmes d'histoire-géographie 2026, cycle 2 (annexe 3) et cycle 3 (annexe 4),
+// BO n°22 du 28 mai 2026 (voir docs/programmes-2026-decouvrir.md). Repères ajoutés « hors programme » :
+// dates classiques et bien établies (manuels scolaires, encyclopédies).
+// Champs : d = date affichée, v = valeur numérique (av. J.-C. négatif ; fraction d'année pour les jours),
+// f = fin (règne, guerre, vie : barre sur la frise), t = titre court, c = catégorie, n = premier niveau
+// concerné, hp = hors programme (1, ou "6e" si c'est un repère du programme de 6e), b = borne d'une grande
+// période, x = une phrase d'explication.
+
+// Date précise -> valeur décimale (jour dans l'année).
+const J = (y, m = 1, d = 1) => +(y + ((m - 1) * 30.44 + d - 1) / 365.25).toFixed(4);
+
+export const PERIODES = [
+  { id: "prehistoire", nom: "Préhistoire", de: -3000000, a: -3000, coul: "#f2cf9f", fonce: "#9a6326", emo: "🦣",
+    deb: "L'apparition des premiers humains, il y a environ 3 millions d'années", fin: "L'invention de l'écriture, vers 3000 av. J.-C.",
+    txt: "La très longue période avant l'invention de l'écriture. Les humains sont d'abord des chasseurs-cueilleurs nomades, puis deviennent agriculteurs et éleveurs." },
+  { id: "antiquite", nom: "Antiquité", de: -3000, a: 476, coul: "#fbe08a", fonce: "#8a6a00", emo: "🏛️",
+    deb: "L'invention de l'écriture, vers 3000 av. J.-C.", fin: "La chute de l'Empire romain d'Occident, en 476",
+    txt: "Le temps des premières grandes civilisations qui écrivent : l'Égypte des pharaons, la Grèce, Rome. La Gaule devient romaine." },
+  { id: "moyen-age", nom: "Moyen Âge", de: 476, a: 1492, coul: "#c5e6ad", fonce: "#3f7a1e", emo: "🏰",
+    deb: "La chute de l'Empire romain d'Occident, en 476", fin: "L'arrivée de Christophe Colomb en Amérique, en 1492",
+    txt: "Le temps des seigneurs et des chevaliers, des châteaux forts, des abbayes et des cathédrales. Les rois de France agrandissent peu à peu leur royaume." },
+  { id: "temps-modernes", nom: "Temps modernes", de: 1492, a: 1789, coul: "#b9dcf6", fonce: "#1f5f95", emo: "⛵",
+    deb: "L'arrivée de Christophe Colomb en Amérique, en 1492", fin: "Le début de la Révolution française, en 1789",
+    txt: "Le temps des grandes explorations et de la Renaissance, puis de rois très puissants comme Louis XIV, et des philosophes des Lumières." },
+  { id: "contemporaine", nom: "Époque contemporaine", de: 1789, a: 2026, coul: "#e6c9f3", fonce: "#7a3a99", emo: "🏭",
+    deb: "Le début de la Révolution française, en 1789", fin: "Elle continue aujourd'hui : nous vivons à l'époque contemporaine",
+    txt: "Révolution, Empire et Républiques, usines et machines, deux guerres mondiales, construction européenne… jusqu'à aujourd'hui." },
+];
+// Bornes affichées entre les périodes.
+export const BORNES = ["3000 av. J.-C.", "476", "1492", "1789"];
+
+export const CATEGORIES = {
+  evenement: { nom: "Événements", un: "Événement", ico: "📜", coul: "#d6e6ff", fonce: "#2f6fd0" },
+  guerre: { nom: "Guerres et batailles", un: "Guerre ou bataille", ico: "⚔️", coul: "#ffd3d9", fonce: "#c23a50" },
+  roi: { nom: "Rois et chefs d'État", un: "Roi ou chef d'État", ico: "👑", coul: "#ffe9a8", fonce: "#a07400" },
+  personnage: { nom: "Personnages", un: "Personnage", ico: "👤", coul: "#cdeed8", fonce: "#23804d" },
+  invention: { nom: "Inventions et innovations", un: "Invention ou innovation", ico: "💡", coul: "#ffe0c7", fonce: "#c25f12" },
+  art: { nom: "Arts et monuments", un: "Art ou monument", ico: "🏛️", coul: "#eadcff", fonce: "#7a45c2" },
+};
+
+export const REPERES = [
+  // ---------- Préhistoire ----------
+  { id: "feu", d: "vers 400 000 av. J.-C.", v: -400000, t: "Les humains maîtrisent le feu", c: "invention", n: "CM2", hp: "6e", x: "Les humains apprennent à entretenir puis à allumer le feu : il sert à se chauffer, à s'éclairer, à cuire les aliments et à éloigner les animaux." },
+  { id: "sapiens", d: "vers 300 000 av. J.-C.", v: -300000, t: "Les premiers Homo sapiens", c: "evenement", n: "CM2", hp: "6e", x: "Les plus anciens restes connus d'Homo sapiens, notre espèce, ont été retrouvés au Maroc, sur le site de Djebel Irhoud." },
+  { id: "chauvet", d: "il y a environ 36 000 ans", v: -34000, t: "Les peintures de la grotte Chauvet", c: "art", n: "CE1", hp: 1, x: "Dans cette grotte de l'Ardèche, des humains ont peint des lions, des chevaux, des mammouths… Ce sont parmi les plus anciennes peintures connues." },
+  { id: "agriculture", d: "vers 10 000 – 9 000 av. J.-C.", v: -9500, t: "Naissance de l'agriculture", c: "invention", n: "CE2", x: "Au Proche-Orient, des humains commencent à cultiver des céréales et à élever des animaux. Ils construisent des villages : c'est le Néolithique." },
+  { id: "otzi", d: "vers 3200 av. J.-C.", v: -3200, t: "Ötzi, l'homme des glaces", c: "personnage", n: "CE2", x: "Son corps, conservé dans un glacier des Alpes, a été retrouvé en 1991 avec ses vêtements, sa hache en cuivre et son arc." },
+  { id: "ecriture", d: "vers 3000 av. J.-C.", v: -3000, t: "L'invention de l'écriture", c: "invention", n: "CE1", b: 1, x: "En Mésopotamie (l'actuel Irak), puis en Égypte, les humains inventent l'écriture. C'est la fin de la Préhistoire et le début de l'Antiquité." },
+  // ---------- Antiquité ----------
+  { id: "kheops", d: "vers 2560 av. J.-C.", v: -2560, t: "La grande pyramide de Khéops", c: "art", n: "CE2", hp: 1, x: "En Égypte, le pharaon Khéops fait construire la plus grande des pyramides pour lui servir de tombeau. Elle mesurait à l'origine environ 146 m de haut." },
+  { id: "jo", d: "776 av. J.-C.", v: -776, t: "Les premiers Jeux olympiques", c: "evenement", n: "CM1", hp: 1, x: "Selon la tradition, les premiers Jeux ont lieu à Olympie, en Grèce, en l'honneur du dieu Zeus." },
+  { id: "rome", d: "753 av. J.-C.", v: -753, t: "Fondation de Rome (selon la légende)", c: "evenement", n: "CE2", hp: 1, x: "Selon la légende, Romulus fonde la ville de Rome au bord du Tibre. Rome deviendra la capitale d'un immense empire." },
+  { id: "massalia", d: "vers 600 av. J.-C.", v: -600, t: "Des Grecs fondent Marseille (Massalia)", c: "evenement", n: "CM1", hp: "6e", x: "Des marins grecs venus de Phocée fondent la cité de Massalia. C'est l'une des plus anciennes villes de France." },
+  { id: "alexandre", d: "336 – 323 av. J.-C.", v: -336, f: -323, t: "Alexandre le Grand", c: "roi", n: "CM2", hp: "6e", x: "Roi de Macédoine, il conquiert en quelques années un immense empire, de la Grèce jusqu'aux portes de l'Inde." },
+  { id: "alesia", d: "52 av. J.-C.", v: -52, t: "Siège d'Alésia : Vercingétorix vaincu", c: "guerre", n: "CE1", x: "Le chef gaulois Vercingétorix est vaincu par le général romain Jules César. La Gaule passe sous la domination de Rome." },
+  { id: "auguste", d: "27 av. J.-C. – 14 ap. J.-C.", v: -27, f: 14, t: "Auguste, premier empereur romain", c: "roi", n: "CE2", x: "Il est le premier empereur de Rome. Son long règne ouvre une période de paix dans l'empire : la « paix romaine »." },
+  { id: "pont-gard", d: "Ier siècle ap. J.-C.", v: 50, t: "Construction du pont du Gard", c: "art", n: "CE2", hp: 1, x: "Ce pont fait partie d'un aqueduc romain qui apportait l'eau jusqu'à la ville de Nîmes. Il est toujours debout !" },
+  { id: "chute-rome", d: "476", v: 476, t: "Chute de l'Empire romain d'Occident", c: "evenement", n: "CE1", b: 1, x: "Le dernier empereur romain d'Occident est renversé par un chef germanique. C'est la fin de l'Antiquité et le début du Moyen Âge." },
+  // ---------- Moyen Âge ----------
+  { id: "clovis", d: "481 – 511", v: 481, f: 511, t: "Clovis, roi des Francs", c: "roi", n: "CE2", hp: 1, x: "Roi des Francs, il agrandit son royaume et se fait baptiser à Reims (vers 496). Il choisit Paris comme capitale." },
+  { id: "charlemagne", d: "800", v: 800, t: "Charlemagne couronné empereur", c: "roi", n: "CE1", hp: 1, x: "Roi des Francs, Charlemagne est couronné empereur à Rome le jour de Noël de l'an 800. Il règne sur une grande partie de l'Europe." },
+  { id: "cluny", d: "910", v: 910, t: "Fondation de l'abbaye de Cluny", c: "art", n: "CM1", x: "En Bourgogne, des moines fondent l'abbaye de Cluny. Elle devient l'une des plus grandes et des plus puissantes d'Europe." },
+  { id: "capet", d: "987", v: 987, t: "Hugues Capet élu roi", c: "roi", n: "CE2", x: "Les grands seigneurs élisent Hugues Capet roi des Francs. Ses descendants, les Capétiens, régneront pendant des siècles." },
+  { id: "croisade", d: "1096", v: 1096, t: "Départ de la première croisade", c: "guerre", n: "CM1", hp: 1, x: "À l'appel du pape, des chevaliers chrétiens partent en expédition armée vers Jérusalem." },
+  { id: "alienor", d: "1137", v: 1137, t: "Aliénor d'Aquitaine, reine de France", c: "personnage", n: "CE2", x: "Duchesse d'Aquitaine, elle épouse le roi Louis VII en 1137. Plus tard, elle devient reine d'Angleterre en épousant Henri II." },
+  { id: "notre-dame", d: "1163", v: 1163, t: "Début de la construction de Notre-Dame de Paris", c: "art", n: "CM1", x: "Le chantier de cette cathédrale gothique dure près de deux siècles. Elle a été restaurée après l'incendie de 2019." },
+  { id: "philippe-auguste", d: "1180 – 1223", v: 1180, f: 1223, t: "Philippe Auguste", c: "roi", n: "CE2", x: "Ce roi capétien agrandit beaucoup le royaume de France. Il remporte la bataille de Bouvines en 1214." },
+  { id: "blanche", d: "1226", v: 1226, t: "Blanche de Castille, régente", c: "personnage", n: "CE2", x: "Mère du jeune roi Louis IX, elle gouverne le royaume à sa place tant qu'il est enfant : elle est régente." },
+  { id: "saint-louis", d: "1226 – 1270", v: 1226.5, f: 1270, t: "Louis IX (Saint Louis)", c: "roi", n: "CM1", hp: 1, x: "Roi réputé pour sa piété et sa justice, il meurt pendant une croisade, près de Tunis." },
+  { id: "cent-ans", d: "1337 – 1453", v: 1337, f: 1453, t: "Guerre de Cent Ans", c: "guerre", n: "CE2", x: "Une longue suite de guerres entre les rois de France et d'Angleterre, coupée de trêves. Le roi de France finit par l'emporter." },
+  { id: "jeanne", d: "1429", v: 1429, t: "Jeanne d'Arc délivre Orléans", c: "personnage", n: "CE1", hp: 1, x: "Pendant la guerre de Cent Ans, cette jeune fille de Domrémy aide le roi Charles VII. Prisonnière des Anglais, elle est brûlée à Rouen en 1431." },
+  { id: "gutenberg", d: "vers 1450", v: 1450, t: "Gutenberg met au point l'imprimerie", c: "invention", n: "CM1", hp: 1, x: "À Mayence, en Allemagne, Gutenberg imprime des livres avec des caractères mobiles en métal. Les livres deviennent plus nombreux et moins chers." },
+  { id: "colomb", d: "1492", v: 1492, t: "Christophe Colomb atteint l'Amérique", c: "evenement", n: "CE1", b: 1, x: "En cherchant une route vers l'Asie par l'ouest, le navigateur arrive en Amérique. Cette date marque le début des Temps modernes." },
+  // ---------- Temps modernes ----------
+  { id: "marignan", d: "1515", v: 1515, t: "Victoire de Marignan", c: "guerre", n: "CM1", hp: 1, x: "Au début de son règne, François Ier remporte cette bataille en Italie." },
+  { id: "francois1", d: "1515 – 1547", v: 1515.1, f: 1547, t: "François Ier", c: "roi", n: "CM1", x: "Roi de la Renaissance, il fait construire des châteaux comme Chambord et accueille des artistes italiens. En 1539, il impose le français dans les actes officiels." },
+  { id: "leonard", d: "1516 – 1519", v: 1516, t: "Léonard de Vinci en France", c: "personnage", n: "CM1", x: "Invité par François Ier, le grand artiste et inventeur italien passe ses dernières années au Clos Lucé, à Amboise, où il meurt en 1519." },
+  { id: "magellan", d: "1519 – 1522", v: 1519, f: 1522, t: "Premier tour du monde (Magellan)", c: "evenement", n: "CM1", x: "Partie d'Espagne, l'expédition de Magellan fait le premier tour du monde en bateau. Magellan meurt en route ; un seul navire revient, en 1522." },
+  { id: "cartier", d: "1534", v: 1534, t: "Jacques Cartier explore le Canada", c: "personnage", n: "CM1", hp: 1, x: "Envoyé par François Ier, ce navigateur de Saint-Malo explore le golfe du Saint-Laurent, au Canada." },
+  { id: "religion", d: "1562 – 1598", v: 1562, f: 1598, t: "Guerres de Religion", c: "guerre", n: "CM1", hp: 1, x: "En France, catholiques et protestants s'affrontent pendant plus de trente ans." },
+  { id: "henri4", d: "1589 – 1610", v: 1589, f: 1610, t: "Henri IV", c: "roi", n: "CM1", x: "Premier roi Bourbon, il met fin aux guerres de Religion. Il est assassiné en 1610." },
+  { id: "nantes", d: "1598", v: 1598, t: "Édit de Nantes", c: "evenement", n: "CM1", x: "Henri IV accorde aux protestants la liberté de pratiquer leur religion dans certains lieux, et des droits. La paix revient." },
+  { id: "galilee", d: "1609 – 1610", v: 1609, t: "Galilée observe le ciel à la lunette", c: "invention", n: "CM1", hp: 1, x: "Le savant italien découvre les montagnes de la Lune et des satellites de Jupiter. Il défend l'idée que la Terre tourne autour du Soleil." },
+  { id: "louis14", d: "1643 – 1715", v: 1643, f: 1715, t: "Louis XIV, le Roi-Soleil", c: "roi", n: "CE1", x: "Il gouverne seul, avec une autorité absolue. Son règne de 72 ans est le plus long de l'histoire de France." },
+  { id: "versailles", d: "1682", v: 1682, t: "La cour s'installe à Versailles", c: "art", n: "CM1", x: "Louis XIV installe la cour et le gouvernement dans le château de Versailles, qu'il a fait agrandir et embellir." },
+  { id: "code-noir", d: "1685", v: 1685, t: "Le « Code noir »", c: "evenement", n: "CM1", x: "Ces lois fixent le sort des esclaves dans les colonies françaises : ils sont considérés comme des biens que l'on peut acheter et vendre." },
+  { id: "voltaire", d: "1694 – 1778", v: 1694, f: 1778, t: "Voltaire, philosophe des Lumières", c: "personnage", n: "CM1", x: "Écrivain et philosophe, il combat l'intolérance et l'injustice, et défend la liberté de penser." },
+  { id: "encyclopedie", d: "1751", v: 1751, t: "Premier volume de l'Encyclopédie", c: "evenement", n: "CM1", hp: 1, x: "Diderot et d'Alembert publient le premier volume de ce grand ouvrage qui rassemble les connaissances de leur temps." },
+  { id: "louis16", d: "1774 – 1792", v: 1774, f: 1792, t: "Louis XVI", c: "roi", n: "CM1", hp: 1, x: "Dernier roi de l'Ancien Régime. Renversé en 1792, il est guillotiné en janvier 1793." },
+  { id: "montgolfiere", d: "1783", v: 1783, t: "Première montgolfière", c: "invention", n: "CM1", hp: 1, x: "Les frères Montgolfier font s'envoler un ballon à air chaud à Annonay. La même année, des hommes volent pour la première fois à bord d'une montgolfière." },
+  // ---------- 1789 ----------
+  { id: "doleances", d: "printemps 1789", v: J(1789, 3, 15), t: "Les cahiers de doléances", c: "evenement", n: "CM1", x: "Dans tout le royaume, les Français écrivent leurs plaintes et leurs souhaits dans des cahiers, pour le roi." },
+  { id: "etats-generaux", d: "5 mai 1789", v: J(1789, 5, 5), t: "Ouverture des États généraux", c: "evenement", n: "CM1", x: "À Versailles, Louis XVI réunit les députés des trois ordres (clergé, noblesse, tiers état) pour trouver de l'argent." },
+  { id: "jeu-paume", d: "20 juin 1789", v: J(1789, 6, 20), t: "Le serment du Jeu de paume", c: "evenement", n: "CM1", hp: 1, x: "Les députés du tiers état jurent de ne pas se séparer avant d'avoir donné une Constitution à la France." },
+  { id: "bastille", d: "14 juillet 1789", v: J(1789, 7, 14), t: "Prise de la Bastille", c: "evenement", n: "CE1", b: 1, x: "Le peuple de Paris s'empare de la Bastille, une prison royale. La Révolution commence : c'est le début de l'époque contemporaine." },
+  { id: "4-aout", d: "nuit du 4 août 1789", v: J(1789, 8, 4), t: "Abolition des privilèges", c: "evenement", n: "CM1", x: "Les députés abolissent les privilèges : les nobles et le clergé perdent leurs avantages." },
+  { id: "ddhc", d: "26 août 1789", v: J(1789, 8, 26), t: "Déclaration des droits de l'homme et du citoyen", c: "evenement", n: "CM1", x: "« Les hommes naissent et demeurent libres et égaux en droits. » Ce texte proclame la liberté et l'égalité." },
+  { id: "marche-femmes", d: "5 – 6 octobre 1789", v: J(1789, 10, 5), t: "Marche des femmes sur Versailles", c: "evenement", n: "CM1", x: "Des femmes de Paris marchent jusqu'à Versailles pour réclamer du pain. Le roi et sa famille doivent venir vivre à Paris." },
+  // ---------- Époque contemporaine ----------
+  { id: "petition", d: "mars 1792", v: J(1792, 3, 6), t: "Pétition de 319 femmes", c: "evenement", n: "CM2", x: "Menées par Pauline Léon, 319 femmes demandent à l'Assemblée le droit de s'armer pour défendre la Révolution." },
+  { id: "marseillaise", d: "avril 1792", v: J(1792, 4, 25), t: "Rouget de Lisle compose La Marseillaise", c: "art", n: "CM2", x: "Ce chant de guerre, écrit à Strasbourg, est chanté par des soldats venus de Marseille. Il deviendra l'hymne national." },
+  { id: "republique", d: "septembre 1792", v: J(1792, 9, 21), t: "Naissance de la Ire République", c: "evenement", n: "CM2", x: "La royauté est abolie le 21 septembre 1792 : la France devient une république." },
+  { id: "abolition-1794", d: "1794", v: J(1794, 2, 4), t: "Première abolition de l'esclavage", c: "evenement", n: "CM2", x: "Le 4 février 1794, la Convention abolit l'esclavage dans toutes les colonies françaises." },
+  { id: "lycees", d: "1802", v: J(1802, 5, 1), t: "Création des lycées", c: "invention", n: "CM2", x: "Napoléon Bonaparte crée les lycées pour former les futurs officiers, ingénieurs et fonctionnaires." },
+  { id: "esclavage-1802", d: "1802", v: J(1802, 5, 20), t: "Rétablissement de l'esclavage", c: "evenement", n: "CM2", x: "Napoléon Bonaparte rétablit l'esclavage dans les colonies françaises." },
+  { id: "code-civil", d: "1804", v: J(1804, 3, 21), t: "Le Code civil", c: "evenement", n: "CM2", x: "Ce recueil de lois voulu par Bonaparte fixe les règles de la vie en société (famille, propriété…). Il est encore à la base de nos lois." },
+  { id: "sacre", d: "2 décembre 1804", v: J(1804, 12, 2), t: "Sacre de Napoléon Ier", c: "evenement", n: "CM2", x: "À Notre-Dame de Paris, Napoléon Bonaparte est sacré empereur des Français." },
+  { id: "napoleon", d: "1804 – 1815", v: J(1804, 5, 18), f: 1815.5, t: "Napoléon Ier, empereur", c: "roi", n: "CM2", x: "Il gouverne la France en empereur et mène de nombreuses guerres en Europe. Battu à Waterloo en 1815, il est exilé." },
+  { id: "waterloo", d: "18 juin 1815", v: J(1815, 6, 18), t: "Bataille de Waterloo", c: "guerre", n: "CM2", hp: 1, x: "En Belgique, Napoléon est définitivement battu par les Anglais et les Prussiens. C'est la fin de l'Empire." },
+  { id: "stephenson", d: "début du XIXe siècle", v: 1825, t: "La locomotive de Stephenson", c: "invention", n: "CM2", x: "En 1825, en Angleterre, George Stephenson fait rouler une locomotive à vapeur sur l'une des premières lignes de chemin de fer." },
+  { id: "suffrage", d: "1848", v: J(1848, 3, 5), t: "Suffrage universel masculin", c: "evenement", n: "CM2", x: "Sous la IIe République, tous les hommes de plus de 21 ans peuvent voter. Les femmes n'ont pas encore ce droit." },
+  { id: "abolition-1848", d: "1848", v: J(1848, 4, 27), t: "Abolition définitive de l'esclavage", c: "evenement", n: "CM2", x: "Grâce notamment à Victor Schœlcher, l'esclavage est aboli pour toujours dans les colonies françaises." },
+  { id: "napoleon3", d: "1852 – 1870", v: J(1852, 12, 2), f: 1870.7, t: "Napoléon III, empereur", c: "roi", n: "CM2", hp: 1, x: "Neveu de Napoléon Ier, il règne sur le Second Empire. Il est renversé en 1870, pendant une guerre contre la Prusse." },
+  { id: "greve", d: "1864", v: 1864, t: "Le droit de grève", c: "evenement", n: "CM2", x: "Une loi permet aux ouvriers de faire grève, c'est-à-dire d'arrêter ensemble le travail pour défendre leurs droits." },
+  { id: "ecole", d: "1882", v: 1882, t: "L'école obligatoire et laïque", c: "evenement", n: "CM2", x: "Depuis 1881, l'école publique est gratuite. En 1882, avec les lois de Jules Ferry, elle devient obligatoire de 6 à 13 ans et laïque." },
+  { id: "syndicats", d: "1884", v: 1884, t: "La liberté syndicale", c: "evenement", n: "CM2", x: "Une loi autorise les travailleurs à créer des syndicats pour défendre ensemble leurs intérêts." },
+  { id: "pasteur", d: "1885", v: 1885, t: "Pasteur : le vaccin contre la rage", c: "personnage", n: "CM2", x: "Louis Pasteur sauve un jeune garçon mordu par un chien enragé, Joseph Meister, grâce à son vaccin." },
+  { id: "eiffel", d: "1889", v: 1889, t: "La tour Eiffel", c: "art", n: "CE1", hp: 1, x: "Construite par l'entreprise de Gustave Eiffel pour l'Exposition universelle de Paris, elle était alors la plus haute tour du monde." },
+  { id: "cinema", d: "1895", v: 1895, t: "Les frères Lumière : le cinéma", c: "invention", n: "CM2", hp: 1, x: "À Paris, Auguste et Louis Lumière organisent la première séance publique et payante de cinéma avec leur cinématographe." },
+  { id: "curie", d: "1903", v: 1903, t: "Marie Curie, prix Nobel", c: "personnage", n: "CM2", hp: 1, x: "Avec Pierre Curie et Henri Becquerel, elle reçoit le prix Nobel de physique. Elle est la première femme à obtenir ce prix." },
+  { id: "laicite", d: "9 décembre 1905", v: J(1905, 12, 9), t: "Séparation des Églises et de l'État", c: "evenement", n: "CM2", x: "La loi garantit la liberté de conscience : l'État ne reconnaît ni ne finance aucune religion. C'est la laïcité." },
+  { id: "bleriot", d: "1909", v: J(1909, 7, 25), t: "Blériot traverse la Manche en avion", c: "invention", n: "CM2", hp: 1, x: "Louis Blériot est le premier à traverser la Manche en avion, de Calais jusqu'à Douvres, en Angleterre." },
+  { id: "ww1", d: "1914 – 1918", v: J(1914, 8, 3), f: J(1918, 11, 11), t: "Première Guerre mondiale", c: "guerre", n: "CM2", x: "Une guerre terrible oppose la France, le Royaume-Uni, la Russie puis les États-Unis à l'Allemagne et ses alliés. Des millions de soldats meurent." },
+  { id: "verdun", d: "1916", v: J(1916, 2, 21), t: "Bataille de Verdun", c: "guerre", n: "CM2", hp: 1, x: "Pendant dix mois, Français et Allemands s'affrontent autour de Verdun. C'est l'une des batailles les plus meurtrières de la guerre." },
+  { id: "armistice", d: "11 novembre 1918", v: J(1918, 11, 11), t: "Armistice de la Grande Guerre", c: "evenement", n: "CM2", x: "Les combats s'arrêtent : l'Allemagne a perdu la guerre. Chaque 11 novembre, on rend hommage aux morts." },
+  { id: "ww2", d: "1939 – 1945", v: J(1939, 9, 3), f: J(1945, 5, 8), t: "Seconde Guerre mondiale", c: "guerre", n: "CM2", x: "La guerre la plus meurtrière de l'histoire. L'Allemagne nazie occupe la France à partir de 1940 ; des millions de Juifs sont exterminés." },
+  { id: "appel", d: "18 juin 1940", v: J(1940, 6, 18), t: "Appel du général de Gaulle", c: "personnage", n: "CM2", x: "Depuis Londres, à la radio, le général de Gaulle appelle les Français à continuer le combat contre l'Allemagne nazie." },
+  { id: "vel-hiv", d: "16 – 17 juillet 1942", v: J(1942, 7, 16), t: "Rafle du Vél' d'Hiv", c: "evenement", n: "CM2", x: "À Paris, la police française arrête plus de 13 000 Juifs, dont plus de 4 000 enfants, à la demande de l'occupant nazi. Presque tous sont déportés et assassinés." },
+  { id: "moulin", d: "1943", v: J(1943, 5, 27), t: "Jean Moulin unit la Résistance", c: "personnage", n: "CM2", x: "Envoyé par de Gaulle, Jean Moulin réunit les mouvements de la Résistance. Arrêté peu après, il meurt sous la torture." },
+  { id: "vote-femmes", d: "1944", v: J(1944, 4, 21), t: "Droit de vote des femmes", c: "evenement", n: "CM2", x: "Les femmes obtiennent le droit de voter et d'être élues. Elles votent pour la première fois en 1945." },
+  { id: "debarquement", d: "6 juin 1944", v: J(1944, 6, 6), t: "Débarquement en Normandie", c: "guerre", n: "CM2", x: "Les soldats alliés (Américains, Britanniques, Canadiens, Français…) débarquent sur les plages normandes pour libérer la France." },
+  { id: "8-mai", d: "8 mai 1945", v: J(1945, 5, 8), t: "Capitulation de l'Allemagne nazie", c: "evenement", n: "CM2", x: "L'Allemagne nazie capitule : la guerre est finie en Europe." },
+  { id: "traite-rome", d: "1957", v: J(1957, 3, 25), t: "Traité de Rome : naissance de la CEE", c: "evenement", n: "CM2", x: "Six pays, dont la France et l'Allemagne, créent la Communauté économique européenne, l'ancêtre de l'Union européenne." },
+  { id: "ve-rep", d: "1958", v: J(1958, 10, 4), t: "Naissance de la Ve République", c: "evenement", n: "CM2", x: "Une nouvelle Constitution, voulue par le général de Gaulle, crée la Ve République, dans laquelle nous vivons toujours." },
+  { id: "de-gaulle", d: "1959 – 1969", v: 1959, f: 1969.3, t: "Charles de Gaulle, président", c: "roi", n: "CM2", x: "Chef de la France libre pendant la guerre, il est le premier président de la Ve République." },
+  { id: "femmes-1965", d: "1965", v: J(1965, 7, 13), t: "Les femmes mariées plus libres", c: "evenement", n: "CM2", x: "Les femmes mariées peuvent désormais exercer un métier et ouvrir un compte en banque sans l'autorisation de leur mari." },
+  { id: "lune", d: "1969", v: J(1969, 7, 21), t: "Premiers pas sur la Lune", c: "invention", n: "CE1", hp: 1, x: "L'astronaute américain Neil Armstrong est le premier humain à marcher sur la Lune, pendant la mission Apollo 11." },
+  { id: "maastricht", d: "1992", v: 1992, t: "Traité de Maastricht", c: "evenement", n: "CM2", hp: 1, x: "Ce traité crée l'Union européenne et prévoit une monnaie commune, l'euro." },
+  { id: "euro", d: "2002", v: 2002, t: "L'euro remplace le franc", c: "evenement", n: "CM2", x: "Créé en 1999, l'euro remplace les pièces et les billets en francs le 1er janvier 2002." },
+];
+
+// Frises d'une période. a/b = bornes de la frise, maj = graduation principale (avec date),
+// min = petite graduation (aimantation), tol = écart accepté, siecles = bande des siècles.
+// niv = premier niveau où la frise est proposée, prog = rappel du programme.
+export const FRISES = [
+  { id: "prehistoire", nom: "Préhistoire", sous: "les 40 000 dernières années", per: 0, a: -40000, b: -2000, maj: 5000, min: 1000, tol: 2600, niv: "CE2",
+    prog: "CE2 : du Paléolithique au Néolithique. La frise ne montre que la fin de la Préhistoire, qui a duré environ 3 millions d'années." },
+  { id: "antiquite", nom: "Antiquité", sous: "de 3000 av. J.-C. à 476", per: 1, a: -3200, b: 600, maj: 500, min: 100, tol: 160, niv: "CE2",
+    prog: "CE2 : Rome et la Gaule romaine." },
+  { id: "moyen-age", nom: "Moyen Âge", sous: "de 476 à 1492", per: 2, a: 400, b: 1550, maj: 100, min: 25, tol: 30, siecles: 1, niv: "CE2",
+    prog: "CE2 : la construction du royaume de France (Xe–XVe s.). CM1 : la vie quotidienne au Moyen Âge." },
+  { id: "temps-modernes", nom: "Temps modernes", sous: "de 1492 à 1789", per: 3, a: 1450, b: 1800, maj: 50, min: 10, tol: 12, siecles: 1, niv: "CM1",
+    prog: "CM1 : la monarchie (XVIe–XVIIe s.), les explorations." },
+  { id: "an-1789", nom: "L'année 1789", sous: "mois par mois", per: 4, a: 1789, b: 1790, mois: 1, min: 1 / 12, tol: 1.4 / 12, niv: "CM1",
+    prog: "CM1 : 1789, la Révolution commence." },
+  { id: "contemporaine", nom: "Époque contemporaine", sous: "de 1789 à aujourd'hui", per: 4, a: 1780, b: 2030, maj: 50, min: 10, tol: 12, siecles: 1, niv: "CM2",
+    prog: "CM2 : de la Révolution à nos jours." },
+  { id: "rev-empire", nom: "Révolution et Empire", sous: "de 1789 à 1815", per: 4, a: 1788, b: 1816, maj: 5, min: 1, tol: 1.2, niv: "CM2",
+    prog: "CM2 : la République et l'Empire." },
+  { id: "guerres", nom: "Les deux guerres mondiales", sous: "de 1914 à 1945", per: 4, a: 1910, b: 1950, maj: 5, min: 1, tol: 1.2, niv: "CM2",
+    prog: "CM2 : la Première et la Seconde Guerre mondiale." },
+];

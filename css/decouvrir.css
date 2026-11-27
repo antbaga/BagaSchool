@@ -1,0 +1,18 @@
+/* À découvrir : styles partagés (js/decouvrir/kit.js). Chaque module a son fichier css/dk-*.css. */
+.dk-niv button{min-width:52px;font-weight:900}
+.dk-banque{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-content:flex-start;min-height:54px;padding:6px}
+.dk-etq{font:inherit;font-size:20px;font-weight:800;padding:6px 14px;border-radius:12px;background:#ffe3a3;box-shadow:0 3px 0 #e0b85a;touch-action:none;cursor:grab;border:0;color:var(--ink);user-select:none;-webkit-user-select:none}
+.dk-etq.on{outline:3px solid var(--primary);transform:translateY(-2px)}
+.dk-etq.good{background:#c9ecd4;box-shadow:0 3px 0 #6fb985}
+.dk-etq.bad{background:#ffd0d6;box-shadow:0 3px 0 #e0556a}
+.dk-pris{opacity:.3}
+.dk-ghost{position:fixed;z-index:200;pointer-events:none;transform:translate(-50%,-50%) rotate(-3deg);box-shadow:0 10px 24px #0003!important;margin:0}
+.dk-survol{outline:4px solid var(--primary)!important;outline-offset:2px}
+svg .dk-survol{stroke:var(--primary)!important;stroke-width:4px!important}
+.dk-zoom{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;z-index:5}
+.dk-zoom button{width:44px;height:44px;border-radius:14px;background:#fff;box-shadow:var(--shadow);font-size:22px;font-weight:900;border:0;color:var(--ink)}
+.dk-bravo{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);z-index:300;background:#fff;border-radius:24px;padding:18px 34px;font-size:40px;font-weight:900;color:#1f8a4c;box-shadow:0 20px 50px #0003;pointer-events:none;animation:dkBravo 1.8s ease forwards}
+@keyframes dkBravo{0%{opacity:0;transform:translate(-50%,-30%) scale(.7)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}25%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.dk-bravo{animation:none}}
+.dk-source{font-size:13px;color:var(--muted);text-align:center;margin:6px 0 0}
+.dk-tag{display:inline-block;font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--primary-soft);color:var(--primary);margin-right:4px}
