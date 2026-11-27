@@ -885,3 +885,34 @@ label.check input{margin-top:4px;flex:none}
 .avis-tete label{margin-left:auto}
 .avis p{margin:.4em 0 0}
 @media (max-width:700px){.adm-t{display:block;overflow-x:auto}}
+
+/* ===== v0.8.1 : accueil des alpha-testeurs ===== */
+body[data-view=bienvenue] .tabbar,body[data-view=bienvenue] .sidebar{display:none!important}
+body[data-view=bienvenue] main{margin-left:0!important}
+.bv{max-width:560px;margin:0 auto;padding:22px 22px 18px}
+.bv h2{margin:.2em 0 .3em;font-size:26px}
+.bv h4{margin:18px 0 8px}
+.bv-lead{font-size:17px}
+.bv-hero{font-size:56px;line-height:1;text-align:center;margin:8px 0 4px}
+.bv-hero+h2{text-align:center}
+.bv-pts{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+.bv-pts span{width:8px;height:8px;border-radius:8px;background:var(--line);transition:width .2s}
+.bv-pts span.on{width:24px;background:var(--primary)}
+.bv-pts span.fait{background:#c9c2f7}
+.bv-liste{list-style:none;padding:0;margin:14px 0;display:flex;flex-direction:column;gap:10px}
+.bv-liste li{display:flex;gap:12px;align-items:flex-start;background:#faf7ff;border-radius:14px;padding:10px 12px}
+.bv-liste li>span{font-size:24px;line-height:1.1}
+.bv-form{display:flex;flex-direction:column;gap:12px;margin:10px 0}
+.bv-form .big,.bv-nav .big{min-height:50px;font-size:17px}
+.bv-code{background:var(--primary-soft);border-radius:12px;padding:8px 12px;display:inline-block}
+.bv-ex{margin-top:16px}
+.bv-inst{background:#faf7ff;border-radius:14px;padding:6px 14px 10px}
+.bv-tour{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.bv-tour a{display:flex;flex-direction:column;gap:2px;background:#faf7ff;border-radius:14px;padding:12px;color:var(--ink);text-decoration:none}
+.bv-tour a span{font-size:26px}
+.bv-tour small{color:var(--muted)}
+.bv-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:20px;flex-wrap:wrap}
+.bv-nav .row{margin:0;flex-wrap:nowrap}
+.acc-compte{position:relative;display:flex!important;gap:10px;align-items:center;flex-wrap:wrap;padding-right:40px!important}
+.acc-compte span{flex:1;min-width:200px}
+@media (max-width:520px){.bv{padding:16px 14px}.bv-tour{grid-template-columns:1fr}.bv h2{font-size:23px}}

@@ -52,7 +52,8 @@ function fermer(retenir = true) {
 }
 
 function afficher() {
-  if (estInstallee() || document.getElementById("instBan")) return;
+  if (estInstallee() || document.getElementById("instBan") || location.hash.startsWith("#/bienvenue")) return; // le parcours d'accueil a sa propre étape
+
   const html = contenuInstallation(); if (!html) return;
   const ban = document.createElement("aside");
   ban.id = "instBan"; ban.className = "inst-ban no-print"; ban.setAttribute("role", "dialog"); ban.setAttribute("aria-label", "Installer BagaSchool");

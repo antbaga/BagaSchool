@@ -48,6 +48,7 @@ manifest.webmanifest  installation PWA
   base les refuse) ; l'app reste utilisable sans compte et les données locales sont fusionnées dans le compte à la connexion ;
   QR code pour connecter le téléphone (e-mail prérempli) ; télécommande via le canal temps réel privé du compte ; message
   « nouvelle version » quand une mise à jour est publiée. Le relais Cloudflare (v0.6) est supprimé. Schéma : supabase/setup.sql.
+- **v0.8.1** : lien d'invitation `#/bienvenue/<code>` avec accueil pas à pas (présentation, compte avec code prérempli, jours de classe et zone, exemples facultatifs, installation selon l'appareil, premiers pas) ; bouton « Partager / Copier le message » dans Administration ; rappel « Me connecter » sur l'accueil quand on n'est pas connecté.
 - **v0.7** (retours de la prof) : bandeau d'installation à l'ouverture du lien (bouton sur Chrome / Edge / Android,
   tuto Safari sur iPhone) et page « Installer et projeter » ; emploi du temps aux horaires libres (durées 15 à 120 min) ;
   fiche de prép : période, séquence, n° et type de séance (dont investigation, expérimentation), critères de réussite
