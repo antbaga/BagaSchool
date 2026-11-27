@@ -1,0 +1,99 @@
+/* ===== Barre d'outils du tableau (js/barre.js) : vignette 🧰 + fenêtres flottantes ===== */
+.qt-calque{position:fixed;inset:0;z-index:80;pointer-events:none}
+.qt-calque>*{pointer-events:auto}
+.qt-lanceur.actif{background:var(--primary);color:#fff}
+/* Vignette du coin : seulement quand la barre de titre est masquée (projection depuis le téléphone) */
+.qt-coin{display:none;position:absolute;top:10px;right:10px;z-index:35;width:52px;height:52px;border-radius:16px;padding:0;font-size:26px;background:#ffffffd9;box-shadow:0 4px 16px #3b335530;opacity:.7}
+.qt-coin:hover,.qt-coin.actif{opacity:1}
+body.projection .qt-coin{display:grid;place-items:center}
+
+.qt-menu{position:fixed;z-index:99999;display:none;flex-direction:column;gap:8px;width:min(340px,calc(100vw - 16px));background:#fffffff7;border-radius:22px;box-shadow:0 16px 50px #3b335545;padding:12px}
+.qt-menu.ouvert{display:flex;animation:qtIn .15s ease-out}
+.qt-menu-titre{font-weight:900;font-size:14px;color:var(--muted);padding:0 4px}
+.qt-grille{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.qt-grille button{justify-content:flex-start;gap:10px;min-height:52px;border-radius:14px;background:#f7f4ff;text-align:left;font-size:15px;line-height:1.15;padding:8px 10px;touch-action:manipulation}
+.qt-grille button span{font-size:26px;flex:none}
+.qt-grille button.on{background:var(--primary-soft);box-shadow:inset 0 0 0 2px var(--primary)}
+.qt-tout{min-height:40px;font-size:14px;color:var(--muted);background:none}
+@keyframes qtIn{from{opacity:0;transform:translateY(-6px)}}
+
+/* Fenêtres : tout est en em, --s agrandit ou réduit la fenêtre entière (coin en bas à droite) */
+.qt-win{position:absolute;font-size:calc(16px * var(--s,1));background:#fff;border-radius:1.1em;box-shadow:0 .6em 2em #3b335548,0 0 0 1px #3b335512;display:flex;flex-direction:column;min-width:13em;max-width:calc(100vw - 8px);color:var(--ink);touch-action:none}
+.qt-win.bouge{box-shadow:0 1em 3em #3b335566;opacity:.94}
+.qt-win.coucou{animation:qtCoucou .5s}
+.qt-win.alerte{animation:qtAlerte 1s infinite}
+@keyframes qtCoucou{40%{transform:scale(1.06)}}
+@keyframes qtAlerte{50%{box-shadow:0 0 0 .35em #ef6461,0 .6em 2em #3b335548}}
+.qt-tete{display:flex;align-items:center;gap:.3em;padding:.25em .3em .25em .8em;min-height:2.8em;background:#f4f1fb;border-radius:1.1em 1.1em 0 0;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none}
+.qt-win.bouge .qt-tete{cursor:grabbing}
+.qt-titre{flex:1;font-weight:900;font-size:.9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qt-x{width:2.4em;height:2.4em;min-height:0;padding:0;border-radius:50%;font-size:1em;background:#fff}
+.qt-corps{padding:.7em .8em 1em;display:flex;flex-direction:column;align-items:center;gap:.55em;touch-action:manipulation}
+.qt-coin-redim{position:absolute;right:0;bottom:0;width:2.2em;height:2.2em;cursor:nwse-resize;touch-action:none;border-radius:0 0 1.1em 0;background:linear-gradient(135deg,transparent 55%,#c9c1de 55%,#c9c1de 62%,transparent 62%,transparent 72%,#c9c1de 72%,#c9c1de 79%,transparent 79%)}
+.qt-win button{font-size:1em;min-height:0;touch-action:manipulation}
+.qt-ligne{display:flex;flex-wrap:wrap;gap:.35em;justify-content:center;align-items:center}
+.qt-pt{padding:.45em .7em;border-radius:.8em;background:#f4f1fb;font-size:.95em!important;min-width:2.6em;min-height:2.6em!important}
+.qt-pt.on{background:var(--primary-soft);box-shadow:inset 0 0 0 2px var(--primary)}
+.qt-go{padding:.55em 1em;border-radius:.9em;background:var(--primary);color:#fff;box-shadow:0 .2em 0 #0002;min-height:2.8em!important}
+.qt-aide{margin:0;font-size:.85em;color:var(--muted);text-align:center;max-width:16em}
+.qt-err{color:#c2364a}
+
+/* Feu */
+.qt-feu{background:#3b3355;border-radius:2.2em;padding:.8em;display:flex;flex-direction:column;gap:.6em}
+.qt-lampe{width:4.6em;height:4.6em;border-radius:50%!important;padding:0;opacity:.22}
+.qt-lampe.rouge{background:#ef6461}.qt-lampe.orange{background:#f5b83d}.qt-lampe.vert{background:#5cc87a}
+.qt-lampe.on{opacity:1}
+.qt-lampe.rouge.on{box-shadow:0 0 1.6em #ef6461}.qt-lampe.orange.on{box-shadow:0 0 1.6em #f5b83d}.qt-lampe.vert.on{box-shadow:0 0 1.6em #5cc87a}
+.qt-legende{font-weight:900;font-size:1.05em;text-align:center}
+
+/* Minuteur */
+.qt-anneau{position:relative;width:9em;aspect-ratio:1}
+.qt-anneau svg{width:100%;height:100%;transform:rotate(-90deg)}
+.qt-a-fond{fill:#fff7e0;stroke:#f4efe6;stroke-width:8}
+.qt-a-plein{fill:none;stroke:#f5b83d;stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .25s linear,stroke .3s}
+.qt-temps{position:absolute;inset:0;display:grid;place-items:center;font-size:2.3em;font-weight:900;font-variant-numeric:tabular-nums}
+.bientot .qt-a-plein{stroke:#f08a5d}.fini .qt-a-plein{stroke:#ef6461}
+.fini .qt-temps{color:#ef6461;animation:blink 1s infinite}
+
+/* Chrono */
+.qt-chrono{font-size:2.8em;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1;padding:.1em .3em}
+.qt-chrono small{font-size:.55em;color:var(--muted)}
+.qt-tours{margin:0;padding:0 0 0 1.6em;font-variant-numeric:tabular-nums;font-weight:700;max-height:7em;overflow:auto}
+.qt-tours:empty{display:none}
+.qt-tours small{color:var(--muted)}
+
+/* Bruit */
+.qt-visage{font-size:3.4em;line-height:1}
+.qt-jauge{position:relative;width:13em;height:1.4em;border-radius:1em;background:#f1edf8;overflow:hidden}
+.qt-jauge i{position:absolute;left:0;top:0;bottom:0;width:0;background:#5cc87a;border-radius:1em;transition:background .3s}
+.qt-jauge i.orange{background:#f5b83d}.qt-jauge i.rouge{background:#ef6461}
+.qt-jauge b{position:absolute;top:0;bottom:0;width:.25em;margin-left:-.12em;background:#3b3355}
+.qt-reglage{display:flex;align-items:center;gap:.5em;font-size:.9em;font-weight:800;margin:0;color:var(--ink)}
+.qt-reglage input{width:9em;margin:0;accent-color:var(--primary);touch-action:none}
+.qt-corps[data-etat=rouge] .qt-visage{animation:pop .5s infinite}
+
+/* Voix */
+.qt-voix{display:flex;flex-direction:column;align-items:center;border-radius:1em;padding:.5em 1em;min-width:10em}
+.qt-voix span{font-size:2.6em;line-height:1.1}.qt-voix b{font-size:2em;line-height:1}.qt-voix em{font-style:normal;font-weight:900;text-align:center}
+.qt-vn{background:var(--c)!important;font-weight:900}
+.qt-vn.on{box-shadow:inset 0 0 0 3px var(--ink)!important}
+
+/* Tirage */
+.qt-nom{font-size:2.2em;font-weight:900;padding:.25em .6em;border-radius:.6em;background:#fff0f4;min-width:5em;text-align:center;max-width:9em;overflow-wrap:anywhere}
+.qt-nom.pop{animation:pop .4s}
+
+/* Dés */
+.qt-des{display:flex;gap:.6em;flex-wrap:wrap;justify-content:center;background:none;padding:.2em}
+.qt-des .die{width:4.2em}
+.qt-des.rolling .die{animation:roll .45s ease-out}
+
+/* Heure */
+.qt-horloge{width:10em;height:10em}
+.qt-horloge>circle:first-child{fill:#fff;stroke:#3b3355;stroke-width:2}
+.qt-grad line{stroke:#3b3355}
+.qt-chif text{font:800 8.5px var(--font);text-anchor:middle;fill:#3b3355}
+.qt-h{stroke:#3b3355;stroke-width:3.6;stroke-linecap:round}
+.qt-m{stroke:#2f6fe0;stroke-width:2.4;stroke-linecap:round}
+.qt-s{stroke:#e0384f;stroke-width:1;stroke-linecap:round}
+.qt-centre{fill:#3b3355}
+.qt-num{font-size:1.6em;font-weight:900;font-variant-numeric:tabular-nums}

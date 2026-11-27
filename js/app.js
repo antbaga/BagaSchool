@@ -15,6 +15,7 @@ import qrcode from "./vendor/qrcode.mjs";
 import { ISSR_BAREMES, issrJour, trancheISSR, nomTrancheISSR } from "./data/issr.js";
 import { chercherAdresse, distanceRoute, lienGeoportail } from "./distance.js";
 import { installerAnnotation, tapFiable } from "./annoter.js";
+import { installerBarre } from "./barre.js";
 import * as res from "./ressources.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
@@ -672,6 +673,12 @@ function viewOutils() {
   app.innerHTML = `<p class="intro">Des outils à projeter au tableau ou à utiliser sur ton téléphone pendant la classe.</p>
     ${sections.map(([t, d, list]) => `<h2 class="section-title">${t}</h2>${d ? `<p class="hint section-desc">${d}</p>` : ""}<div class="tiles">${list.map((o) => toolTile(o, true)).join("")}</div>`).join("")}`;
 }
+// Barre d'outils du tableau : élèves présents (sans les absents de l'appel de la demi-journée en cours).
+function ctxBarre() {
+  const a = state.appel?.[localISO(new Date())], demi = new Date().getHours() < 12 ? "matin" : "aprem";
+  const pres = state.eleves.filter((e) => a?.[demi]?.[e.id] !== "A");
+  return { presents: () => pres.map((e) => e.prenom), absents: state.eleves.length - pres.length };
+}
 function viewOutil(id) {
   const o = OUTILS.find((x) => x.id === id);
   if (!o) return notFound();
@@ -686,8 +693,8 @@ function viewOutil(id) {
       <div class="board-body" id="tool"></div>
     </section>`;
   const finOutil = o.mount($("#tool"), { eleves: state.eleves, esc, decks: state.decks, saveDecks: () => save("decks"), cahier: state.cahier, saveCahier: () => save("cahier") }) || null;
-  const finAnnot = installerAnnotation($("#board")), finTap = tapFiable($("#board"));
-  toolCleanup = () => { finAnnot(); finTap(); finOutil?.(); };
+  const finAnnot = installerAnnotation($("#board")), finTap = tapFiable($("#board")), finBarre = installerBarre($("#board"), ctxBarre);
+  toolCleanup = () => { finBarre(); finAnnot(); finTap(); finOutil?.(); };
   surveiller();
   $("#fs").onclick = () => {
     const b = $("#board");
@@ -1890,9 +1897,9 @@ async function viewRessource(id) {
       </header>
       <div class="board-body rs-corps">${contenu}</div>
     </section>`;
-  const finAnnot = installerAnnotation($("#board")), finTap = tapFiable($("#board"));
+  const finAnnot = installerAnnotation($("#board")), finTap = tapFiable($("#board")), finBarre = installerBarre($("#board"), ctxBarre);
   $("#fs").onclick = () => { const b = $("#board"); if (document.fullscreenElement) document.exitFullscreen?.(); else { try { (b.requestFullscreen || b.webkitRequestFullscreen)?.call(b)?.catch?.(() => {}); } catch {} } };
-  toolCleanup = () => { finAnnot(); finTap(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+  toolCleanup = () => { finBarre(); finAnnot(); finTap(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
 }
 
 // ---------- routeur ----------
