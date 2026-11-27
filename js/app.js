@@ -1,9 +1,11 @@
 import * as db from "./db.js";
 import { COMPETENCES, SOURCES, NIVEAUX, DISCIPLINES } from "./competences.js";
-import { OUTILS } from "./outils.js";
+import { OUTILS as OUTILS_CLASSE } from "./outils.js";
+import { DECOUVRIR } from "./decouvrir.js";
+const OUTILS = [...OUTILS_CLASSE, ...DECOUVRIR];
 import { GENERATEURS, seeded } from "./imprimer.js";
 
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 
 // ---------- état ----------
 let state = {};
@@ -550,8 +552,14 @@ function viewAccueil() {
 // ---------- EN CLASSE (outils) ----------
 let toolCleanup = null;
 function viewOutils() {
+  const GESTION = ["minuteur", "tirage", "groupes", "voix", "feu", "date"];
+  const sections = [
+    ["🔭 Découvrir", "Sciences et géographie, à explorer ensemble.", DECOUVRIR],
+    ["🧑‍🏫 Gérer la classe", "", OUTILS_CLASSE.filter((o) => GESTION.includes(o.id))],
+    ["🧮 Maths, mots et dessin", "", OUTILS_CLASSE.filter((o) => !GESTION.includes(o.id))],
+  ];
   app.innerHTML = `<p class="intro">Des outils à projeter au tableau ou à utiliser sur ton téléphone pendant la classe.</p>
-    <div class="tiles">${OUTILS.map((o) => toolTile(o, true)).join("")}</div>`;
+    ${sections.map(([t, d, list]) => `<h2 class="section-title">${t}</h2>${d ? `<p class="hint section-desc">${d}</p>` : ""}<div class="tiles">${list.map((o) => toolTile(o, true)).join("")}</div>`).join("")}`;
 }
 function viewOutil(id) {
   const o = OUTILS.find((x) => x.id === id);

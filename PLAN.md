@@ -41,6 +41,10 @@ manifest.webmanifest  installation PWA
   tirage au sort, groupes, niveaux de voix, feu tricolore, date du jour, dés, calcul mental, horloge,
   cadre de dix, droite graduée, barres de fractions, pendu, ardoise (uni / carreaux / Seyès).
   Inspirée d'un post Instagram montrant ce type d'outils ; design et code originaux.
+- **v0.4** : apps « Découvrir » dans En classe : système solaire (orbites animées, comparaison des tailles à l'échelle),
+  phases de la Lune, cycle de l'eau animé étape par étape, états de l'eau (particules + thermomètre),
+  globe 3D à faire tourner (continents, océans, quiz), régions de France (chefs-lieux, quiz).
+  Données : Natural Earth (domaine public) et IGN Admin Express (Licence Ouverte), simplifiées dans js/data/geo.js.
 - **v0.3** : section « À imprimer », générateurs de fiches A4 (aperçu, nouvelle série, corrigé, impression / PDF) :
   calcul posé (code couleur u/d/c), calcul en ligne, lire l'heure, droite graduée, modèle d'écriture cursive
   sur Seyès (police Google « Playwrite FR Trad »), graphisme, tableaux de conjugaison vierges, étiquettes prénoms.
