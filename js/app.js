@@ -1482,7 +1482,7 @@ function viewAide() {
       <li>Avec un TBI, tu peux toucher directement le tableau : les boutons sont assez gros pour ça.</li>
     </ol>
     <h3>📱 Utiliser le téléphone comme télécommande (facultatif)</h3>
-    <ol class="aide-steps"><li>Sur l'ordinateur : Réglages > Synchroniser mes appareils > Activer, un QR code s'affiche.</li><li>Sur le téléphone (BagaSchool installée) : Réglages > Scanner le QR code.</li><li>En classe, sur le téléphone : <b>Télécommande</b>. Choisis un outil : il s'ouvre au tableau en plein écran, et tous ses boutons sont sur ton téléphone.</li></ol>
+    <ol class="aide-steps"><li>Connecte-toi à ton compte sur l'ordinateur, puis Réglages > Mon compte > <b>Connecter un autre appareil</b> : un QR code s'affiche.</li><li>Scanne-le avec le téléphone et tape ton mot de passe.</li><li>En classe, sur le téléphone : <b>Télécommande</b>. Choisis un outil : il s'ouvre au tableau en plein écran, et tous ses boutons sont sur ton téléphone.</li></ol>
   </div>`;
   $("#instGo")?.addEventListener("click", async () => { await lancerInstallation(); viewAide(); });
 }
