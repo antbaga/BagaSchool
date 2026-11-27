@@ -1,8 +1,9 @@
 import * as db from "./db.js";
 import { COMPETENCES, SOURCES, NIVEAUX, DISCIPLINES } from "./competences.js";
 import { OUTILS } from "./outils.js";
+import { GENERATEURS, seeded } from "./imprimer.js";
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 
 // ---------- état ----------
 let state = {};
@@ -539,7 +540,7 @@ function viewAccueil() {
         <div class="quick">
           <a class="quick-btn" href="#/fiches/new"><span>📝</span>Nouvelle fiche</a>
           <a class="quick-btn" href="#/evaluations/new"><span>✅</span>Nouvelle évaluation</a>
-          <a class="quick-btn" href="#/programmations"><span>🗂️</span>Programmations</a>
+          <a class="quick-btn" href="#/imprimer"><span>🖨️</span>À imprimer</a>
         </div>
         ${recent.length ? `<h4>Dernières fiches</h4>${recent.map((f) => `<a class="item" href="#/fiches/${f.id}">${esc(f.titre)}<span class="hint">${esc(f.discipline)}</span></a>`).join("")}` : ""}
       </section>
@@ -573,8 +574,93 @@ function viewOutil(id) {
   };
 }
 
+// ---------- À IMPRIMER (générateurs) ----------
+const genTile = (g) => `<a class="tile" href="#/imprimer/${g.id}" style="--tile:${g.couleur}"><span class="tile-ico">${g.icone}</span><span class="tile-name">${esc(g.nom)}</span><span class="tile-desc">${esc(g.desc)}</span></a>`;
+function viewImprimer() {
+  app.innerHTML = `<p class="intro">Choisis un modèle, règle deux ou trois options, et imprime. Les exercices sont générés automatiquement.</p>
+    <div class="tiles">${GENERATEURS.map(genTile).join("")}</div>`;
+}
+let xRatioCache = null;
+async function cursiveRatio() {
+  if (xRatioCache) return xRatioCache;
+  try {
+    await Promise.race([document.fonts.load('100px "Playwrite FR Trad"', "xl"), new Promise((r) => setTimeout(r, 2500))]);
+    if (!document.fonts.check('100px "Playwrite FR Trad"')) return 0.42;
+    const c = document.createElement("canvas").getContext("2d");
+    c.font = '100px "Playwrite FR Trad"';
+    const m = c.measureText("x");
+    xRatioCache = m.actualBoundingBoxAscent / 100 || 0.42;
+  } catch { xRatioCache = 0.42; }
+  return xRatioCache;
+}
+async function viewGenerateur(id) {
+  const g = GENERATEURS.find((x) => x.id === id);
+  if (!g) return notFound();
+  setTitle(g.nom);
+  state.reglages.imprimer ??= {};
+  const saved = state.reglages.imprimer[id] ?? {};
+  const p = Object.fromEntries(g.params.map((x) => [x.key, saved[x.key] ?? (Array.isArray(x.def) ? [...x.def] : x.def)]));
+  let seed = saved._seed ?? Math.floor(Math.random() * 1e9);
+  const persist = () => { state.reglages.imprimer[id] = { ...p, _seed: seed }; save("reglages"); };
+  const field = (x) => {
+    const v = p[x.key];
+    if (x.type === "seg") return `<div class="field"><span class="field-label">${esc(x.label)}</span><div class="seg wrap">${x.options.map(([val, lab]) => `<button type="button" data-k="${x.key}" data-v="${esc(val)}" class="${String(v) === val ? "on" : ""}">${esc(lab)}</button>`).join("")}</div></div>`;
+    if (x.type === "multi") return `<div class="field"><span class="field-label">${esc(x.label)}</span><div class="seg wrap">${x.options.map(([val, lab]) => `<button type="button" data-multi="${x.key}" data-v="${val}" class="${v.includes(val) ? "on" : ""}">${esc(lab)}</button>`).join("")}</div></div>`;
+    if (x.type === "toggle") return `<label class="switch"><input type="checkbox" data-k="${x.key}" ${v ? "checked" : ""}><span class="switch-ui"></span>${esc(x.label)}</label>`;
+    if (x.type === "select") return `<label>${esc(x.label)}<select data-k="${x.key}">${x.options.map(([val, lab]) => `<option value="${esc(val)}" ${String(v) === val ? "selected" : ""}>${esc(lab)}</option>`).join("")}</select></label>`;
+    if (x.type === "textarea") return `<label>${esc(x.label)}<textarea data-k="${x.key}" rows="4">${esc(v)}</textarea></label>`;
+    return `<label>${esc(x.label)}<input data-k="${x.key}" value="${esc(v)}"></label>`;
+  };
+  app.innerHTML = `
+    <div class="gen">
+      <aside class="gen-form panel">
+        <div class="gen-title"><a href="#/imprimer" class="round-btn" aria-label="Retour">←</a><span class="tile-ico" style="--tile:${g.couleur}">${g.icone}</span><h2>${esc(g.nom)}</h2></div>
+        <div id="fields"></div>
+        <div class="gen-actions">
+          ${g.aleatoire ? `<button class="big-btn soft" id="reroll">🔀 Nouvelle série</button>` : ""}
+          <button class="big-btn" id="print">🖨️ Imprimer</button>
+        </div>
+        <p class="hint">Pour un PDF : choisis « Enregistrer en PDF » dans la fenêtre d'impression.</p>
+      </aside>
+      <section class="gen-preview" id="preview"></section>
+    </div>`;
+  const drawFields = () => { $("#fields").innerHTML = g.params.map(field).join(""); };
+  const ratio = g.id === "ecriture" || g.id === "etiquettes" ? await cursiveRatio() : 0.42;
+  if (!$("#preview")) return; // la vue a changé pendant le chargement de la police
+  const prev = $("#preview");
+  const draw = () => {
+    let pages;
+    try { pages = g.render(p, { rnd: seeded(seed), esc, eleves: state.eleves, xRatio: ratio }); }
+    catch (err) { pages = [`<div class="page"><p>Impossible de générer cette fiche (${esc(err.message)}).</p></div>`]; }
+    prev.innerHTML = pages.map((h) => `<div class="page-wrap">${h}</div>`).join("") + (pages.length > 1 ? `<p class="hint center">${pages.length} pages</p>` : "");
+    fit();
+  };
+  const fit = () => {
+    const w = prev.clientWidth;
+    const pagePx = 210 * 96 / 25.4;
+    prev.style.setProperty("--s", Math.min(1, (w - 4) / pagePx));
+  };
+  const ro = new ResizeObserver(fit); ro.observe(prev);
+  toolCleanup = () => ro.disconnect();
+  drawFields(); draw();
+  const onField = (e) => {
+    const t = e.target; const k = t.dataset.k;
+    if (!k || t.tagName === "BUTTON") return;
+    p[k] = t.type === "checkbox" ? t.checked : t.value;
+    persist(); draw();
+  };
+  app.oninput = onField; app.onchange = onField;
+  app.onclick = (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.k) { p[t.dataset.k] = t.dataset.v; persist(); drawFields(); draw(); }
+    if (t.dataset.multi) { const arr = p[t.dataset.multi]; const i = arr.indexOf(t.dataset.v); i >= 0 ? arr.splice(i, 1) : arr.push(t.dataset.v); persist(); drawFields(); draw(); }
+    if (t.id === "reroll") { seed = Math.floor(Math.random() * 1e9); persist(); draw(); }
+    if (t.id === "print") window.print();
+  };
+}
+
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route() {
@@ -592,6 +678,7 @@ function route() {
   const views = {
     accueil: viewAccueil,
     outils: () => (id ? viewOutil(id) : viewOutils()),
+    imprimer: () => (id ? viewGenerateur(id) : viewImprimer()),
     edt: viewEdt,
     programmations: () => (id ? viewProg(id) : viewProgList()),
     fiches: () => (id ? viewFiche(id) : viewFiches()),

@@ -41,6 +41,9 @@ manifest.webmanifest  installation PWA
   tirage au sort, groupes, niveaux de voix, feu tricolore, date du jour, dés, calcul mental, horloge,
   cadre de dix, droite graduée, barres de fractions, pendu, ardoise (uni / carreaux / Seyès).
   Inspirée d'un post Instagram montrant ce type d'outils ; design et code originaux.
+- **v0.3** : section « À imprimer », générateurs de fiches A4 (aperçu, nouvelle série, corrigé, impression / PDF) :
+  calcul posé (code couleur u/d/c), calcul en ligne, lire l'heure, droite graduée, modèle d'écriture cursive
+  sur Seyès (police Google « Playwrite FR Trad »), graphisme, tableaux de conjugaison vierges, étiquettes prénoms.
 
 ## Limites connues du prototype
 - **Référentiel très partiel** : 26 objectifs de français cycle 3 (CM1-CM2, Lecture + Écriture CM1),
@@ -58,7 +61,8 @@ manifest.webmanifest  installation PWA
 2. Compléter le référentiel : cycles 1, 2, 3, toutes disciplines, à partir des textes du BO en vigueur
    (attention : programmes de français et maths renouvelés à partir de 2024-2025, d'autres disciplines
    encore sur les programmes 2015/2020). Garder une source par entrée.
-3. Autres outils de classe possibles : flashcards, memory, mots mêlés, monnaie (euros), sondage.
+3. Autres outils possibles : flashcards, memory, mots mêlés, monnaie (euros), sondage ; carte de France,
+   exercices de conjugaison avec correction automatique (demande un conjugueur fiable) ; liens vidéos par notion.
 4. Cahier journal (vue jour qui relie EDT + fiches), export PDF propre, modèles de fiches.
 5. Livret / bilans par élève à partir des évaluations.
 
