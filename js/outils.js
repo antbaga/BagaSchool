@@ -7,7 +7,7 @@ const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { co
 const pad = (n) => String(n).padStart(2, "0");
 
 let audio;
-function bip(freq = 880, dur = 0.25, when = 0) {
+export function bip(freq = 880, dur = 0.25, when = 0) {
   try {
     audio ??= new (window.AudioContext || window.webkitAudioContext)();
     const o = audio.createOscillator(), g = audio.createGain();
@@ -144,7 +144,7 @@ function groupes(el, ctx) {
 }
 
 // ---------- Niveaux de voix ----------
-const VOIX = [
+export const VOIX = [
   { n: 0, t: "Silence", e: "🤫", c: "#8fb8f2" },
   { n: 1, t: "Je chuchote", e: "🙊", c: "#9fd8a8" },
   { n: 2, t: "Je parle doucement", e: "🙂", c: "#f8d26a" },
@@ -206,7 +206,7 @@ function date(el) {
 
 // ---------- Dés ----------
 const PIPS = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
-const dieHTML = (v) => `<div class="die">${Array.from({ length: 9 }, (_, i) => `<i class="${PIPS[v].includes(i + 1) ? "p" : ""}"></i>`).join("")}</div>`;
+export const dieHTML = (v) => `<div class="die">${Array.from({ length: 9 }, (_, i) => `<i class="${PIPS[v].includes(i + 1) ? "p" : ""}"></i>`).join("")}</div>`;
 function des(el) {
   let n = 2, vals = [3, 5];
   const render = (rolling = false) => {
