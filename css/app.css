@@ -579,3 +579,37 @@ a.pill{text-decoration:none;color:inherit}
 .ws-mm span{aspect-ratio:1;display:grid;place-items:center;font-weight:800;font-size:calc(150mm / var(--n) * .5);border:.15mm solid #ddd}
 .ws-mm span.on{background:#ffe3a3}
 .ws-mm-list{list-style:none;padding:0;margin:4mm 10mm;columns:3;font-size:13pt}
+/* ===== v0.6 : synchro, projection, télécommande ===== */
+.sync-dot{width:12px;height:12px;border-radius:50%;margin-left:auto;margin-right:4px;flex:none;background:#c9c4d6}
+.sync-dot.s-ok{background:#43c26b}.sync-dot.s-connexion{background:#f2c14e}.sync-dot.s-hors-ligne,.sync-dot.s-non-configure{background:#e0556a}
+.qr{display:grid;place-items:center;margin:10px auto;width:min(300px,80vw);background:#fff;border-radius:16px;padding:8px}
+.qr svg{width:100%;height:auto}
+.scan video{width:100%;max-height:60vh;border-radius:16px;background:#000;object-fit:cover}
+/* Projection : au tableau, l'outil sans ses boutons (ils sont sur le téléphone) */
+body.projection .topbar,body.projection .sidebar,body.projection .tabbar,body.projection .board-head{display:none!important}
+body.projection main{margin:0!important;padding:12px!important;max-width:none!important}
+body.projection .board{min-height:calc(100vh - 24px)}
+body.projection #tool :is(button,select,input,textarea):not(.rc-board *):not(.rc-keep):not(.rc-keep *){display:none!important}
+body.projection #tool label:has(select,input,textarea):not(.rc-board *):not(.rc-keep *){display:none!important}
+body.projection #tool :is(.seg,.pills,.tables,.keypad,.bank,.mem-setup,.deck-list,.deck-edit,.mm-words):not(:has(.rc-keep)):not(.rc-keep){display:none!important}
+/* Télécommande (téléphone) */
+body.remote-mode .topbar,body.remote-mode .tabbar,body.remote-mode .sidebar{display:none!important}
+body.remote-mode main{margin:0!important;padding:10px 10px calc(10px + env(safe-area-inset-bottom))!important;padding-top:calc(10px + env(safe-area-inset-top))!important;max-width:none!important}
+.rc{display:flex;flex-direction:column;gap:10px;min-height:calc(100vh - 20px)}
+.rc-head{display:flex;align-items:center;gap:10px}.rc-head b{flex:1;font-size:18px}
+.rc-stat{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.rc-dot{width:10px;height:10px;border-radius:50%;background:#e0556a;flex:none}.rc-dot.on{background:#43c26b}
+.rc-apercu{background:#fff;border-radius:14px;padding:10px 12px;font-size:14px;box-shadow:var(--shadow);max-height:22vh;overflow:auto}
+.rc-ctl{display:flex;flex-direction:column;gap:12px}
+.rc-group{display:flex;flex-wrap:wrap;gap:8px}
+.rc-btn{flex:1 1 calc(33% - 8px);min-height:58px;font-size:18px;font-weight:800;background:#fff;border-radius:16px;box-shadow:var(--shadow)}
+.rc-btn.on{background:var(--primary);color:#fff}
+.rc-btn:disabled{opacity:.4}
+.rc-field{flex:1 1 100%;display:flex;flex-direction:column;gap:4px;font-weight:700}
+.rc-field input[type=range]{width:100%}
+.rc-tiles{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.rc-tiles .tile{border:none;width:100%}
+body.projection,body.remote-mode{padding-top:0!important;padding-bottom:0!important}
+.rc-btn{flex:1 1 auto;min-width:30%;padding:6px 10px}
+.rc-btn.good{background:#c9ecd4}.rc-btn.bad{background:#ffd0dc}
+.rc-group.compact .rc-btn{min-width:17%;min-height:50px;font-size:17px}

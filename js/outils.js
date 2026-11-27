@@ -434,7 +434,7 @@ function pendu(el) {
         <div class="hang-main">
           <div class="slots">${[...W].map((c, i) => /[A-Z]/.test(c) ? `<span class="slot-l ${lose && !found.has(c) ? "miss" : ""}">${lose ? word[i].toUpperCase() : letters[i]}</span>` : `<span class="slot-sp">${c === " " ? "&nbsp;" : c}</span>`).join("")}</div>
           ${win ? `<div class="banner ok">Bravo ! 🎉</div>` : lose ? `<div class="banner ko">Perdu… le mot était affiché.</div>` : `<p class="muted">Erreurs : ${wrong.size} / ${MAX}</p>`}
-          <div class="keys">${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((k) => `<button class="key ${found.has(k) ? "good" : wrong.has(k) ? "bad" : ""}" data-k="${k}" ${found.has(k) || wrong.has(k) || win || lose ? "disabled" : ""}>${k}</button>`).join("")}</div>
+          <div class="keys rc-keep">${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((k) => `<button class="key ${found.has(k) ? "good" : wrong.has(k) ? "bad" : ""}" data-k="${k}" ${found.has(k) || wrong.has(k) || win || lose ? "disabled" : ""}>${k}</button>`).join("")}</div>
           <button class="pill" id="new">Nouveau mot</button>
         </div>
       </div>`;

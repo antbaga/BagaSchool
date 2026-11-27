@@ -54,7 +54,7 @@ function flashcards(el, ctx) {
       <div class="tool-top wrap"><button class="pill" id="back">← Paquets</button><b>${esc(deck.nom)}</b><span class="muted">${i + 1} / ${ordre.length}</span><span class="grow"></span>
         <button class="pill" id="mix">🔀 Mélanger</button><button class="pill ${versoDabord ? "on" : ""}" id="inv">⇄ Verso d'abord</button></div>
       <div class="tool-center">
-        <button class="flash ${retourne ? "flipped" : ""}" id="card" aria-label="Retourner la carte">
+        <button class="flash rc-keep ${retourne ? "flipped" : ""}" id="card" aria-label="Retourner la carte">
           <span class="flash-in"><span class="flash-face front">${face(versoDabord)}</span><span class="flash-face back">${face(!versoDabord)}</span></span>
         </button>
         <div class="pills"><button class="big-btn soft" id="prev" ${i ? "" : "disabled"}>‹</button><button class="big-btn soft" id="flip">Retourner</button><button class="big-btn" id="next" ${i < ordre.length - 1 ? "" : "disabled"}>›</button></div>
@@ -113,7 +113,7 @@ function memory(el, ctx) {
         ${equipes === 2 ? [0, 1].map((q) => `<span class="mem-team t${q} ${tour === q && !fini ? "on" : ""}">Équipe ${q + 1} : ${scores[q]}</span>`).join("") : `<span class="muted">Essais : ${essais} · Paires : ${scores[0]} / ${cartes.length / 2}</span>`}
         <span class="grow"></span><button class="pill" id="again">↻ Rejouer</button></div>
       ${fini ? `<div class="banner ok">${equipes === 2 ? (scores[0] === scores[1] ? "Égalité ! 🤝" : `L'équipe ${scores[0] > scores[1] ? 1 : 2} gagne ! 🎉`) : `Bravo ! Toutes les paires en ${essais} essais 🎉`}</div>` : ""}
-      <div class="mem-grid" style="--cols:${cols}">${cartes.map((c, k) => `<button class="mem-card ${c.ok ? "ok" : ouvertes.includes(k) ? "open" : ""}" data-k="${k}" ${c.ok ? "disabled" : ""}><span>${c.ok || ouvertes.includes(k) ? esc(c.txt) : ""}</span></button>`).join("")}</div>`;
+      <div class="mem-grid rc-board" style="--cols:${cols}">${cartes.map((c, k) => `<button class="mem-card ${c.ok ? "ok" : ouvertes.includes(k) ? "open" : ""}" data-k="${k}" ${c.ok ? "disabled" : ""}><span>${c.ok || ouvertes.includes(k) ? esc(c.txt) : ""}</span></button>`).join("")}</div>`;
   };
   el.onclick = (e) => {
     const t = e.target.closest("button"); if (!t) return;
@@ -171,7 +171,7 @@ function motsmeles(el, ctx) {
         <button class="pill" id="sol">${solution ? "Cacher" : "Voir"} la solution</button><button class="pill" id="go">↻ Nouvelle grille</button></div>
       ${fini ? `<div class="banner ok">Tous les mots sont trouvés ! 🎉</div>` : `<p class="muted center">Touche la première lettre d'un mot, puis la dernière.</p>`}
       <div class="mm-wrap">
-        <div class="mm-grid" style="--n:${taille}">${jeu.grille.map((row, r) => row.map((l, c) => { const k = cellTrouvee(r, c); return `<button class="mm-cell ${k >= 0 ? `f f${k % 6}` : ""} ${debut && debut[0] === r && debut[1] === c ? "start" : ""}" data-rc="${r},${c}">${l}</button>`; }).join("")).join("")}</div>
+        <div class="mm-grid rc-board" style="--n:${taille}">${jeu.grille.map((row, r) => row.map((l, c) => { const k = cellTrouvee(r, c); return `<button class="mm-cell ${k >= 0 ? `f f${k % 6}` : ""} ${debut && debut[0] === r && debut[1] === c ? "start" : ""}" data-rc="${r},${c}">${l}</button>`; }).join("")).join("")}</div>
         <ul class="mm-list">${jeu.places.map((p, k) => `<li class="${trouves.has(k) ? "done" : ""}">${esc(p.mot)}</li>`).join("")}</ul>
       </div>
       ${jeu.rejetes.length ? `<p class="muted center">Mots trop longs ou impossibles à placer : ${jeu.rejetes.map(esc).join(", ")}</p>` : ""}`;
@@ -229,7 +229,7 @@ function monnaie(el) {
       ${mode === "payer" ? `
         <div class="tool-center">
           <div class="price-tag">À payer : <b>${euro(prix)}</b></div>
-          <div class="tray" aria-label="Porte-monnaie">${tas.map((v, k) => pieceHTML(v, `data-rm="${k}"`)).join("") || `<span class="muted">Touche les pièces et les billets pour payer.</span>`}</div>
+          <div class="tray rc-keep" aria-label="Porte-monnaie">${tas.map((v, k) => pieceHTML(v, `data-rm="${k}"`)).join("") || `<span class="muted">Touche les pièces et les billets pour payer.</span>`}</div>
           ${voirTotal ? `<div class="muted">Total : <b>${euro(total())}</b></div>` : ""}
           ${verdict ? `<div class="banner ${verdict === "ok" ? "ok" : "ko"}">${verdict === "ok" ? "C'est juste ! 🎉" : verdict === "plus" ? "Il manque de l'argent." : "C'est trop !"}</div>` : ""}
           <div class="pills"><button class="big-btn soft" id="chk">Vérifier</button><button class="big-btn" id="nx">Suivant ➜</button></div>

@@ -6,12 +6,16 @@ import { JEUX } from "./jeux.js";
 const OUTILS = [...OUTILS_CLASSE, ...DECOUVRIR, ...JEUX];
 import { GENERATEURS, seeded } from "./imprimer.js";
 import { CALENDRIERS, ZONES, joursFeries } from "./data/calendrier.js";
+import { SYNC_URL } from "./config.js";
+import { sync, initSync, marquer, creerEspace, rejoindre, delier, revoquer, lienAppairage, actif as syncActif, relaisConfigure, appareilsConnectes } from "./sync.js";
+import { ecran, surveiller, quitterProjection, surRcEcran, surRcTel, viewTelecommande, rafraichirTel } from "./telecommande.js";
+import qrcode from "./vendor/qrcode.mjs";
 
-export const VERSION = "0.5.0";
+export const VERSION = "0.6.0";
 
 // ---------- état ----------
 let state = {};
-const save = (coll) => { const p = db.set(coll, state[coll]); planifierBackup(); return p; };
+const save = (coll) => { const p = db.set(coll, state[coll]); planifierBackup(); marquer(coll); return p; };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 // Référentiel = textes officiels intégrés + compétences ajoutées par l'utilisatrice
 let ALL_COMP = COMPETENCES, compById = {};
@@ -505,6 +509,8 @@ async function viewReglages() {
       <p class="hint">Dernière sauvegarde : ${state.reglages._lastBackup ? new Date(state.reglages._lastBackup).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }) : "jamais"}.</p>
       <h3>Passer du téléphone à l'ordinateur (ou l'inverse)</h3>
       <p class="hint">Sur le premier appareil : « Exporter » (ou « Envoyer »). Sur l'autre : « Importer » et choisis le fichier. L'import remplace tout ce qu'il y a sur l'appareil qui reçoit.</p>
+      <h2>Synchroniser mes appareils</h2>
+      ${syncSection()}
       <h2>Calendrier</h2>
       <p>Zone scolaire : <span class="seg">${["A", "B", "C"].map((z) => `<button data-zone="${z}" class="${state.reglages.zone === z ? "on" : ""}">${z}</button>`).join("")}</span> <a href="#/calendrier" class="link">Voir le calendrier</a></p>
       <h2>Données d'exemple</h2>
@@ -520,6 +526,12 @@ async function viewReglages() {
   app.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.zone) { state.reglages.zone = t.dataset.zone; await save("reglages"); viewReglages(); }
+    if (t.id === "syOn") { await creerEspace(db.COLLECTIONS); viewReglages(); afficherQR(); }
+    if (t.id === "syQR") afficherQR();
+    if (t.id === "syScan") scannerQR();
+    if (t.id === "syPaste") { const v = $("#syCode").value.trim(); const m = v.match(/lier\/([A-Za-z0-9_.-]+)/); if (m) location.hash = `#/lier/${m[1]}`; else alert("Ce lien n'est pas un lien d'appairage BagaSchool."); }
+    if (t.id === "syOff" && confirm("Délier cet appareil ? Ses données restent dessus, mais ne seront plus synchronisées.")) { await delier(); viewReglages(); }
+    if (t.id === "syRevoke" && confirm("Délier TOUS tes appareils et effacer la copie chiffrée sur le serveur ? Chaque appareil garde ses données. Tu pourras réactiver la synchro et relier tes appareils avec un nouveau QR code.")) { await revoquer(); viewReglages(); }
     if (t.id === "bpick" && await choisirFichierBackup()) viewReglages();
     if (t.id === "bres") { await reprendreBackup(); viewReglages(); }
     if (t.id === "bshare" && await partagerSauvegarde()) viewReglages();
@@ -592,6 +604,7 @@ function viewAccueil() {
           <a class="quick-btn" href="#/fiches/modele"><span>📝</span>Nouvelle fiche</a>
           <a class="quick-btn" href="#/evaluations/new"><span>✅</span>Nouvelle évaluation</a>
           <a class="quick-btn" href="#/imprimer"><span>🖨️</span>À imprimer</a>
+          ${syncActif() && matchMedia("(pointer:coarse)").matches ? `<a class="quick-btn" href="#/telecommande"><span>📱</span>Télécommande</a>` : ""}
         </div>
         ${recent.length ? `<h4>Dernières fiches</h4>${recent.map((f) => `<a class="item" href="#/fiches/${f.id}">${esc(f.titre)}<span class="hint">${esc(f.discipline)}</span></a>`).join("")}` : ""}
       </section>
@@ -625,6 +638,7 @@ function viewOutil(id) {
       <div class="board-body" id="tool"></div>
     </section>`;
   toolCleanup = o.mount($("#tool"), { eleves: state.eleves, esc, decks: state.decks, saveDecks: () => save("decks") }) || null;
+  surveiller();
   $("#fs").onclick = () => {
     const b = $("#board");
     if (document.fullscreenElement) document.exitFullscreen?.();
@@ -1063,12 +1077,98 @@ function importerCompetences(apres = null) {
   });
 }
 
+// ---------- SYNCHRO & TÉLÉCOMMANDE ----------
+const ETATS_SYNC = { off: "", connexion: "Connexion…", ok: "Synchronisé", "hors-ligne": "Hors ligne : les modifications seront envoyées au retour du réseau", "non-configure": "Service de synchronisation pas encore installé", revoque: "Appareils déliés" };
+function majEtatSync(e) {
+  const dot = $("#syncDot");
+  if (dot) { dot.hidden = !syncActif(); dot.className = "sync-dot s-" + e; dot.title = ETATS_SYNC[e] ?? ""; }
+  if (document.body.dataset.view === "reglages" && !document.querySelector(".modal-backdrop:not([hidden])")) { const el = $("#syEtat"); if (el) el.textContent = `${ETATS_SYNC[e] ?? e}${e === "ok" ? ` · ${appareilsConnectes()} appareil(s) connecté(s) en ce moment` : ""}`; }
+  rafraichirTel();
+}
+// Une autre machine a modifié des données : on redessine la vue, sauf si on est en train d'écrire.
+let rafraichirEnAttente = false;
+function rafraichir() {
+  const v = document.body.dataset.view;
+  if (["outils", "imprimer", "telecommande", "lier"].includes(v)) return;
+  const f = document.activeElement;
+  const ecrit = f && app.contains(f) && (f.matches("input:not([type=checkbox]):not([type=radio]),textarea,select") );
+  if (ecrit || !modal.hidden) { rafraichirEnAttente = true; return; }
+  route(true);
+}
+document.addEventListener("focusout", () => setTimeout(() => { if (rafraichirEnAttente && !app.contains(document.activeElement)) { rafraichirEnAttente = false; rafraichir(); } }, 300));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && ecran.actif) quitterProjection(); });
+
+function syncSection() {
+  if (!relaisConfigure()) return `<p class="hint">La synchronisation entre ton téléphone et ton ordinateur n'est pas encore installée sur cette version.</p>`;
+  if (!syncActif()) return `
+    <p>Retrouve les mêmes cours, fiches et évaluations sur ton ordinateur et ton téléphone, et utilise ton téléphone comme télécommande du tableau.</p>
+    <div class="row"><button class="primary" id="syOn">Activer sur cet appareil</button><button class="ghost" id="syScan">📷 Scanner le QR code d'un autre appareil</button></div>
+    <p class="hint">Déjà activé ailleurs ? Scanne le QR code affiché sur l'autre appareil (Réglages > Ajouter un appareil), ou colle le lien ici :</p>
+    <div class="row"><input id="syCode" placeholder="Lien d'appairage" class="grow"><button class="ghost" id="syPaste">Lier</button></div>
+    <p class="hint">🔒 Tes données sont chiffrées sur l'appareil avant d'être envoyées : le serveur ne peut pas les lire. La clé n'est que dans tes appareils et dans le QR code, ne le partage pas.</p>`;
+  return `
+    <p>✅ Synchronisation activée. <span class="hint" id="syEtat">${ETATS_SYNC[sync.etat] ?? sync.etat}</span></p>
+    <div class="row"><button class="primary" id="syQR">📱 Ajouter un appareil (QR code)</button><a class="btn ghost" href="#/telecommande">Télécommande</a></div>
+    <div class="row"><button class="ghost" id="syOff">Délier cet appareil</button><button class="danger" id="syRevoke">Délier tous mes appareils</button></div>
+    <p class="hint">🔒 Données chiffrées de bout en bout. Si tu perds un téléphone, utilise « Délier tous mes appareils ».</p>`;
+}
+function afficherQR() {
+  const lien = lienAppairage();
+  const qr = qrcode(0, "M"); qr.addData(lien); qr.make();
+  openModal(`<h2>Ajouter un appareil</h2>
+    <p>Avec le téléphone, scanne ce code : ouvre BagaSchool, puis Réglages > « Scanner le QR code ». L'appareil photo du téléphone marche aussi.</p>
+    <div class="qr">${qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true })}</div>
+    <p class="hint">🔒 Ce code donne accès à tes données : ne l'affiche pas quand tu projettes devant la classe.</p>
+    <details class="hint"><summary>Pas d'appareil photo ?</summary><p>Copie ce lien et ouvre-le sur l'autre appareil (par exemple en te l'envoyant par mail) :</p><input readonly value="${esc(lien)}" onclick="this.select()"></details>
+    <div class="actions"><button data-close class="primary">Terminé</button></div>`);
+}
+async function scannerQR() {
+  openModal(`<h2>Scanner le QR code</h2><p class="hint">Vise le QR code affiché sur l'autre appareil.</p>
+    <div class="scan"><video id="scv" playsinline muted></video></div><p class="hint" id="scm"></p>
+    <div class="actions"><button data-close class="ghost">Annuler</button></div>`, null, () => { stop(); });
+  let stream = null, timer = null;
+  const stop = () => { clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); };
+  try {
+    if (!window.jsQR) await new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "js/vendor/jsQR.js"; s.onload = ok; s.onerror = ko; document.head.append(s); });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    const v = $("#scv"); if (!v) return stop();
+    v.srcObject = stream; await v.play();
+    const c = document.createElement("canvas"), g = c.getContext("2d", { willReadFrequently: true });
+    timer = setInterval(() => {
+      if (!v.videoWidth) return;
+      c.width = v.videoWidth; c.height = v.videoHeight; g.drawImage(v, 0, 0);
+      const r = window.jsQR(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: "dontInvert" });
+      const m = r?.data.match(/#\/lier\/([A-Za-z0-9_.-]+)/);
+      if (m) { stop(); closeModal(true); location.hash = `#/lier/${m[1]}`; }
+    }, 250);
+  } catch (e) {
+    stop(); const m = $("#scm"); if (m) m.textContent = "Impossible d'utiliser l'appareil photo ici. Utilise l'appareil photo du téléphone, ou colle le lien dans Réglages.";
+  }
+}
+function viewLier(code) {
+  if (!code) return notFound();
+  // On retire le secret de l'adresse affichée et de l'historique
+  history.replaceState(null, "", "#/lier");
+  if (!relaisConfigure()) { app.innerHTML = `<div class="sheet"><h2>Lier cet appareil</h2><p>La synchronisation n'est pas encore installée sur cette version.</p></div>`; return; }
+  const aDesDonnees = state.fiches.length || state.edt.length || state.evaluations.length || state.programmations.length;
+  app.innerHTML = `<div class="sheet"><h2>📱 Lier cet appareil</h2>
+    <p>Cet appareil va retrouver les cours, fiches, évaluations et élèves de ton autre appareil, et tout restera synchronisé.</p>
+    ${syncActif() ? `<p class="notice">Cet appareil est déjà lié. Le lier à nouveau le détachera de sa synchronisation actuelle.</p>` : ""}
+    ${aDesDonnees ? `<p class="notice">Cet appareil contient déjà des données. Celles qui existent aussi sur l'autre appareil (par exemple les fiches) seront <b>remplacées</b> par celles de l'autre appareil. Exporte une sauvegarde avant si besoin (Réglages).</p>` : ""}
+    <div class="actions"><a class="btn ghost" href="#/accueil">Annuler</a><button class="primary" id="ok">Lier cet appareil</button></div></div>`;
+  $("#ok").onclick = async () => {
+    try { if (syncActif()) await delier(); await rejoindre(code, db.COLLECTIONS); location.replace("#/reglages"); }
+    catch (e) { alert(e.message); }
+  };
+}
+
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
-function route() {
-  closeModal(true);
+function route(doux = false) {
+  if (!doux) closeModal(true);
+  const y = window.scrollY;
   try { toolCleanup?.(); } catch {}
   toolCleanup = null;
   app.onclick = app.oninput = app.onchange = null;
@@ -1079,7 +1179,7 @@ function route() {
   setTitle(TITLES[name] ?? "");
   $$("[data-route]").forEach((a) => a.classList.toggle("on", a.dataset.route === name));
   document.body.classList.remove("nav-open");
-  window.scrollTo(0, 0);
+  window.scrollTo(0, doux ? y : 0);
   const views = {
     accueil: viewAccueil,
     outils: () => (id ? viewOutil(id) : viewOutils()),
@@ -1089,9 +1189,12 @@ function route() {
     fiches: () => (id ? viewFiche(id) : viewFiches()),
     evaluations: () => (id ? viewEval(id) : viewEvals()),
     classe: () => (id ? viewEleve(id) : viewClasse()), competences: viewCompetences, reglages: viewReglages,
+    telecommande: () => { toolCleanup = viewTelecommande(app, { outils: OUTILS, actif: syncActif() }); },
+    lier: () => viewLier(id),
     journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier,
   };
   document.body.dataset.view = name;
+  if (name !== "outils" && ecran.actif) surveiller();
   (views[name] ?? notFound)();
 }
 $("#menuBtn").onclick = () => document.body.classList.toggle("nav-open");
@@ -1101,6 +1204,12 @@ $("#navBackdrop").onclick = () => document.body.classList.remove("nav-open");
   state = await db.loadAll();
   rebuildComp();
   await initBackup().catch(() => {});
+  await initSync({
+    lire: (c) => state[c],
+    ecrire: async (c, v) => { state[c] = v; await db.set(c, v); planifierBackup(); if (c === "reglages") rebuildComp(); rafraichir(); },
+    etat: majEtatSync,
+    rc: (msg) => { surRcEcran(msg); surRcTel(msg); },
+  }, SYNC_URL).catch((e) => console.warn(e));
   db.requestPersistence();
   window.addEventListener("hashchange", route);
   route();
