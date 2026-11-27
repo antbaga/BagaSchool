@@ -41,6 +41,13 @@ manifest.webmanifest  installation PWA
   tirage au sort, groupes, niveaux de voix, feu tricolore, date du jour, dés, calcul mental, horloge,
   cadre de dix, droite graduée, barres de fractions, pendu, ardoise (uni / carreaux / Seyès).
   Inspirée d'un post Instagram montrant ce type d'outils ; design et code originaux.
+- **v0.8** (alpha fermée) : comptes Supabase (projet en UE) avec e-mail + mot de passe ; inscription seulement avec un code
+  d'invitation (contrôlé par la base) ; le premier compte devient administrateur ; page Administration (créer / révoquer des
+  codes, liens d'invitation, liste des comptes, mot de passe provisoire, avis reçus) ; bouton « Donner mon avis » ;
+  synchronisation par compte des données de préparation uniquement (élèves, évaluations, appel restent sur l'appareil, et la
+  base les refuse) ; l'app reste utilisable sans compte et les données locales sont fusionnées dans le compte à la connexion ;
+  QR code pour connecter le téléphone (e-mail prérempli) ; télécommande via le canal temps réel privé du compte ; message
+  « nouvelle version » quand une mise à jour est publiée. Le relais Cloudflare (v0.6) est supprimé. Schéma : supabase/setup.sql.
 - **v0.7** (retours de la prof) : bandeau d'installation à l'ouverture du lien (bouton sur Chrome / Edge / Android,
   tuto Safari sur iPhone) et page « Installer et projeter » ; emploi du temps aux horaires libres (durées 15 à 120 min) ;
   fiche de prép : période, séquence, n° et type de séance (dont investigation, expérimentation), critères de réussite
@@ -83,9 +90,11 @@ manifest.webmanifest  installation PWA
   début de l'été appliqués aux trois zones (cellules communes du tableau officiel).
 - **Sauvegarde automatique** : seulement Chrome / Edge sur ordinateur (API File System Access). Ailleurs : export
   ou partage manuel.
-- **Synchro** : demande le relais Cloudflare déployé (compte gratuit, secrets GitHub, URL dans js/config.js).
-  Fusion : si le même champ est modifié sur deux appareils en même temps, la dernière version envoyée l'emporte.
-  Pas de compte : perdre tous ses appareils = perdre l'accès à la copie serveur (d'où l'intérêt des exports).
+- **Comptes / synchro** : demande le projet Supabase configuré (voir la notice) et ses clés publiques dans js/config.js.
+  Les données de préparation sont stockées en clair dans la base (protégées par RLS, pas de chiffrement de bout en bout).
+  Pas d'e-mails (confirmation, mot de passe oublié) tant qu'aucun serveur SMTP n'est branché : mot de passe provisoire via
+  l'administration. Offre gratuite : projet mis en pause après 7 jours sans activité. Fusion : si le même champ est modifié
+  sur deux appareils en même temps, la dernière version envoyée l'emporte.
 - **Contenus des rituels et de l'anglais** : phrases, corpus grammatical et vocabulaire rédigés pour l'app (pas des
   textes officiels) ; à relire par la prof. La voix anglaise dépend de l'appareil (voix du système).
 - **Remplacements** : les km sont saisis à la main ; aucun montant d'indemnité (ISSR, frais) n'est calculé.
