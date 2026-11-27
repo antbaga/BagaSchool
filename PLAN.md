@@ -41,6 +41,10 @@ manifest.webmanifest  installation PWA
   tirage au sort, groupes, niveaux de voix, feu tricolore, date du jour, dés, calcul mental, horloge,
   cadre de dix, droite graduée, barres de fractions, pendu, ardoise (uni / carreaux / Seyès).
   Inspirée d'un post Instagram montrant ce type d'outils ; design et code originaux.
+- **v0.6** : synchronisation entre appareils sans compte : appairage par QR code, relais Cloudflare (worker/)
+  qui ne voit que des données chiffrées (AES-GCM, clé uniquement dans les appareils et le QR), fusion des
+  modifications faites en même temps, file d'attente hors ligne. Mode télécommande : le téléphone affiche
+  en grand les boutons de l'outil projeté, le tableau n'affiche que le contenu.
 - **v0.5** : cahier journal (jour par jour, relié à l'EDT et aux fiches, impression jour / semaine) ;
   appel matin / après-midi (présent, absent, retard) + cantine, bilan mensuel ; calendrier scolaire 2026-2027
   par zone (périodes calculées, jours fériés, compte à rebours des vacances, dates dans les programmations) ;
@@ -66,9 +70,11 @@ manifest.webmanifest  installation PWA
 - **Calendrier** : seule l'année 2026-2027 est intégrée (à ajouter chaque année). Toussaint, Noël, rentrée et
   début de l'été appliqués aux trois zones (cellules communes du tableau officiel).
 - **Sauvegarde automatique** : seulement Chrome / Edge sur ordinateur (API File System Access). Ailleurs : export
-  ou partage manuel. Pas de vraie synchronisation sans serveur.
+  ou partage manuel.
+- **Synchro** : demande le relais Cloudflare déployé (compte gratuit, secrets GitHub, URL dans js/config.js).
+  Fusion : si le même champ est modifié sur deux appareils en même temps, la dernière version envoyée l'emporte.
+  Pas de compte : perdre tous ses appareils = perdre l'accès à la copie serveur (d'où l'intérêt des exports).
 - Modifier la liste des compétences d'une évaluation remet sa grille de résultats à zéro.
-- Pas de synchronisation : chaque appareil a ses propres données tant qu'on n'importe pas un export.
 - Safari iOS peut effacer les données d'un site non installé après une longue inactivité :
   conseiller d'**installer l'app sur l'écran d'accueil** et d'exporter régulièrement.
 - Aucun test automatisé dans le dépôt (tests faits à la main avec Playwright, voir PR).
