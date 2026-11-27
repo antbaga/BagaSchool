@@ -2,13 +2,14 @@ import * as db from "./db.js";
 import { COMPETENCES, SOURCES, NIVEAUX, DISCIPLINES } from "./competences.js";
 import { OUTILS as OUTILS_CLASSE } from "./outils.js";
 import { DECOUVRIR } from "./decouvrir.js";
+import { DECOUVRIR_THEMES, DECOUVRIR_PLUS } from "./decouvrir/index.js";
 import { JEUX } from "./jeux.js";
 import { OUTILS2 } from "./outils2.js";
 import { ANGLAIS } from "./anglais.js";
 import { FRANCAIS } from "./francais.js";
 import { MESURES } from "./mesures.js";
 import { GEO } from "./geo.js";
-const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...FRANCAIS, ...MESURES, ...GEO, ...ANGLAIS, ...DECOUVRIR, ...JEUX];
+const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...FRANCAIS, ...MESURES, ...GEO, ...ANGLAIS, ...DECOUVRIR, ...DECOUVRIR_PLUS, ...JEUX];
 import { GENERATEURS, seeded } from "./imprimer.js";
 import { CALENDRIERS, ZONES, joursFeries } from "./data/calendrier.js";
 import { sync, initSync, marquer, demarrer, arreter, oublier, appareil, actif as syncActif, appareilsConnectes } from "./sync.js";
@@ -674,6 +675,7 @@ function viewOutils() {
     ["🇬🇧 Anglais", "Images et son pour les petits, mots écrits pour les CM.", ANGLAIS],
     ["🎲 Jeux", "Pour réviser en s'amusant, au tableau ou en petits groupes.", JEUX],
     ["🔭 Découvrir", "Sciences et géographie, à explorer ensemble.", DECOUVRIR],
+    ...DECOUVRIR_THEMES,
   ];
   app.innerHTML = `<p class="intro">Des outils à projeter au tableau ou à utiliser sur ton téléphone pendant la classe.</p>
     ${sections.map(([t, d, list]) => `<h2 class="section-title">${t}</h2>${d ? `<p class="hint section-desc">${d}</p>` : ""}<div class="tiles">${list.map((o) => toolTile(o, true)).join("")}</div>`).join("")}`;
