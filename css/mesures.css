@@ -1,0 +1,104 @@
+/* Maths : grandeurs et mesures (js/mesures.js). Toutes les classes commencent par mes-. */
+.mes-board,.mes-jeu,.mes-qu{flex:1;display:flex;flex-direction:column;align-items:center;gap:clamp(10px,2vmin,20px);width:100%}
+.mes-seg button{white-space:nowrap}
+.pill.mes-on{background:var(--primary);color:#fff}
+.mes-aide{color:var(--muted);margin:0;text-align:center;font-size:clamp(14px,1.9vmin,18px);max-width:900px}
+.mes-aide b.dep,.mes-legende .dep{color:#2f6fd0}
+.mes-aide b.arr{color:#d0342c}
+.mes-note{margin:0;background:#fff7e0;border-radius:14px;padding:8px 14px;font-weight:700;font-size:clamp(14px,2vmin,19px);text-align:center;max-width:900px}
+
+/* ----- tableau de conversion ----- */
+.mes-scroll{width:100%;overflow-x:auto;padding:4px 2px 8px;-webkit-overflow-scrolling:touch}
+.mes-table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:min(100%,calc(var(--n) * 130px));min-width:calc(var(--n) * 38px);margin:0 auto;border:3px solid #3b3355;border-radius:16px;overflow:hidden;background:#fff}
+.mes-table th,.mes-table td{padding:0;border-right:2px solid #3b3355;position:relative;text-align:center}
+.mes-table th:last-child,.mes-table td:last-child{border-right:0}
+.mes-table th{background:#f4f1fb;border-bottom:3px solid #3b3355}
+.mes-table th.ref{background:#ffe9b0}
+.mes-table th.faible .mes-th{color:#b7b0c9;font-weight:700}
+.mes-table th.dep{background:#cfe6ff}.mes-table th.arr{background:#ffd0dc}
+.mes-table td.dep{background:#eef6ff}.mes-table td.arr{background:#fff0f4}
+.mes-th,.mes-td{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;border-radius:0;background:none;padding:2px;color:var(--ink);font-family:var(--font)}
+.mes-th{min-height:clamp(46px,8vmin,78px);font-size:clamp(16px,3.4vmin,34px);font-weight:900;line-height:1.05}
+.mes-th small{display:block;font-size:clamp(10px,1.5vmin,14px);font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+.mes-table th.dep small{color:#2f6fd0}.mes-table th.arr small{color:#d0342c}
+.mes-td{height:clamp(64px,13vmin,130px);font-size:clamp(30px,8.5vmin,84px);font-weight:900;font-variant-numeric:tabular-nums}
+span.mes-td,span.mes-th{cursor:default}
+.mes-table.actif .mes-td:hover{background:#f7f5ff}
+.mes-table td.sel .mes-td{box-shadow:inset 0 0 0 5px var(--primary);background:#f2efff}
+.mes-table td.ajoute .mes-td{color:#e0556a}
+.mes-virg{position:absolute;right:-.2em;bottom:4%;font-style:normal;font-weight:900;font-size:clamp(34px,9vmin,90px);line-height:1;color:#d0342c;z-index:2;pointer-events:none;transform:translateX(-10%)}
+.mes-virg.arr{color:#e0556a;opacity:.6}
+.mes-lecture{font-size:clamp(22px,4.6vmin,46px);font-weight:900;min-height:1.3em;text-align:center}
+.mes-lu.dep{color:#2f6fd0}.mes-lu.arr{color:#d0342c}
+.mes-enonce{font-size:clamp(28px,6.5vmin,66px);font-weight:900;text-align:center;line-height:1.25}
+.mes-verdict{font-size:clamp(18px,3.2vmin,30px);text-align:center;max-width:900px}
+.mes-verdict div+div{margin-top:4px}
+
+/* ----- pavé numérique ----- */
+.mes-pad{display:grid;grid-template-columns:repeat(12,minmax(44px,78px));gap:8px;justify-content:center;width:100%}
+.mes-pad button{min-height:clamp(52px,8.5vmin,76px);font-size:clamp(22px,4vmin,34px);font-weight:900;background:#f4f1fb;border-radius:14px;box-shadow:0 3px 0 #ded8f0;padding:0}
+.mes-pad .mes-k-virg{background:#ffe1e8;box-shadow:0 3px 0 #f2b8c6}
+.mes-pad .mes-k-del{background:#fff3d6;box-shadow:0 3px 0 #ecd9a6}
+@media (max-width:900px){.mes-pad{grid-template-columns:repeat(6,minmax(44px,1fr));max-width:520px}}
+
+/* ----- réponse à compléter ----- */
+.mes-slot{display:inline-flex;min-width:2.6ch;min-height:1.15em;padding:0 .2em;font:inherit;font-weight:900;color:var(--primary);background:#f4f1fb;border-radius:.2em;border-bottom:.08em dashed #b9b0e0;vertical-align:baseline;line-height:1.1;font-variant-numeric:tabular-nums}
+.mes-slot.on{box-shadow:0 0 0 .06em var(--primary);background:#fff}
+.mes-slot.good{background:#c9ecd4;color:#1f7a45;border-color:transparent}
+.mes-slot.bad{background:#ffd0dc;color:#b3263b;border-color:transparent}
+.mes-u{font-weight:900}
+
+/* ----- jeu des conversions ----- */
+.mes-q{font-size:clamp(30px,8vmin,84px);font-weight:900;text-align:center;line-height:1.3;margin:clamp(4px,2vmin,24px) 0}
+.mes-ok{min-width:min(320px,80%)}
+.mes-prog{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;width:100%}
+.mes-prog i{width:clamp(14px,2.4vmin,22px);height:clamp(14px,2.4vmin,22px);border-radius:50%;background:#ece6f7}
+.mes-prog i.cur{background:#fff;box-shadow:0 0 0 3px var(--primary) inset}
+.mes-prog i.ok,.mes-prog i.fait{background:#5cc87a}.mes-prog i.ko{background:#ef6461}
+.mes-score{margin-left:12px;font-weight:900;font-size:clamp(17px,2.8vmin,26px);display:inline-flex;gap:10px}
+.mes-score b{padding:2px 10px;border-radius:12px;background:#f4f1fb;font-weight:800}
+.mes-score b.on{background:var(--primary);color:#fff}
+.mes-tour{font-weight:900;font-size:clamp(18px,3vmin,28px);padding:4px 16px;border-radius:14px}
+.mes-tour.t0{background:#ffd0dc}.mes-tour.t1{background:#cfe6ff}
+.mes-aide-tab{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+.mes-aide-tab .mes-td{height:clamp(52px,10vmin,96px);font-size:clamp(26px,6.5vmin,64px)}
+.mes-expl{margin:0;font-size:clamp(18px,3.2vmin,30px);font-weight:800;text-align:center;background:#f4f1fb;border-radius:16px;padding:10px 18px;max-width:1000px}
+.mes-score-big{font-size:clamp(36px,8vmin,80px);font-weight:900}
+.mes-revoir{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:clamp(18px,3vmin,28px);font-weight:800}
+.mes-revoir li{background:#fff0f4;border-radius:12px;padding:4px 14px}
+
+/* ----- problèmes ----- */
+.mes-pb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(12px,2.4vmin,24px);width:100%}
+.mes-pb-carte{background:#fffaf0;border:3px solid #ffe3a3;border-radius:28px;padding:clamp(16px,3.5vmin,40px) clamp(18px,4.5vmin,56px);max-width:1100px;width:100%}
+.mes-pb-tete{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.mes-pb-ico{font-size:clamp(36px,8vmin,80px);line-height:1}
+.mes-pb-num{color:var(--muted);font-weight:800;font-size:clamp(14px,2.2vmin,20px)}
+.mes-pb-txt{margin:0;font-size:clamp(22px,4.6vmin,48px);font-weight:800;line-height:1.35}
+.mes-pb-indice,.mes-pb-rep{max-width:1100px;width:100%;border-radius:20px;padding:clamp(10px,2vmin,20px) clamp(14px,3vmin,30px);font-size:clamp(19px,3.6vmin,36px);font-weight:700;line-height:1.35}
+.mes-pb-indice{background:#fff3d6}
+.mes-pb-rep{background:#c9ecd4}
+.mes-pb-calc{font-weight:900;font-variant-numeric:tabular-nums;margin-bottom:4px;color:#1f5a3a}
+
+/* ----- quelle unité ? ----- */
+.mes-qu-phrase{font-size:clamp(26px,6vmin,62px);font-weight:900;text-align:center;line-height:1.3;margin:clamp(8px,3vmin,32px) 0;max-width:1100px}
+.mes-qu-trou{display:inline-block;min-width:2.4ch;border-bottom:.08em dashed #b9b0e0;color:#b9b0e0}
+.mes-qu-u.good{color:#1f8a4c}.mes-qu-u.bad{color:#d0342c;text-decoration:line-through}
+.mes-qu-choix{display:flex;gap:clamp(10px,2vmin,20px);flex-wrap:wrap;justify-content:center}
+.mes-qu-btn{flex-direction:column;gap:0;min-width:clamp(96px,16vmin,170px);min-height:clamp(84px,15vmin,150px);border-radius:22px;background:#f4f1fb;box-shadow:0 4px 0 #ded8f0;padding:8px 14px}
+.mes-qu-btn b{font-size:clamp(30px,7vmin,68px);font-weight:900;line-height:1.1}
+.mes-qu-btn small{font-size:clamp(12px,1.8vmin,17px);color:var(--muted);font-weight:700}
+.mes-qu-btn.good{background:#c9ecd4;opacity:1}.mes-qu-btn.bad{background:#ffd0dc;opacity:1}
+
+/* plein écran et projection : on profite de la place */
+.board:fullscreen .mes-table,.projection .mes-table{width:min(100%,calc(var(--n) * 170px))}
+@media (max-width:520px){
+  .mes-table{border-width:2px;border-radius:12px}
+  .mes-table th,.mes-table td{border-right-width:1px}
+  .mes-table{min-width:calc(var(--n) * 29px)}
+  .mes-table[style*="--n:10"] .mes-th{font-size:14px}
+  .mes-table[style*="--n:10"] .mes-td{font-size:26px}
+  .mes-th small{font-size:8px;letter-spacing:0}
+  .mes-pb-carte{border-radius:20px}
+}
+.board:fullscreen .mes-board .mes-td,.projection .mes-board .mes-td{height:clamp(80px,20vmin,200px);font-size:clamp(40px,12vmin,120px)}
+.board:fullscreen .mes-q,.projection .mes-q{font-size:clamp(40px,10vmin,110px)}

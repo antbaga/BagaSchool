@@ -1,0 +1,46 @@
+/* Français : Mots baladeurs, Homophones, Accords (js/francais.js) */
+.niv-seg button{min-width:52px;font-weight:900}
+.etq-consigne{margin:0;font-size:clamp(17px,2.4vmin,24px);font-weight:800;color:var(--muted)}
+.board:fullscreen .etq-ligne,.projection .etq-ligne{font-size:clamp(28px,4.4vmin,48px)}
+
+/* Mots baladeurs : ranger en colonnes */
+.etq-cols{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:14px;width:min(1100px,100%)}
+.etq-col{display:flex;flex-direction:column;align-items:stretch;gap:10px;min-height:190px;padding:12px;border-radius:18px;border:3px dashed #b9b0ef;background:#fff;box-shadow:var(--shadow);text-align:center;cursor:pointer}
+.etq-col-t{font-size:clamp(18px,2.6vmin,28px);font-weight:900;color:var(--primary);border-bottom:2px solid var(--primary-soft);padding-bottom:6px}
+.etq-col-in{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-content:flex-start;flex:1}
+.etq.mini-etq{font-size:clamp(17px,2.4vmin,26px);padding:6px 14px;cursor:pointer}
+.etq.mini-etq.good{background:#c9ecd4;box-shadow:0 3px 0 #1f8a4c}
+.etq.mini-etq.bad{background:#ffd0dc;box-shadow:0 3px 0 #e0556a}
+@media (max-width:640px){.etq-banque .etq{font-size:20px;padding:6px 14px}.etq-cols{grid-template-columns:repeat(2,minmax(0,1fr))}.etq-col{min-height:120px}}
+
+/* Homophones */
+.homo-choix .pill.on{background:var(--primary);color:#fff}
+.homo-zone{gap:22px}
+.homo-prog{display:flex;gap:6px}
+.homo-prog span{width:22px;height:8px;border-radius:4px;background:#e8e3f6}
+.homo-prog span.fait{background:#9be0b3}.homo-prog span.cour{background:var(--primary)}
+.homo-phrase{font-size:clamp(30px,6vmin,68px);font-weight:800;line-height:1.35;margin:0;max-width:1100px}
+.homo-trou{display:inline-block;min-width:2.6em;border-bottom:5px solid #cfc8f2;color:#cfc8f2;text-align:center}
+.homo-trou.actif{border-color:var(--primary);color:var(--primary);animation:homo-clign 1.2s ease-in-out infinite}
+@keyframes homo-clign{50%{opacity:.45}}
+.homo-mot{padding:0 .15em;border-radius:10px}
+.homo-mot.good{background:#c9ecd4;color:#146c3a}
+.homo-mot.bad{background:#ffd0dc;color:#b3233a}
+.homo-choix-mots{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+.homo-btn{font-size:clamp(30px,6vmin,60px);font-weight:900;min-width:2.8em;padding:.2em .7em;border-radius:22px;background:#ffe3a3;box-shadow:0 5px 0 #e0b85a;color:var(--ink)}
+.homo-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #e0b85a}
+.homo-astuce{max-width:900px;font-size:clamp(17px,2.6vmin,26px);font-weight:700;background:#e7f6ff;border-radius:16px;padding:10px 18px;margin:0}
+.homo-score{font-size:clamp(48px,10vmin,100px)}
+.homo-revoir-t{margin:0;font-weight:900}
+.homo-revoir{display:flex;flex-direction:column;gap:4px;font-size:clamp(18px,2.8vmin,28px)}
+.homo-revoir p{margin:0}.homo-revoir b{color:var(--primary)}
+
+/* Accords */
+.acc-phrase{font-size:clamp(28px,5.6vmin,62px);font-weight:800;line-height:1.7;margin:0;max-width:1150px}
+.acc-mot{font:inherit;font-weight:900;color:var(--primary);background:var(--primary-soft);border:3px solid #b9b0ef;border-radius:14px;padding:0 .3em;line-height:1.25;vertical-align:baseline;cursor:pointer}
+.acc-mot.vide{color:#b9b0ef;border-style:dashed}
+.acc-mot.good{border-color:#1f8a4c;background:#dff3e6;color:#146c3a}
+.acc-mot.bad{border-color:#e0556a;background:#ffe3e7;color:#b3233a}
+.acc-vi-mot{font-size:clamp(48px,11vmin,120px);font-weight:900;padding:.1em .6em;border-radius:24px;background:#fff;box-shadow:var(--shadow)}
+.acc-vi-mot.good{background:#dff3e6}.acc-vi-mot.bad{background:#ffe3e7}
+.homo-mot.bad s{opacity:.55;font-weight:700;margin-right:.1em}

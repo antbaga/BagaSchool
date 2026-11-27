@@ -1,5 +1,5 @@
 // Outils « En classe » (v0.7) : cahier au tableau, calcul posé, fractions en images,
-// étiquettes à déplacer, instruments de géométrie, rituels du matin.
+// instruments de géométrie, rituels du matin (les étiquettes sont dans francais.js).
 // Même format que outils.js : { id, nom, icone, couleur, desc, mount(el, ctx) -> cleanup }.
 import { rituels } from "./rituels.js";
 
@@ -297,135 +297,6 @@ function fractionsImages(el) {
 }
 
 // =====================================================================
-// Étiquettes à déplacer : phrases à trous avec propositions, ou mots à remettre dans l'ordre.
-// On glisse une étiquette sur un trou, ou on touche l'étiquette puis le trou.
-// =====================================================================
-const ETQ_KEY = "bagaschool-etiquettes";
-const ETQ_EXEMPLES = [
-  { nom: "a / à", mode: "trous", texte: "Léo [a] un chien.\nIl va [à] l'école.\nElle [a] mal [à] la tête.", intrus: "" },
-  { nom: "et / est", mode: "trous", texte: "Le ciel [est] bleu [et] le soleil brille.\nMa sœur [est] grande.\nJ'ai un stylo [et] une règle.", intrus: "" },
-  { nom: "Les animaux", mode: "trous", texte: "La [vache] donne du lait.\nLe [chat] attrape la souris.\nL'[abeille] fait du miel.", intrus: "poule, lapin" },
-  { nom: "Remettre dans l'ordre", mode: "ordre", texte: "Le petit chat boit du lait.\nLes élèves jouent dans la cour.", intrus: "" },
-];
-function etiquettes(el) {
-  let sets; try { sets = JSON.parse(localStorage.getItem(ETQ_KEY)) || []; } catch { sets = []; }
-  if (!sets.length) sets = ETQ_EXEMPLES.map((s) => ({ ...s, id: uidO() }));
-  const garder = () => localStorage.setItem(ETQ_KEY, JSON.stringify(sets));
-  let cur = 0, edition = false, choisie = null, verif = false, place = {}, banque = [], trous = [];
-  const S = () => sets[cur];
-  // Prépare la partie : liste des trous (réponses) et des étiquettes mélangées.
-  const preparer = () => {
-    const s = S(); trous = []; place = {}; choisie = null; verif = false;
-    const lignes = s.texte.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (s.mode === "ordre") {
-      lignes.forEach((l, li) => l.split(/\s+/).forEach((m) => trous.push({ li, rep: m })));
-    } else {
-      lignes.forEach((l, li) => { for (const m of l.matchAll(/\[([^\]]+)\]/g)) trous.push({ li, rep: m[1].trim() }); });
-    }
-    const intrus = (s.intrus || "").split(",").map((x) => x.trim()).filter(Boolean);
-    banque = melange([...trous.map((t) => t.rep), ...intrus]).map((txt, k) => ({ k, txt }));
-  };
-  const utilisee = (k) => Object.values(place).includes(k);
-  const ligneHTML = (l, li) => {
-    const s = S();
-    const slot = (ti) => {
-      const k = place[ti], t = trous[ti];
-      const etat = verif && k != null ? (banque[k].txt === t.rep ? "good" : "bad") : verif ? "bad" : "";
-      return `<button class="etq-slot ${k != null ? "plein" : ""} ${etat}" data-slot="${ti}" aria-label="Case ${ti + 1}">${k != null ? escO(banque[k].txt) : "&nbsp;"}</button>`;
-    };
-    const ids = trous.map((t, ti) => [t, ti]).filter(([t]) => t.li === li).map(([, ti]) => ti);
-    if (s.mode === "ordre") return ids.map(slot).join(" ");
-    let n = 0;
-    return escO(l).replace(/\[([^\]]+)\]/g, () => slot(ids[n++]));
-  };
-  const render = () => {
-    const s = S();
-    if (edition) {
-      el.innerHTML = `
-        <div class="tool-top wrap"><button class="pill" id="fin">✓ Terminé</button><button class="pill" id="suppr">Supprimer cette activité</button></div>
-        <div class="card etq-edit">
-          <label>Nom <input id="e-nom" value="${escO(s.nom)}"></label>
-          <div class="seg"><button data-emode="trous" class="${s.mode === "trous" ? "on" : ""}">Phrases à trous</button><button data-emode="ordre" class="${s.mode === "ordre" ? "on" : ""}">Mots à remettre dans l'ordre</button></div>
-          <label>Phrases (une par ligne)${s.mode === "trous" ? " : mets les mots à trouver entre crochets, par exemple <code>Le chat [mange] la souris.</code>" : " : les mots seront mélangés"}
-            <textarea id="e-txt" rows="6">${escO(s.texte)}</textarea></label>
-          ${s.mode === "trous" ? `<label>Étiquettes pièges (séparées par des virgules, facultatif) <input id="e-intrus" value="${escO(s.intrus)}"></label>` : ""}
-        </div>`;
-      return;
-    }
-    const lignes = s.texte.split("\n").map((l) => l.trim()).filter(Boolean);
-    const juste = trous.length && trous.every((t, ti) => place[ti] != null && banque[place[ti]].txt === t.rep);
-    el.innerHTML = `
-      <div class="tool-top wrap">
-        <select id="set">${sets.map((x, j) => `<option value="${j}" ${j === cur ? "selected" : ""}>${escO(x.nom)}</option>`).join("")}</select>
-        <button class="pill" id="verif">Vérifier</button><button class="pill" id="sol">Solution</button><button class="pill" id="raz">Recommencer</button>
-        <span class="grow"></span><button class="pill" id="edit">✏️ Modifier</button><button class="pill" id="nouv">+ Nouvelle activité</button>
-      </div>
-      <div class="etq-board rc-board">
-        <div class="etq-lignes">${lignes.map((l, li) => `<p class="etq-ligne">${ligneHTML(l, li)}</p>`).join("")}</div>
-        <div class="etq-banque">${banque.map((b) => utilisee(b.k) ? "" : `<button class="etq ${choisie === b.k ? "on" : ""}" data-etq="${b.k}">${escO(b.txt)}</button>`).join("")}</div>
-        ${verif ? `<p class="etq-res ${juste ? "good" : "bad"}">${juste ? "Bravo, tout est juste !" : "Il reste des erreurs ou des cases vides."}</p>` : ""}
-      </div>`;
-  };
-  const poser = (k, ti) => {
-    for (const [t, kk] of Object.entries(place)) if (kk === k) delete place[t];
-    place[ti] = k; choisie = null; verif = false;
-  };
-  // Glisser-déposer au doigt ou à la souris (pointer events), le toucher-toucher reste possible.
-  let drag = null;
-  el.onpointerdown = (e) => {
-    const b = e.target.closest("[data-etq]"); if (!b || edition) return;
-    drag = { k: +b.dataset.etq, x: e.clientX, y: e.clientY, ghost: null, src: b };
-  };
-  el.onpointermove = (e) => {
-    if (!drag) return;
-    if (!drag.ghost && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 8) {
-      drag.ghost = drag.src.cloneNode(true); drag.ghost.classList.add("etq-ghost"); document.body.appendChild(drag.ghost);
-      drag.src.style.opacity = ".3";
-    }
-    if (drag.ghost) { e.preventDefault(); drag.ghost.style.left = e.clientX + "px"; drag.ghost.style.top = e.clientY + "px"; }
-  };
-  const finDrag = (e) => {
-    if (!drag) return;
-    const d = drag; drag = null;
-    if (!d.ghost) return;
-    d.ghost.remove(); d.src.style.opacity = "";
-    const cible = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-slot]");
-    if (cible) poser(d.k, +cible.dataset.slot);
-    el._dragFini = true; setTimeout(() => { el._dragFini = false; }, 0); render();
-  };
-  el.onpointerup = finDrag; el.onpointercancel = finDrag;
-  el.onclick = (e) => {
-    if (el._dragFini) { el._dragFini = false; return; }
-    const t = e.target.closest("button"); if (!t) return;
-    if (t.dataset.etq != null) { const k = +t.dataset.etq; choisie = choisie === k ? null : k; return render(); }
-    if (t.dataset.slot != null) {
-      const ti = +t.dataset.slot;
-      if (choisie != null) poser(choisie, ti); else if (place[ti] != null) { delete place[ti]; verif = false; }
-      return render();
-    }
-    if (t.dataset.emode) { S().mode = t.dataset.emode; garder(); return render(); }
-    if (t.id === "verif") verif = true;
-    if (t.id === "sol") { place = {}; const libres = banque.map((b) => b.k); trous.forEach((tr, ti) => { const j = libres.findIndex((k) => banque[k].txt === tr.rep); if (j >= 0) place[ti] = libres.splice(j, 1)[0]; }); verif = true; }
-    if (t.id === "raz") preparer();
-    if (t.id === "edit") edition = true;
-    if (t.id === "fin") { edition = false; garder(); preparer(); }
-    if (t.id === "nouv") { sets.push({ id: uidO(), nom: "Nouvelle activité", mode: "trous", texte: "Le chat [mange] la souris.", intrus: "boit, dort" }); cur = sets.length - 1; edition = true; garder(); preparer(); }
-    if (t.id === "suppr" && confirm("Supprimer cette activité ?")) { sets.splice(cur, 1); if (!sets.length) sets = ETQ_EXEMPLES.map((s) => ({ ...s, id: uidO() })); cur = 0; edition = false; garder(); preparer(); }
-    render();
-  };
-  el.onchange = (e) => { if (e.target.id === "set") { cur = +e.target.value; preparer(); render(); } };
-  el.oninput = (e) => {
-    const s = S();
-    if (e.target.id === "e-nom") s.nom = e.target.value;
-    if (e.target.id === "e-txt") s.texte = e.target.value;
-    if (e.target.id === "e-intrus") s.intrus = e.target.value;
-    garder();
-  };
-  preparer(); render();
-  return () => { drag?.ghost?.remove(); };
-}
-
-// =====================================================================
 // Géométrie au tableau : règle, équerre, rapporteur et compas à déplacer et à faire tourner,
 // stylo, trait à la règle, gomme. 1 cm affiché = U pixels (échelle « tableau »).
 // =====================================================================
@@ -577,6 +448,5 @@ export const OUTILS2 = [
   { id: "rituels", nom: "Rituels du matin", icone: "☀️", couleur: "#ffe3a3", desc: "Date, nombre du jour, mot du jour, horloge, grammaire", mount: rituels },
   { id: "pose", nom: "Calcul posé", icone: "➗", couleur: "#d7ccff", desc: "Les 4 opérations avec les retenues", mount: calculPose },
   { id: "fractions-img", nom: "Fractions en images", icone: "🍕", couleur: "#ffd0dc", desc: "Pizzas, tablettes : partager, comparer", mount: fractionsImages },
-  { id: "etiquettes", nom: "Étiquettes à déplacer", icone: "🏷️", couleur: "#c9ecd4", desc: "Phrases à trous, mots à remettre en ordre", mount: etiquettes },
   { id: "geometrie", nom: "Géométrie", icone: "📐", couleur: "#ffd7bf", desc: "Règle, équerre, rapporteur, compas", mount: geometrie },
 ];
