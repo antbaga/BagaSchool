@@ -41,6 +41,15 @@ manifest.webmanifest  installation PWA
   tirage au sort, groupes, niveaux de voix, feu tricolore, date du jour, dés, calcul mental, horloge,
   cadre de dix, droite graduée, barres de fractions, pendu, ardoise (uni / carreaux / Seyès).
   Inspirée d'un post Instagram montrant ce type d'outils ; design et code originaux.
+- **v0.5** : cahier journal (jour par jour, relié à l'EDT et aux fiches, impression jour / semaine) ;
+  appel matin / après-midi (présent, absent, retard) + cantine, bilan mensuel ; calendrier scolaire 2026-2027
+  par zone (périodes calculées, jours fériés, compte à rebours des vacances, dates dans les programmations) ;
+  suivi par élève (bilan des évaluations par discipline, absences, observations) ; modèles de fiches
+  (4 de base + les siens) et duplication d'une programmation d'une année sur l'autre ; sauvegarde
+  automatique dans un fichier (Chrome / Edge sur ordinateur), bouton « Envoyer » (partage) sur téléphone,
+  rappel si pas de sauvegarde depuis 7 jours ; référentiel élargi à 386 objectifs officiels (français C2 et C3,
+  maths C2 CP et C3) + ajout de ses propres compétences par copier-coller ; jeux : flashcards, memory,
+  mots mêlés, monnaie, défi des tables ; fiches : problèmes, dictée de nombres, fiche de lecture, mots mêlés.
 - **v0.4** : apps « Découvrir » dans En classe : système solaire (orbites animées, comparaison des tailles à l'échelle),
   phases de la Lune, cycle de l'eau animé étape par étape, états de l'eau (particules + thermomètre),
   globe 3D à faire tourner (continents, océans, quiz), régions de France (chefs-lieux, quiz).
@@ -50,10 +59,14 @@ manifest.webmanifest  installation PWA
   sur Seyès (police Google « Playwrite FR Trad »), graphisme, tableaux de conjugaison vierges, étiquettes prénoms.
 
 ## Limites connues du prototype
-- **Référentiel très partiel** : 26 objectifs de français cycle 3 (CM1-CM2, Lecture + Écriture CM1),
-  recopiés mot pour mot depuis l'annexe « Programme de français pour le cycle 3 » publiée sur
-  education.gouv.fr. Les objectifs trop longs pour être vérifiés en entier ont été omis.
-  Ni la référence BO ni la date n'apparaissaient dans le texte récupéré : **à vérifier avant diffusion**.
+- **Référentiel partiel** : 386 objectifs recopiés mot pour mot (français cycle 3 presque complet ; français cycle 2 :
+  lecture + début de l'écriture CP ; maths cycle 2 : CP « nombres et calcul » seulement ; maths cycle 3 : nombres,
+  calcul, problèmes, grandeurs). Rien pour le cycle 1 ni les autres disciplines. Les objectifs trop longs pour être
+  vérifiés ont été omis. Références BO non vérifiées. Comblé en attendant par l'ajout manuel (Compétences > Ajouter).
+- **Calendrier** : seule l'année 2026-2027 est intégrée (à ajouter chaque année). Toussaint, Noël, rentrée et
+  début de l'été appliqués aux trois zones (cellules communes du tableau officiel).
+- **Sauvegarde automatique** : seulement Chrome / Edge sur ordinateur (API File System Access). Ailleurs : export
+  ou partage manuel. Pas de vraie synchronisation sans serveur.
 - Modifier la liste des compétences d'une évaluation remet sa grille de résultats à zéro.
 - Pas de synchronisation : chaque appareil a ses propres données tant qu'on n'importe pas un export.
 - Safari iOS peut effacer les données d'un site non installé après une longue inactivité :
@@ -62,13 +75,12 @@ manifest.webmanifest  installation PWA
 
 ## Prochaines étapes (ordre proposé)
 1. Retour de la prof sur le prototype (ce qui manque vraiment au quotidien).
-2. Compléter le référentiel : cycles 1, 2, 3, toutes disciplines, à partir des textes du BO en vigueur
+2. Compléter le référentiel (cycle 1, CE1-CE2 maths, autres disciplines), à partir des textes du BO en vigueur
    (attention : programmes de français et maths renouvelés à partir de 2024-2025, d'autres disciplines
    encore sur les programmes 2015/2020). Garder une source par entrée.
-3. Autres outils possibles : flashcards, memory, mots mêlés, monnaie (euros), sondage ; carte de France,
+3. Autres outils possibles : sondage ; carte de France,
    exercices de conjugaison avec correction automatique (demande un conjugueur fiable) ; liens vidéos par notion.
-4. Cahier journal (vue jour qui relie EDT + fiches), export PDF propre, modèles de fiches.
-5. Livret / bilans par élève à partir des évaluations.
+4. Export LSU / livret à partir du suivi élève.
 
 ## Si on passe aux abonnements payants : ce que ça implique
 - **Comptes + synchronisation** : un backend devient nécessaire (ex. Supabase/Firebase ou API maison)

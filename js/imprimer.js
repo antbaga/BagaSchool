@@ -3,6 +3,8 @@
 // ctx = { rnd: () => [0,1[ (graine fixe), eleves, esc, xRatio }
 // Toutes les dimensions des pages sont en millimètres.
 
+import { grilleMotsMeles } from "./motsmeles.js";
+
 const pad = (n) => String(n).padStart(2, "0");
 const ri = (rnd, a, b) => a + Math.floor(rnd() * (b - a + 1)); // entier dans [a, b]
 const LETTRES = "ABCDEFGHJKLMNPRSTUVWXYZ";
@@ -109,6 +111,82 @@ function motifPath(motif, x0, x1, base, h) {
 }
 
 // ---------- générateurs ----------
+// ---------- Problèmes ----------
+const PRENOMS = [["Léo", "il"], ["Inès", "elle"], ["Noah", "il"], ["Jade", "elle"], ["Hugo", "il"], ["Lina", "elle"], ["Sacha", "il"], ["Zoé", "elle"], ["Adam", "il"], ["Rose", "elle"]];
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const nf = (x) => x.toLocaleString("fr-FR");
+// Chaque modèle : niv = niveaux concernés, gen(rnd, niv, prénom, pronom) -> { texte, calculs: [...], reponse }
+const PROBLEMES = [
+  { niv: ["cp", "ce"], gen(rnd, niv, P, il) {
+    const M = niv === "cp" ? 30 : 100, a = ri(rnd, 3, M - 5), b = ri(rnd, 2, M - a);
+    return { texte: `${P} a ${a} billes. À la récréation, ${il} en gagne ${b}. Combien de billes ${P} a-t-${il} maintenant ?`, calculs: [`${a} + ${b} = ${a + b}`], reponse: `${P} a maintenant ${a + b} billes.` }; } },
+  { niv: ["cp", "ce"], gen(rnd, niv) {
+    const M = niv === "cp" ? 30 : 100, a = ri(rnd, 8, M), b = ri(rnd, 2, a - 2);
+    return { texte: `Dans un bus, il y a ${a} passagers. À l'arrêt, ${b} passagers descendent. Combien reste-t-il de passagers dans le bus ?`, calculs: [`${a} − ${b} = ${a - b}`], reponse: `Il reste ${a - b} passagers dans le bus.` }; } },
+  { niv: ["cp", "ce"], gen(rnd, niv, P, il) {
+    const M = niv === "cp" ? 30 : 100, t = ri(rnd, 15, Math.min(M, 30)), f = ri(rnd, 5, t - 5);
+    return { texte: `Dans la classe de ${P}, il y a ${t} élèves. ${f} sont des filles. Combien y a-t-il de garçons ?`, calculs: [`${t} − ${f} = ${t - f}`], reponse: `Il y a ${t - f} garçons.` }; } },
+  { niv: ["cp", "ce"], gen(rnd, niv, P, il) {
+    const M = niv === "cp" ? 30 : 100, a = ri(rnd, 3, M / 2), b = ri(rnd, 2, M / 2 - 1);
+    return { texte: `${P} a ${a} images. Son amie Maya en a ${b} de plus. Combien d'images Maya a-t-elle ?`, calculs: [`${a} + ${b} = ${a + b}`], reponse: `Maya a ${a + b} images.` }; } },
+  { niv: ["cp", "ce"], gen(rnd, niv) {
+    const a = niv === "cp" ? ri(rnd, 2, 5) : ri(rnd, 4, 10), b = niv === "cp" ? ri(rnd, 2, 5) : ri(rnd, 3, 9);
+    return { texte: `Une boîte contient ${a} œufs. Combien d'œufs y a-t-il dans ${b} boîtes ?`, calculs: [`${b} × ${a} = ${a * b}`], reponse: `Il y a ${a * b} œufs.` }; } },
+  { niv: ["ce", "cm"], gen(rnd, niv, P, il) {
+    const n = ri(rnd, 2, niv === "cm" ? 9 : 5), q = ri(rnd, 3, niv === "cm" ? 25 : 9);
+    return { texte: `${P} partage ${n * q} bonbons entre ${n} amis. Chacun reçoit le même nombre de bonbons. Combien de bonbons chaque ami reçoit-il ?`, calculs: [`${n * q} : ${n} = ${q}`], reponse: `Chaque ami reçoit ${q} bonbons.` }; } },
+  { niv: ["ce", "cm"], gen(rnd, niv, P, il) {
+    const M = niv === "cm" ? 500 : 60, a = ri(rnd, 10, M), b = ri(rnd, 5, M / 2), c = ri(rnd, 3, a + b - 2);
+    return { texte: `${P} a ${a} cartes. Le matin, ${il} en gagne ${b}. L'après-midi, ${il} en perd ${c}. Combien de cartes ${P} a-t-${il} le soir ?`, calculs: [`${a} + ${b} = ${a + b}`, `${a + b} − ${c} = ${a + b - c}`], reponse: `Le soir, ${P} a ${a + b - c} cartes.` }; } },
+  { niv: ["ce", "cm"], gen(rnd, niv, P, il) {
+    const n = ri(rnd, 2, niv === "cm" ? 6 : 4), pr = ri(rnd, 2, niv === "cm" ? 9 : 4), B = [10, 20, 50, 100].find((b) => b > n * pr);
+    return { texte: `Au marché, ${P} achète ${n} kilos de pommes à ${pr} € le kilo. ${cap(il)} paie avec un billet de ${B} €. Combien d'argent lui rend-on ?`, calculs: [`${n} × ${pr} = ${n * pr}`, `${B} − ${n * pr} = ${B - n * pr}`], reponse: `On lui rend ${B - n * pr} €.` }; } },
+  { niv: ["ce", "cm"], gen(rnd, niv) {
+    const c = ri(rnd, 3, niv === "cm" ? 12 : 5), e = ri(rnd, 18, 28), a = ri(rnd, 2, 12);
+    return { texte: `Une école a ${c} classes de ${e} élèves. Aujourd'hui, ${a} élèves sont absents. Combien d'élèves sont présents ?`, calculs: [`${c} × ${e} = ${nf(c * e)}`, `${nf(c * e)} − ${a} = ${nf(c * e - a)}`], reponse: `${nf(c * e - a)} élèves sont présents.` }; } },
+  { niv: ["ce", "cm"], gen(rnd, niv) {
+    const r = ri(rnd, 8, niv === "cm" ? 30 : 10), s = ri(rnd, 10, niv === "cm" ? 25 : 10), o = ri(rnd, 5, r * s - 5);
+    return { texte: `Un cinéma a ${r} rangées de ${s} sièges. ${nf(o)} places sont occupées. Combien de places sont libres ?`, calculs: [`${r} × ${s} = ${nf(r * s)}`, `${nf(r * s)} − ${nf(o)} = ${nf(r * s - o)}`], reponse: `${nf(r * s - o)} places sont libres.` }; } },
+  { niv: ["cm"], gen(rnd, niv, P, il) {
+    const a = ri(rnd, 15, 40), b = ri(rnd, 15, 40), c = ri(rnd, 15, 40), t = a + b + c + ri(rnd, 20, 150);
+    return { texte: `Le livre de ${P} a ${t} pages. ${cap(il)} lit ${a} pages lundi, ${b} pages mardi et ${c} pages mercredi. Combien de pages lui reste-t-il à lire ?`, calculs: [`${a} + ${b} + ${c} = ${a + b + c}`, `${t} − ${a + b + c} = ${t - a - b - c}`], reponse: `Il lui reste ${t - a - b - c} pages à lire.` }; } },
+  { niv: ["cm"], gen(rnd) {
+    const n = ri(rnd, 4, 12), k = [6, 8, 10, 12, 20, 25][ri(rnd, 0, 5)], u = ri(rnd, 10, n * k - 5);
+    return { texte: `Pour la kermesse, l'école achète ${n} paquets de ${k} gobelets. On en utilise ${u}. Combien de gobelets reste-t-il ?`, calculs: [`${n} × ${k} = ${n * k}`, `${n * k} − ${u} = ${n * k - u}`], reponse: `Il reste ${n * k - u} gobelets.` }; } },
+  { niv: ["cm"], gen(rnd, niv, P, il) {
+    const e = ri(rnd, 20, 28), pr = ri(rnd, 4, 9), d = ri(rnd, 2, 4), bus = ri(rnd, 150, 400);
+    return { texte: `Une classe de ${e} élèves part en sortie. L'entrée du musée coûte ${pr} € par élève et le bus coûte ${bus} €. La coopérative donne ${d * 50} €. Combien reste-t-il à payer ?`, calculs: [`${e} × ${pr} = ${e * pr}`, `${e * pr} + ${bus} = ${e * pr + bus}`, `${e * pr + bus} − ${d * 50} = ${e * pr + bus - d * 50}`], reponse: `Il reste ${e * pr + bus - d * 50} € à payer.` }; } },
+  { niv: ["cm"], gen(rnd, niv, P, il) {
+    const q = ri(rnd, 12, 60), n = ri(rnd, 3, 8), r = ri(rnd, 1, n - 1);
+    return { texte: `Le maître range ${q * n + r} livres sur des étagères. Il met ${n} livres par étagère. Combien d'étagères peut-il remplir ? Combien de livres restera-t-il ?`, calculs: [`${q * n + r} = (${n} × ${q}) + ${r}`], reponse: `Il remplit ${q} étagères et il reste ${r} livre${r > 1 ? "s" : ""}.` }; } },
+];
+
+// ---------- Nombres en lettres ----------
+// rect = orthographe rectifiée de 1990 (traits d'union entre tous les mots).
+const UNITES = ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize"];
+const DIZAINES = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante"];
+function moins100(n, rect, final) {
+  if (n < 17) return UNITES[n];
+  if (n < 20) return "dix-" + UNITES[n - 10];
+  const d = Math.floor(n / 10), u = n % 10, et = rect ? "-et-" : " et ";
+  if (d === 7) return u === 1 ? "soixante" + et + "onze" : "soixante-" + moins100(10 + u, rect, final);
+  if (d === 8) return u === 0 ? (final ? "quatre-vingts" : "quatre-vingt") : "quatre-vingt-" + UNITES[u];
+  if (d === 9) return "quatre-vingt-" + moins100(10 + u, rect, final);
+  return DIZAINES[d] + (u === 0 ? "" : u === 1 ? et + "un" : "-" + UNITES[u]);
+}
+function moins1000(n, rect, final) {
+  const sep = rect ? "-" : " ", c = Math.floor(n / 100), r = n % 100;
+  const cent = c === 0 ? "" : (c === 1 ? "" : UNITES[c] + sep) + (c > 1 && r === 0 && final ? "cents" : "cent");
+  const reste = r ? moins100(r, rect, final) : "";
+  return [cent, reste].filter(Boolean).join(sep);
+}
+export function enLettres(n, rect = true) {
+  if (n === 0) return "zéro";
+  const sep = rect ? "-" : " ", m = Math.floor(n / 1000), r = n % 1000;
+  const mille = m === 0 ? "" : m === 1 ? "mille" : moins1000(m, rect, false) + sep + "mille";
+  return [mille, r ? moins1000(r, rect, true) : ""].filter(Boolean).join(sep);
+}
+
 export const GENERATEURS = [
   {
     id: "calcul-pose", nom: "Calcul posé", icone: "➕", couleur: "#cfe6ff", desc: "Opérations en colonnes", aleatoire: true,
@@ -302,6 +380,118 @@ export const GENERATEURS = [
             ${p.deco ? `<span class="ws-deco">${p.deco}</span>` : ""}</div>`).join("")}</div>`, "labels"));
       }
       return pages;
+    },
+  },
+  {
+    id: "problemes", nom: "Problèmes", icone: "🧩", couleur: "#ffd7bf", desc: "Problèmes à une, deux ou trois étapes", aleatoire: true,
+    params: [
+      { key: "titre", label: "Titre", type: "text", def: "Résoudre des problèmes" },
+      { key: "consigne", label: "Consigne", type: "text", def: "Lis chaque problème, écris ton calcul puis une phrase réponse." },
+      { key: "niveau", label: "Niveau", type: "seg", options: [["cp", "CP-CE1 (une étape, jusqu'à 30)"], ["ce", "CE (1 ou 2 étapes, jusqu'à 100)"], ["cm", "CM (2 ou 3 étapes)"]], def: "ce" },
+      { key: "n", label: "Nombre de problèmes", type: "seg", options: [["4", "4"], ["6", "6"], ["8", "8"]], def: "4" },
+      { key: "corrige", label: "Afficher le corrigé", type: "toggle", def: false },
+    ],
+    render(p, { rnd, esc }) {
+      const pool = PROBLEMES.filter((t) => t.niv.includes(p.niveau));
+      const vus = new Set(), items = [];
+      for (let essai = 0; items.length < +p.n && essai < 200; essai++) {
+        const k = ri(rnd, 0, pool.length - 1);
+        if (vus.has(k) && vus.size < pool.length) continue;
+        vus.add(k);
+        const [nom, pron] = PRENOMS[ri(rnd, 0, PRENOMS.length - 1)];
+        const r = pool[k].gen(rnd, p.niveau, nom, pron);
+        if (r) items.push(r);
+      }
+      const pages = [];
+      for (let i = 0; i < items.length; i += 4) {
+        pages.push(page((i ? "" : entete(p, esc)) + `<div class="ws-pbs">${items.slice(i, i + 4).map((it, k) => `
+          <div class="ws-pb"><p class="ws-pb-text"><b class="ws-pb-n">${i + k + 1}</b> ${esc(it.texte)}</p>
+            <div class="ws-pb-zone"><span class="ws-pb-lab">Mes calculs</span>${p.corrige ? `<div class="ws-pb-key">${it.calculs.map(esc).join("<br>")}</div>` : ""}</div>
+            <div class="ws-pb-rep"><span>Réponse :</span><i class="ws-dots">${p.corrige ? `<span class="ws-pb-key">${esc(it.reponse)}</span>` : ""}</i></div></div>`).join("")}</div>`));
+      }
+      return pages;
+    },
+  },
+  {
+    id: "dictee-nombres", nom: "Dictée de nombres", icone: "🔢", couleur: "#cfe6ff", desc: "Fiche élève et liste en lettres pour l'enseignant", aleatoire: true,
+    params: [
+      { key: "titre", label: "Titre", type: "text", def: "Dictée de nombres" },
+      { key: "mode", label: "Exercice", type: "seg", options: [["dictee", "Dictée : écrire en chiffres"], ["lettres", "Écrire en lettres"]], def: "dictee" },
+      { key: "plage", label: "Nombres", type: "select", options: [["100", "De 0 à 100"], ["1000", "De 0 à 1 000"], ["10000", "De 0 à 10 000"], ["1000000", "Jusqu'à 999 999"]], def: "100" },
+      { key: "n", label: "Nombre de nombres", type: "seg", options: [["10", "10"], ["15", "15"], ["20", "20"]], def: "10" },
+      { key: "ortho", label: "Orthographe", type: "seg", options: [["rect", "Rectifiée (traits d'union partout)"], ["trad", "Traditionnelle"]], def: "rect" },
+      { key: "corrige", label: "Afficher le corrigé", type: "toggle", def: false },
+    ],
+    render(p, { rnd, esc }) {
+      const max = +p.plage, rect = p.ortho === "rect";
+      const vus = new Set(), nb = [];
+      while (nb.length < +p.n && vus.size < max) {
+        // On mélange les tailles de nombres pour ne pas avoir que des grands nombres
+        const chiffres = String(max).length - 1, ordre = Math.pow(10, ri(rnd, Math.max(1, chiffres - 2), chiffres));
+        const x = ri(rnd, 0, Math.min(max, ordre) - (max === 1000000 ? 1 : 0));
+        if (!vus.has(x)) { vus.add(x); nb.push(x); }
+      }
+      const fmt = (x) => x.toLocaleString("fr-FR");
+      const dictee = p.mode === "dictee";
+      const consigne = dictee ? "Écris en chiffres les nombres dictés." : "Écris ces nombres en lettres.";
+      const eleve = page(entete({ ...p, consigne }, esc) + `<ol class="ws-dn ${dictee ? "" : "lettres"}">${nb.map((x) => `<li>${dictee ? `<b class="ws-ans">${p.corrige ? fmt(x) : ""}</b>` : `<b class="ws-dn-n">${fmt(x)}</b><i class="ws-dots">${p.corrige ? `<span class="ws-pb-key">${enLettres(x, rect)}</span>` : ""}</i>`}</li>`).join("")}</ol>`);
+      if (!dictee) return [eleve];
+      const prof = page(`<h1 class="ws-title">${esc(p.titre)} <small class="ws-key">Pour l'enseignant</small></h1>
+        <p class="ws-consigne">Orthographe ${rect ? "rectifiée de 1990 (traits d'union entre tous les mots)" : "traditionnelle"}.</p>
+        <ol class="ws-dn prof">${nb.map((x) => `<li><b>${fmt(x)}</b><span>${enLettres(x, rect)}</span></li>`).join("")}</ol>`);
+      return [eleve, prof];
+    },
+  },
+  {
+    id: "fiche-lecture", nom: "Fiche de lecture", icone: "📚", couleur: "#d7ccff", desc: "Pour garder la trace d'un livre lu", aleatoire: false,
+    params: [
+      { key: "titre", label: "Titre de la fiche", type: "text", def: "Ma fiche de lecture" },
+      { key: "niveau", label: "Version", type: "seg", options: [["c2", "Cycle 2 (simple)"], ["c3", "Cycle 3"]], def: "c2" },
+      { key: "livre", label: "Titre du livre (facultatif, sinon à remplir)", type: "text", def: "" },
+      { key: "auteur", label: "Auteur (facultatif)", type: "text", def: "" },
+      { key: "dessin", label: "Cadre pour dessiner", type: "toggle", def: true },
+    ],
+    render(p, { esc }) {
+      const c3 = p.niveau === "c3";
+      const champ = (lab, val) => `<div class="ws-fl-row"><span>${lab} :</span><i class="ws-dots">${val ? `<b class="ws-fl-val">${esc(val)}</b>` : ""}</i></div>`;
+      const lignes = (n) => `<div class="ws-fl-lines">${Array.from({ length: n }, () => `<i></i>`).join("")}</div>`;
+      const genres = c3 ? ["Roman", "Album", "Bande dessinée", "Conte", "Documentaire", "Poésie", "Théâtre"] : ["Album", "Bande dessinée", "Conte", "Documentaire", "Poésie"];
+      return [page(`
+        <div class="ws-head"><span>Prénom : <i class="ws-dots"></i></span><span>Date : <i class="ws-dots short"></i></span></div>
+        <h1 class="ws-title">${esc(p.titre)}</h1>
+        <div class="ws-fl ${c3 ? "fl-c3" : "fl-c2"}">
+          <div class="ws-fl-id">
+            ${champ("Titre", p.livre)}${champ("Auteur", p.auteur)}${c3 ? champ("Illustrateur", "") + champ("Éditeur", "") : ""}
+            <div class="ws-fl-row"><span>C'est :</span><span class="ws-fl-genres">${genres.map((g) => `<span>☐ ${g}</span>`).join("")}</span></div>
+          </div>
+          <h3>${c3 ? "Les personnages principaux" : "Les personnages"}</h3>${lignes(c3 ? 2 : 2)}
+          <h3>${c3 ? "Résume l'histoire en quelques phrases" : "Ce qui se passe dans l'histoire"}</h3>${lignes(c3 ? 5 : 3)}
+          ${c3 ? `<h3>Mon passage préféré, et pourquoi</h3>${lignes(3)}` : ""}
+          ${p.dessin ? `<h3>${c3 ? "J'illustre un moment de l'histoire" : "Je dessine mon moment préféré"}</h3><div class="ws-fl-draw ${c3 ? "small" : ""}"></div>` : ""}
+          <h3>Mon avis</h3>
+          <div class="ws-fl-avis">${c3 ? "☆ ☆ ☆ ☆ ☆" : "<span>😍</span><span>🙂</span><span>😐</span><span>🙁</span>"}</div>
+          ${c3 ? lignes(2) : ""}
+        </div>`)];
+    },
+  },
+  {
+    id: "mots-meles", nom: "Mots mêlés", icone: "🔎", couleur: "#c9ecd4", desc: "Grille générée avec tes mots", aleatoire: true,
+    params: [
+      { key: "titre", label: "Titre", type: "text", def: "Mots mêlés" },
+      { key: "consigne", label: "Consigne", type: "text", def: "Retrouve et entoure les mots cachés dans la grille." },
+      { key: "mots", label: "Mots à cacher (un par ligne ou séparés par des virgules)", type: "textarea", def: "soleil, nuage, pluie, neige, orage, vent, arc-en-ciel, brouillard" },
+      { key: "taille", label: "Taille de la grille", type: "seg", options: [["8", "8 × 8"], ["10", "10 × 10"], ["12", "12 × 12"], ["15", "15 × 15"]], def: "12" },
+      { key: "niveau", label: "Sens des mots", type: "seg", options: [["facile", "→ et ↓"], ["moyen", "+ diagonales"], ["difficile", "+ à l'envers"]], def: "facile" },
+      { key: "corrige", label: "Afficher le corrigé", type: "toggle", def: false },
+    ],
+    render(p, { rnd, esc }) {
+      const n = +p.taille;
+      const { grille, places, rejetes } = grilleMotsMeles(String(p.mots).split(/[\n,;]/), n, p.niveau, rnd);
+      const sol = new Set(p.corrige ? places.flatMap((x) => x.cells.map(([r, c]) => `${r},${c}`)) : []);
+      return [page(entete(p, esc) + `
+        <div class="ws-mm" style="--n:${n}">${grille.map((row, r) => row.map((l, c) => `<span class="${sol.has(`${r},${c}`) ? "on" : ""}">${l}</span>`).join("")).join("")}</div>
+        <ul class="ws-mm-list">${places.map((x) => `<li>☐ ${esc(x.mot)}</li>`).join("")}</ul>
+        ${rejetes.length ? `<p class="ws-empty no-print">Non placés (trop longs pour la grille ?) : ${rejetes.map(esc).join(", ")}</p>` : ""}`)];
     },
   },
 ];
