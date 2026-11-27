@@ -12,9 +12,9 @@ import { sync, initSync, marquer, demarrer, arreter, oublier, appareil, actif as
 import * as compte from "./compte.js";
 import { ecran, surveiller, quitterProjection, surRcEcran, surRcTel, viewTelecommande, rafraichirTel } from "./telecommande.js";
 import qrcode from "./vendor/qrcode.mjs";
-import { initInstallation, estInstallee, contenuInstallation, lancerInstallation } from "./installer.js";
+import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.8.0";
+export const VERSION = "0.8.1";
 
 // ---------- état ----------
 let state = {};
@@ -614,6 +614,7 @@ function viewAccueil() {
   app.innerHTML = `
     ${rappelSauvegarde()}
     ${!(matchMedia("(display-mode: standalone)").matches || navigator.standalone) && !state.reglages._aideVue ? `<a class="aide-card" href="#/aide">📲 <b>Première fois ?</b> Installer BagaSchool sur ton ordinateur et ton téléphone, et projeter au tableau.</a>` : ""}
+    <div id="accCompte"></div>
     <section class="hello"><h2>Bonjour ! 👋</h2><p>Nous sommes ${esc(dateTxt)}.${(() => { const st = statutJour(localISO(now)); if (st && st.type !== "weekend") return ` ${esc(st.nom)} 🏖️`; const v = prochainesVacances(localISO(now)); return v ? ` Vacances ${v.nom} dans ${v.jours} jour${v.jours > 1 ? "s" : ""}.` : ""; })()}</p></section>
     <div class="home-grid">
       <section class="panel">
@@ -640,6 +641,16 @@ function viewAccueil() {
         ${recent.length ? `<h4>Dernières fiches</h4>${recent.map((f) => `<a class="item" href="#/fiches/${f.id}">${esc(f.titre)}<span class="hint">${esc(f.discipline)}</span></a>`).join("")}` : ""}
       </section>
     </div>`;
+  carteCompte();
+}
+// Rappel discret pour se connecter (ex. app installée sur iPhone, qui ne partage pas la connexion de Safari).
+async function carteCompte() {
+  if (!compte.configure() || localStorage.getItem("bagaschool-carte-compte")) return;
+  const s = await compte.session().catch(() => null);
+  const box = $("#accCompte"); if (s || !box) return;
+  box.innerHTML = `<div class="aide-card acc-compte">🔑 <span><b>Tu as un compte ?</b> Connecte-toi pour retrouver tes préparations sur cet appareil.</span>
+    <a class="btn primary" href="#/connexion">Me connecter</a><button class="inst-x" aria-label="Masquer" id="accX">✕</button></div>`;
+  $("#accX").onclick = () => { localStorage.setItem("bagaschool-carte-compte", "1"); box.innerHTML = ""; };
 }
 
 // ---------- EN CLASSE (outils) ----------
@@ -1133,7 +1144,7 @@ function majEtatSync(e) {
 let rafraichirEnAttente = false;
 function rafraichir() {
   const v = document.body.dataset.view;
-  if (["outils", "imprimer", "telecommande", "connexion", "inscription", "admin"].includes(v)) return;
+  if (["outils", "imprimer", "telecommande", "connexion", "inscription", "bienvenue", "admin"].includes(v)) return;
   const f = document.activeElement;
   const ecrit = f && app.contains(f) && (f.matches("input:not([type=checkbox]):not([type=radio]),textarea,select") );
   if (ecrit || !modal.hidden) { rafraichirEnAttente = true; return; }
@@ -1289,6 +1300,130 @@ async function viewInscription(codePre) {
   };
 }
 
+// ---------- BIENVENUE (lien d'invitation des alpha-testeurs) ----------
+// Parcours guidé ouvert par le lien #/bienvenue/<code> : présentation, compte (code déjà rempli),
+// réglages de base, installation, petit tour. Chaque étape peut être passée.
+async function viewBienvenue(codePre) {
+  const code = codePre ? decodeURIComponent(codePre).trim().toUpperCase() : "";
+  const p = plateforme();
+  const etapes = ["salut", "compte", "classe", ...(estInstallee() ? [] : ["installer"]), "tour"];
+  let i = 0, compteFait = !!(compte.configure() && await compte.utilisateur().catch(() => null)), compteExistant = compteFait, codeOk = null;
+  if (code && compte.configure() && !compteFait) codeOk = await compte.codeValide(code).catch(() => null);
+  const fin = () => { state.reglages._introVue = true; save("reglages"); location.replace("#/accueil"); };
+  const points = () => `<div class="bv-pts" aria-hidden="true">${etapes.map((_, k) => `<span class="${k === i ? "on" : k < i ? "fait" : ""}"></span>`).join("")}</div>`;
+  const nav = (suivant = "Continuer", passer = true) => `<div class="bv-nav">${i > 0 ? `<button class="ghost" data-bv="prec">Retour</button>` : "<span></span>"}
+    <div class="row">${passer ? `<button class="ghost" data-bv="passer">Passer</button>` : ""}<button class="primary big" data-bv="suiv">${suivant}</button></div></div>`;
+
+  const ecrans = {
+    salut: () => `<div class="bv-hero">🍎</div><h2>Bienvenue dans BagaSchool !</h2>
+      <p class="bv-lead">Tu fais partie des tout premiers profs à tester l'app. Merci 💜</p>
+      <ul class="bv-liste">
+        <li><span>🗓️</span><div><b>Préparer</b> : emploi du temps, fiches, programmations, cahier journal.</div></li>
+        <li><span>🧑‍🏫</span><div><b>En classe</b> : des outils à projeter au tableau (minuteur, tirage au sort, calcul…).</div></li>
+        <li><span>🖨️</span><div><b>À imprimer</b> : des fiches d'exercices prêtes en un clic.</div></li>
+        <li><span>📱</span><div><b>Ordinateur et téléphone</b> : tes préparations te suivent, et le téléphone sert de télécommande.</div></li>
+      </ul>
+      <p class="hint">C'est une version de test : il peut rester des bugs. Le bouton <b>💬 Donner mon avis</b> du menu est là pour tout nous dire.</p>
+      ${nav("C'est parti", false)}`,
+    compte: () => {
+      if (!compte.configure()) return `<h2>Ton compte</h2><p>Les comptes ne sont pas disponibles sur cette version. Tout fonctionne sur cet appareil.</p>${nav()}`;
+      if (compteFait) return `<div class="bv-hero">✅</div><h2>Ton compte est prêt</h2><p>Tes préparations seront enregistrées dans ton compte et synchronisées sur tes appareils.</p>${nav()}`;
+      return `<h2>Crée ton compte</h2>
+        <p class="bv-lead">Il te servira à retrouver tes préparations sur ton ordinateur et ton téléphone.</p>
+        ${code ? (codeOk === false ? `<p class="err">Ce lien d'invitation n'est plus valable (déjà utilisé ou expiré). Demande un nouveau lien à la personne qui te l'a envoyé.</p>` : `<p class="bv-code">🎟️ Invitation <b>${esc(code)}</b></p>`) : ""}
+        <form id="bvF" class="bv-form">
+          ${code && codeOk !== false ? `<input type="hidden" name="code" value="${esc(code)}">` : `<label>Code d'invitation<input name="code" required autocomplete="off" autocapitalize="characters" placeholder="BAGA-XXXXXXXX"></label>`}
+          <label>Adresse e-mail<input name="email" type="email" autocomplete="username" required></label>
+          <label>Choisis un mot de passe (8 caractères minimum)<input name="mdp" type="password" autocomplete="new-password" minlength="8" required></label>
+          <label class="check"><input type="checkbox" name="ok" required> J'ai compris : mes préparations sont copiées sur un serveur en Europe. Les prénoms des élèves, les évaluations et l'appel restent sur mes appareils.</label>
+          <p class="err" id="bvErr"></p>
+          <button class="primary big">Créer mon compte</button>
+        </form>
+        <p class="hint">Déjà un compte ? <a href="#" data-bv="login">Me connecter</a></p>
+        ${nav("Continuer sans compte")}`;
+    },
+    login: () => `<h2>Me connecter</h2>
+      <form id="bvL" class="bv-form">
+        <label>Adresse e-mail<input name="email" type="email" autocomplete="username" required></label>
+        <label>Mot de passe<input name="mdp" type="password" autocomplete="current-password" required></label>
+        <p class="err" id="bvErr"></p>
+        <button class="primary big">Se connecter</button>
+      </form>
+      <p class="hint"><a href="#" data-bv="inscr">Je n'ai pas encore de compte</a></p>`,
+    classe: () => {
+      const jours = state.reglages.jours ?? ["Lundi", "Mardi", "Jeudi", "Vendredi"];
+      return `<h2>Ta semaine</h2>
+        <p class="bv-lead">Deux réglages pour que l'app colle à ton école. Tu pourras les changer dans Réglages.</p>
+        <h4>Jours de classe</h4>
+        <div class="days-pick">${JOURS.map((d) => `<label><input type="checkbox" value="${d}" ${jours.includes(d) ? "checked" : ""}> ${d}</label>`).join("")}</div>
+        <h4>Zone de vacances</h4>
+        <div class="seg" id="bvZone">${["A", "B", "C"].map((z) => `<button type="button" data-zone="${z}" class="${state.reglages.zone === z ? "on" : ""}">Zone ${z}</button>`).join("")}</div>
+        ${!compteExistant && !state.edt.length && !state.fiches.length ? `<label class="check bv-ex"><input type="checkbox" id="bvDemo"> Ajouter des exemples pour découvrir (emploi du temps, fiches, élèves fictifs). Tu pourras tout effacer.</label>` : ""}
+        ${nav()}`;
+    },
+    installer: () => `<h2>Installe l'app</h2>
+      <p class="bv-lead">BagaSchool s'ouvre alors comme une vraie app, en plein écran, même sans internet.</p>
+      <div class="bv-inst">${contenuInstallation()}</div>
+      ${p.os === "ios" && compteFait ? `<p class="hint">Sur iPhone et iPad, l'app installée ne partage pas la connexion de Safari : à la première ouverture, touche <b>Me connecter</b> et tape ton e-mail et ton mot de passe.</p>` : ""}
+      <p class="hint">Pense aussi à ton ${p.os === "pc" ? "téléphone" : "ordinateur"} : connecte-toi avec le même e-mail sur <b>${esc(location.host + location.pathname)}</b>.</p>
+      ${nav()}`,
+    tour: () => `<div class="bv-hero">🎉</div><h2>C'est prêt !</h2>
+      <p class="bv-lead">Par où commencer :</p>
+      <div class="bv-tour">
+        <a href="#/edt" data-bv="go"><span>🗓️</span><b>Remplir mon emploi du temps</b><small>La page Aujourd'hui affiche ensuite ta journée.</small></a>
+        <a href="#/outils" data-bv="go"><span>🧑‍🏫</span><b>Essayer un outil au tableau</b><small>Bouton ⛶ pour le plein écran.</small></a>
+        <a href="#/imprimer" data-bv="go"><span>🖨️</span><b>Imprimer une fiche</b><small>Calcul, lecture, écriture…</small></a>
+        <a href="#/aide" data-bv="go"><span>📽️</span><b>Projeter au tableau</b><small>Brancher le vidéoprojecteur, pas à pas.</small></a>
+      </div>
+      <p class="hint">Une idée, un bug, un outil qui manque ? Menu ☰ > <b>💬 Donner mon avis</b>.</p>
+      <div class="bv-nav"><button class="ghost" data-bv="prec">Retour</button><button class="primary big" data-bv="fin">Commencer</button></div>`,
+  };
+
+  let vue = null; // écran affiché hors étapes (connexion)
+  const dessiner = () => {
+    const nom = vue ?? etapes[i];
+    app.innerHTML = `<div class="sheet bv">${points()}${ecrans[nom]()}</div>`;
+    window.scrollTo(0, 0);
+    app.querySelector("input:not([type=hidden]):not([type=checkbox])")?.focus({ preventScroll: true });
+    $("#bvF")?.addEventListener("submit", async (e) => {
+      e.preventDefault(); const f = e.target, b = f.querySelector("button"); b.disabled = true; $("#bvErr").textContent = "";
+      try {
+        const r = await compte.inscrire(f.email.value, f.mdp.value, f.code.value);
+        if (r.aConfirmer) { $("#bvErr").textContent = `Ouvre le lien reçu à ${f.email.value}, puis reviens te connecter.`; b.disabled = false; return; }
+        compteFait = true; lancerSync(); compte.signalerPresence(VERSION); i++; dessiner();
+      } catch (err) { $("#bvErr").textContent = compte.messageErreur(err); b.disabled = false; }
+    });
+    $("#bvL")?.addEventListener("submit", async (e) => {
+      e.preventDefault(); const f = e.target, b = f.querySelector("button"); b.disabled = true; $("#bvErr").textContent = "";
+      try { await compte.connecter(f.email.value, f.mdp.value); compteFait = compteExistant = true; lancerSync(); vue = null; i++; dessiner(); }
+      catch (err) { $("#bvErr").textContent = compte.messageErreur(err); b.disabled = false; }
+    });
+  };
+  const garderClasse = async () => {
+    if (etapes[i] !== "classe") return;
+    const j = JOURS.filter((d) => app.querySelector(`.days-pick input[value="${d}"]`)?.checked);
+    if (j.length) state.reglages.jours = j;
+    const z = app.querySelector("#bvZone .on")?.dataset.zone; if (z) state.reglages.zone = z;
+    await save("reglages");
+    if (app.querySelector("#bvDemo")?.checked) await loadDemo();
+  };
+  app.onclick = async (e) => {
+    const z = e.target.closest("[data-zone]");
+    if (z) { app.querySelectorAll("#bvZone button").forEach((b) => b.classList.toggle("on", b === z)); return; }
+    if (e.target.closest("#instGo")) { if (await lancerInstallation()) { i = Math.min(etapes.length - 1, i + 1); dessiner(); } return; }
+    const t = e.target.closest("[data-bv]"); if (!t) return;
+    const a = t.dataset.bv;
+    if (a === "go") { state.reglages._introVue = true; save("reglages"); return; } // le lien suit son cours
+    e.preventDefault();
+    if (a === "login") { vue = "login"; return dessiner(); }
+    if (a === "inscr") { vue = null; return dessiner(); }
+    if (a === "prec") { vue = null; i = Math.max(0, i - 1); return dessiner(); }
+    if (a === "suiv" || a === "passer") { if (a === "suiv") await garderClasse(); vue = null; i = Math.min(etapes.length - 1, i + 1); return dessiner(); }
+    if (a === "fin") fin();
+  };
+  dessiner();
+}
+
 // ---------- ADMINISTRATION (alpha) ----------
 async function viewAdmin() {
   if (!compte.configure()) return pasConfigure();
@@ -1298,6 +1433,8 @@ async function viewAdmin() {
   try { [inv, profils, avis] = await Promise.all([compte.admin.invitations(), compte.admin.profils(), compte.admin.avis()]); }
   catch (e) { app.innerHTML = `<div class="sheet"><p class="err">${esc(compte.messageErreur(e))}</p></div>`; return; }
   const base = `${location.origin}${location.pathname}`;
+  const lienInv = (c) => `${base}#/bienvenue/${c}`;
+  const messageInv = (c) => `Bonjour ! Je te propose de tester BagaSchool, une app pour préparer sa classe et projeter des outils au tableau (ordinateur, tablette, téléphone). C'est une version de test, ton avis compte beaucoup.\n\nOuvre ce lien, tout est guidé : ${lienInv(c)}`;
   const etatInv = (i) => i.revoquee ? "révoqué" : i.expire_le && new Date(i.expire_le) < new Date() ? "expiré" : i.utilisations >= i.max_utilisations ? "utilisé" : "disponible";
   const date = (d) => d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—";
   app.innerHTML = `<div class="admin">
@@ -1309,10 +1446,10 @@ async function viewAdmin() {
         <label class="inline">Valable <select name="j"><option value="">sans limite</option><option value="7">7 jours</option><option value="30" selected>30 jours</option><option value="90">90 jours</option></select></label>
         <button class="primary">Créer</button>
       </form>
-      <p class="hint">Envoie le lien à la personne : il ouvre BagaSchool avec le code déjà rempli.</p>
+      <p class="hint">Le lien ouvre un accueil pas à pas avec le code déjà rempli : présentation, création du compte, réglages, installation. « ${navigator.share ? "Partager" : "Copier le message"} » prépare un message prêt à envoyer (SMS, WhatsApp, e-mail). Pour un groupe, un seul code avec plusieurs utilisations suffit (ex. 20).</p>
       <table class="adm-t"><thead><tr><th>Code</th><th>Note</th><th>État</th><th>Créé</th><th></th></tr></thead><tbody>
         ${inv.map((i) => `<tr class="${etatInv(i) === "disponible" ? "" : "off"}"><td><code>${esc(i.code)}</code></td><td>${esc(i.note)}</td><td>${etatInv(i)} (${i.utilisations}/${i.max_utilisations})</td><td>${date(i.cree_le)}</td>
-          <td class="nowrap">${etatInv(i) === "disponible" ? `<button class="mini" data-copy="${esc(base + "#/inscription/" + i.code)}">Copier le lien</button> <button class="mini" data-revoke="${esc(i.code)}">Révoquer</button>` : ""}</td></tr>`).join("")}
+          <td class="nowrap">${etatInv(i) === "disponible" ? `<button class="mini" data-copy="${esc(lienInv(i.code))}">Copier le lien</button> <button class="mini" data-msg="${esc(i.code)}">${navigator.share ? "Partager" : "Copier le message"}</button> <button class="mini" data-revoke="${esc(i.code)}">Révoquer</button>` : ""}</td></tr>`).join("")}
       </tbody></table></div>
     <div class="sheet"><h2>👩‍🏫 Comptes (${profils.length})</h2>
       <table class="adm-t"><thead><tr><th>E-mail</th><th>Inscrit</th><th>Dernière visite</th><th>Version</th><th></th></tr></thead><tbody>
@@ -1330,6 +1467,11 @@ async function viewAdmin() {
   app.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.copy) { try { await navigator.clipboard.writeText(t.dataset.copy); t.textContent = "Copié ✓"; } catch { prompt("Copie ce lien :", t.dataset.copy); } }
+    if (t.dataset.msg) {
+      const texte = messageInv(t.dataset.msg);
+      if (navigator.share) { navigator.share({ title: "Invitation BagaSchool", text: texte }).catch(() => {}); }
+      else { try { await navigator.clipboard.writeText(texte); t.textContent = "Copié ✓"; } catch { prompt("Copie ce message :", texte); } }
+    }
     if (t.dataset.revoke && confirm(`Révoquer le code ${t.dataset.revoke} ?`)) { await compte.admin.revoquer(t.dataset.revoke).catch((err) => alert(compte.messageErreur(err))); viewAdmin(); }
     if (t.dataset.mdp && confirm(`Créer un mot de passe provisoire pour ${t.dataset.email} ? L'ancien ne marchera plus.`)) {
       try { const m = await compte.admin.motDePasseProvisoire(t.dataset.mdp); prompt(`Mot de passe provisoire pour ${t.dataset.email} (à lui transmettre ; elle pourra le changer dans Réglages) :`, m); }
@@ -1615,7 +1757,7 @@ function jourRempl(iso) {
 }
 
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", connexion: "Se connecter", inscription: "Créer mon compte", admin: "Administration" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
@@ -1643,7 +1785,7 @@ function route(doux = false) {
     classe: () => (id ? viewEleve(id) : viewClasse()), competences: viewCompetences, reglages: viewReglages,
     telecommande: () => { toolCleanup = viewTelecommande(app, { outils: OUTILS, actif: syncActif() }); },
     lier: () => location.replace("#/connexion"),
-    connexion: () => viewConnexion(id), inscription: () => viewInscription(id), admin: viewAdmin,
+    connexion: () => viewConnexion(id), inscription: () => viewInscription(id), bienvenue: () => viewBienvenue(id), admin: viewAdmin,
     devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), aide: viewAide,
     journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements,
   };
