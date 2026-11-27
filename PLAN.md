@@ -36,25 +36,57 @@ manifest.webmanifest  installation PWA
 - Évaluations : items issus du référentiel ou libres ; feuille élève imprimable (cases NA/PA/A/D) ;
   saisie des résultats par élève (touche pour changer le niveau) et total « Atteint ou + ».
 - Liste d'élèves (prénoms), données d'exemple, export / import / effacement.
+- **v0.2** : accueil « Aujourd'hui » (créneaux du jour, accès rapides), barre d'onglets sur mobile,
+  interface pastel arrondie. Boîte à outils « En classe » (à projeter ou sur téléphone) : minuteur,
+  tirage au sort, groupes, niveaux de voix, feu tricolore, date du jour, dés, calcul mental, horloge,
+  cadre de dix, droite graduée, barres de fractions, pendu, ardoise (uni / carreaux / Seyès).
+  Inspirée d'un post Instagram montrant ce type d'outils ; design et code originaux.
+- **v0.6** : synchronisation entre appareils sans compte : appairage par QR code, relais Cloudflare (worker/)
+  qui ne voit que des données chiffrées (AES-GCM, clé uniquement dans les appareils et le QR), fusion des
+  modifications faites en même temps, file d'attente hors ligne. Mode télécommande : le téléphone affiche
+  en grand les boutons de l'outil projeté, le tableau n'affiche que le contenu.
+- **v0.5** : cahier journal (jour par jour, relié à l'EDT et aux fiches, impression jour / semaine) ;
+  appel matin / après-midi (présent, absent, retard) + cantine, bilan mensuel ; calendrier scolaire 2026-2027
+  par zone (périodes calculées, jours fériés, compte à rebours des vacances, dates dans les programmations) ;
+  suivi par élève (bilan des évaluations par discipline, absences, observations) ; modèles de fiches
+  (4 de base + les siens) et duplication d'une programmation d'une année sur l'autre ; sauvegarde
+  automatique dans un fichier (Chrome / Edge sur ordinateur), bouton « Envoyer » (partage) sur téléphone,
+  rappel si pas de sauvegarde depuis 7 jours ; référentiel élargi à 386 objectifs officiels (français C2 et C3,
+  maths C2 CP et C3) + ajout de ses propres compétences par copier-coller ; jeux : flashcards, memory,
+  mots mêlés, monnaie, défi des tables ; fiches : problèmes, dictée de nombres, fiche de lecture, mots mêlés.
+- **v0.4** : apps « Découvrir » dans En classe : système solaire (orbites animées, comparaison des tailles à l'échelle),
+  phases de la Lune, cycle de l'eau animé étape par étape, états de l'eau (particules + thermomètre),
+  globe 3D à faire tourner (continents, océans, quiz), régions de France (chefs-lieux, quiz).
+  Données : Natural Earth (domaine public) et IGN Admin Express (Licence Ouverte), simplifiées dans js/data/geo.js.
+- **v0.3** : section « À imprimer », générateurs de fiches A4 (aperçu, nouvelle série, corrigé, impression / PDF) :
+  calcul posé (code couleur u/d/c), calcul en ligne, lire l'heure, droite graduée, modèle d'écriture cursive
+  sur Seyès (police Google « Playwrite FR Trad »), graphisme, tableaux de conjugaison vierges, étiquettes prénoms.
 
 ## Limites connues du prototype
-- **Référentiel très partiel** : 26 objectifs de français cycle 3 (CM1-CM2, Lecture + Écriture CM1),
-  recopiés mot pour mot depuis l'annexe « Programme de français pour le cycle 3 » publiée sur
-  education.gouv.fr. Les objectifs trop longs pour être vérifiés en entier ont été omis.
-  Ni la référence BO ni la date n'apparaissaient dans le texte récupéré : **à vérifier avant diffusion**.
+- **Référentiel partiel** : 386 objectifs recopiés mot pour mot (français cycle 3 presque complet ; français cycle 2 :
+  lecture + début de l'écriture CP ; maths cycle 2 : CP « nombres et calcul » seulement ; maths cycle 3 : nombres,
+  calcul, problèmes, grandeurs). Rien pour le cycle 1 ni les autres disciplines. Les objectifs trop longs pour être
+  vérifiés ont été omis. Références BO non vérifiées. Comblé en attendant par l'ajout manuel (Compétences > Ajouter).
+- **Calendrier** : seule l'année 2026-2027 est intégrée (à ajouter chaque année). Toussaint, Noël, rentrée et
+  début de l'été appliqués aux trois zones (cellules communes du tableau officiel).
+- **Sauvegarde automatique** : seulement Chrome / Edge sur ordinateur (API File System Access). Ailleurs : export
+  ou partage manuel.
+- **Synchro** : demande le relais Cloudflare déployé (compte gratuit, secrets GitHub, URL dans js/config.js).
+  Fusion : si le même champ est modifié sur deux appareils en même temps, la dernière version envoyée l'emporte.
+  Pas de compte : perdre tous ses appareils = perdre l'accès à la copie serveur (d'où l'intérêt des exports).
 - Modifier la liste des compétences d'une évaluation remet sa grille de résultats à zéro.
-- Pas de synchronisation : chaque appareil a ses propres données tant qu'on n'importe pas un export.
 - Safari iOS peut effacer les données d'un site non installé après une longue inactivité :
   conseiller d'**installer l'app sur l'écran d'accueil** et d'exporter régulièrement.
 - Aucun test automatisé dans le dépôt (tests faits à la main avec Playwright, voir PR).
 
 ## Prochaines étapes (ordre proposé)
 1. Retour de la prof sur le prototype (ce qui manque vraiment au quotidien).
-2. Compléter le référentiel : cycles 1, 2, 3, toutes disciplines, à partir des textes du BO en vigueur
+2. Compléter le référentiel (cycle 1, CE1-CE2 maths, autres disciplines), à partir des textes du BO en vigueur
    (attention : programmes de français et maths renouvelés à partir de 2024-2025, d'autres disciplines
    encore sur les programmes 2015/2020). Garder une source par entrée.
-3. Cahier journal (vue jour qui relie EDT + fiches), export PDF propre, modèles de fiches.
-4. Livret / bilans par élève à partir des évaluations.
+3. Autres outils possibles : sondage ; carte de France,
+   exercices de conjugaison avec correction automatique (demande un conjugueur fiable) ; liens vidéos par notion.
+4. Export LSU / livret à partir du suivi élève.
 
 ## Si on passe aux abonnements payants : ce que ça implique
 - **Comptes + synchronisation** : un backend devient nécessaire (ex. Supabase/Firebase ou API maison)

@@ -1,0 +1,16 @@
+# Relais de synchronisation BagaSchool. Déployé par .github/workflows/deploy-worker.yml
+name = "bagaschool-sync"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+[vars]
+# Sites autorisés à se connecter (séparés par des virgules)
+ALLOWED_ORIGINS = "https://antbaga.github.io,http://localhost:8765"
+
+[[durable_objects.bindings]]
+name = "ESPACE"
+class_name = "Espace"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Espace"]
