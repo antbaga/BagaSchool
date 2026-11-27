@@ -10,8 +10,9 @@ import { SYNC_URL } from "./config.js";
 import { sync, initSync, marquer, creerEspace, rejoindre, delier, revoquer, lienAppairage, actif as syncActif, relaisConfigure, appareilsConnectes } from "./sync.js";
 import { ecran, surveiller, quitterProjection, surRcEcran, surRcTel, viewTelecommande, rafraichirTel } from "./telecommande.js";
 import qrcode from "./vendor/qrcode.mjs";
+import { initInstallation, ouvrirInstallation, estInstallee } from "./installer.js";
 
-export const VERSION = "0.6.0";
+export const VERSION = "0.6.1";
 
 // ---------- état ----------
 let state = {};
@@ -1197,6 +1198,9 @@ function route(doux = false) {
   if (name !== "outils" && ecran.actif) surveiller();
   (views[name] ?? notFound)();
 }
+initInstallation();
+if (estInstallee()) $("#navInstall")?.remove();
+else $("#navInstall").onclick = (e) => { e.preventDefault(); document.body.classList.remove("nav-open"); ouvrirInstallation(); };
 $("#menuBtn").onclick = () => document.body.classList.toggle("nav-open");
 $("#navBackdrop").onclick = () => document.body.classList.remove("nav-open");
 
