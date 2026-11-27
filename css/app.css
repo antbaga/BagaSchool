@@ -613,3 +613,17 @@ body.projection,body.remote-mode{padding-top:0!important;padding-bottom:0!import
 .rc-btn{flex:1 1 auto;min-width:30%;padding:6px 10px}
 .rc-btn.good{background:#c9ecd4}.rc-btn.bad{background:#ffd0dc}
 .rc-group.compact .rc-btn{min-width:17%;min-height:50px;font-size:17px}
+
+/* Invitation à installer l'app */
+.inst-ban{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));width:min(460px,calc(100% - 24px));background:var(--panel,#fff);border-radius:22px;padding:16px 18px 14px;box-shadow:0 16px 50px #3b335540;z-index:60;animation:instIn .3s ease-out}
+@keyframes instIn{from{opacity:0;transform:translate(-50%,20px)}}
+.inst-x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:18px;cursor:pointer;color:#776;padding:6px}
+.inst-tete{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.inst-tete img{border-radius:12px}
+.inst-corps p{margin:.4em 0}
+.inst-corps .big-btn{width:100%;margin:6px 0}
+.inst-etapes{margin:.4em 0;padding-left:1.3em;line-height:1.6}
+.inst-etapes li{margin:.3em 0}
+.inst-ico{width:1.3em;height:1.3em;vertical-align:-.3em;color:#1e63d6}
+#instLater{margin-top:4px}
+@media (max-width:760px){.inst-ban{bottom:calc(78px + env(safe-area-inset-bottom))}}
