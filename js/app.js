@@ -12,9 +12,13 @@ import { sync, initSync, marquer, demarrer, arreter, oublier, appareil, actif as
 import * as compte from "./compte.js";
 import { ecran, surveiller, quitterProjection, surRcEcran, surRcTel, viewTelecommande, rafraichirTel } from "./telecommande.js";
 import qrcode from "./vendor/qrcode.mjs";
+import { ISSR_BAREMES, issrJour, trancheISSR, nomTrancheISSR } from "./data/issr.js";
+import { chercherAdresse, distanceRoute, lienGeoportail } from "./distance.js";
+import { installerAnnotation, tapFiable } from "./annoter.js";
+import * as res from "./ressources.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.8.1";
+export const VERSION = "0.9.0";
 
 // ---------- état ----------
 let state = {};
@@ -574,9 +578,9 @@ async function viewReglages() {
   };
   $("#demo").onclick = async () => { if (confirm("Ajouter des données d'exemple ?")) { await loadDemo(); location.hash = "#/accueil"; } };
   $("#wipe").onclick = async () => {
-    if (!confirm(syncActif() ? "Effacer toutes les données de cet appareil ? Tes préparations restent dans ton compte et reviendront ici ; les élèves, évaluations et l'appel seront perdus. Exporte une sauvegarde avant si besoin." : "Effacer toutes les données de cet appareil ? Exporte une sauvegarde avant si besoin.")) return;
+    if (!confirm(syncActif() ? "Effacer toutes les données de cet appareil ? Tes préparations restent dans ton compte et reviendront ici ; les élèves, évaluations, l'appel et « Mes ressources » seront perdus. Exporte une sauvegarde avant si besoin." : "Effacer toutes les données de cet appareil, y compris « Mes ressources » ? Exporte une sauvegarde avant si besoin.")) return;
     const connecte = syncActif();
-    await oublier(); await db.clear(); state = await db.loadAll(); rebuildComp(); backup.handle = null; backup.etat = "off";
+    await oublier(); await db.clear(); await res.toutSupprimer().catch(() => {}); state = await db.loadAll(); rebuildComp(); backup.handle = null; backup.etat = "off";
     if (connecte) lancerSync();
     route();
   };
@@ -681,7 +685,9 @@ function viewOutil(id) {
       </header>
       <div class="board-body" id="tool"></div>
     </section>`;
-  toolCleanup = o.mount($("#tool"), { eleves: state.eleves, esc, decks: state.decks, saveDecks: () => save("decks"), cahier: state.cahier, saveCahier: () => save("cahier") }) || null;
+  const finOutil = o.mount($("#tool"), { eleves: state.eleves, esc, decks: state.decks, saveDecks: () => save("decks"), cahier: state.cahier, saveCahier: () => save("cahier") }) || null;
+  const finAnnot = installerAnnotation($("#board")), finTap = tapFiable($("#board"));
+  toolCleanup = () => { finAnnot(); finTap(); finOutil?.(); };
   surveiller();
   $("#fs").onclick = () => {
     const b = $("#board");
@@ -1630,8 +1636,9 @@ function viewAide() {
 }
 
 // ---------- CALENDRIER DE REMPLACEMENT ----------
-// state.remplacements = { rattachement, ecoles: [{ id, nom, commune, km, couleur }], jours: { "AAAA-MM-JJ": { e, d: "j"|"m"|"a", classe, note } } }
-// Les km sont saisis à la main (distance depuis l'école de rattachement). Aucun montant d'indemnité n'est calculé.
+// state.remplacements = { rattachement, rattAdr: { label, lon, lat }, ecoles: [{ id, nom, commune, km, couleur, adr }], jours: { "AAAA-MM-JJ": { e, d: "j"|"m"|"a", classe, note } } }
+// km = distance depuis l'école de rattachement (aller simple) : saisie à la main ou calculée (trajet le plus court, IGN).
+// L'ISSR est estimée avec les barèmes officiels de js/data/issr.js, à titre indicatif.
 const COUL_ECOLES = ["#ffd0dc", "#cfe6ff", "#c9ecd4", "#ffe3a3", "#d7ccff", "#ffd7bf", "#bfeff0", "#f3c6f0"];
 const DUREES_R = { j: ["Journée", 1], m: ["Matin", 0.5], a: ["Après-midi", 0.5] };
 let moisRempl = null;
@@ -1642,14 +1649,16 @@ function remplData() {
 }
 function recapRempl(prefixe) {
   const r = remplData(), parEcole = {};
-  let jours = 0, km = 0;
+  let jours = 0, km = 0, issr = 0;
   for (const [d, j] of Object.entries(r.jours)) {
     if (!d.startsWith(prefixe) || !j.e) continue;
     const e = r.ecoles.find((x) => x.id === j.e); const n = DUREES_R[j.d]?.[1] ?? 1;
-    parEcole[j.e] ??= { nom: e?.nom ?? "École supprimée", km: +e?.km || 0, jours: 0, presences: 0 };
-    parEcole[j.e].jours += n; parEcole[j.e].presences++; jours += n; km += (+e?.km || 0);
+    parEcole[j.e] ??= { nom: e?.nom ?? "École supprimée", km: +e?.km || 0, jours: 0, presences: 0, issr: 0, issrInconnu: false };
+    const x = parEcole[j.e], m = issrJour(+e?.km || 0, d);
+    x.jours += n; x.presences++; jours += n; km += (+e?.km || 0);
+    if (m != null) { x.issr += m; issr += m; } else if (!(+e?.km > 0)) x.issrInconnu = true;
   }
-  return { parEcole: Object.values(parEcole).sort((a, b) => b.jours - a.jours), jours, km };
+  return { parEcole: Object.values(parEcole).sort((a, b) => b.jours - a.jours), jours, km, issr };
 }
 const nb1 = (x) => x.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 function viewRemplacements(partiel = false) {
@@ -1668,14 +1677,16 @@ function viewRemplacements(partiel = false) {
       <span class="rp-n">${d}</span>${e ? `<span class="rp-e">${esc(e.nom)}</span>${j.d !== "j" ? `<span class="rp-d">${DUREES_R[j.d][0]}</span>` : ""}` : st && st.type !== "weekend" ? `<span class="rp-st">${esc(st.nom.replace("Vacances", "Vac."))}</span>` : ""}</button>`);
   }
   const rec = recapRempl(moisRempl), an = anneeScolaire(), y1 = +an.slice(0, 4);
-  const recAn = (() => { const out = { jours: 0, km: 0 }; for (const [d, j] of Object.entries(r.jours)) { if (!j.e || d < `${y1}-09-01` || d > `${y1 + 1}-08-31`) continue; const e = r.ecoles.find((x) => x.id === j.e); out.jours += DUREES_R[j.d]?.[1] ?? 1; out.km += +e?.km || 0; } return out; })();
+  const recAn = (() => { const out = { jours: 0, km: 0, issr: 0 }; for (const [d, j] of Object.entries(r.jours)) { if (!j.e || d < `${y1}-09-01` || d > `${y1 + 1}-08-31`) continue; const e = r.ecoles.find((x) => x.id === j.e); out.jours += DUREES_R[j.d]?.[1] ?? 1; out.km += +e?.km || 0; out.issr += issrJour(+e?.km || 0, d) ?? 0; } return out; })();
+  const eur = (x) => x.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
   const nomMois = capit(premier.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
   const html = `
     <div class="rp">
       <div class="sheet rp-ecoles">
         <h2>🏫 Mes écoles</h2>
-        <label>École de rattachement <input id="rpRatt" value="${esc(r.rattachement)}" placeholder="Nom de l'école et commune"></label>
-        <p class="hint">Écoles où tu remplaces. Indique la distance en km depuis ton école de rattachement (aller simple), par exemple relevée sur une carte.</p>
+        <label>École de rattachement <input id="rpRatt" value="${esc(r.rattachement)}" placeholder="Nom de l'école"></label>
+        <div class="adr-box"><input data-adr="ratt" value="${esc(r.rattAdr?.label ?? "")}" placeholder="Adresse de l'école de rattachement (pour calculer les distances)" autocomplete="off"><div class="adr-sugg" hidden></div></div>
+        <p class="hint">Écoles où tu remplaces. La distance (aller simple) se calcule depuis ton école de rattachement : choisis l'adresse dans la liste proposée puis touche 📍. Tu peux aussi la taper à la main.</p>
         <div class="rp-liste">${r.ecoles.map((e) => `
           <div class="rp-ecole" data-ecole="${e.id}">
             <button class="rp-coul" data-coul="${e.id}" style="background:${e.couleur}" aria-label="Changer la couleur"></button>
@@ -1683,21 +1694,28 @@ function viewRemplacements(partiel = false) {
             <input data-f="commune" value="${esc(e.commune ?? "")}" placeholder="Commune">
             <label class="inline rp-km"><input data-f="km" type="number" min="0" step="0.1" value="${esc(e.km ?? "")}"> km</label>
             <button class="round-btn sm" data-supprecole="${e.id}" aria-label="Supprimer l'école">✕</button>
+            <div class="adr-box rp-adr"><input data-adr="${e.id}" value="${esc(e.adr?.label ?? "")}" placeholder="Adresse de l'école" autocomplete="off"><div class="adr-sugg" hidden></div></div>
+            <button class="pill rp-calc" data-calc="${e.id}" title="Calculer la distance depuis l'école de rattachement">📍 Calculer</button>
+            ${+e.km > 0 ? `<span class="hint rp-tr">ISSR : tranche ${nomTrancheISSR(trancheISSR(e.km))}</span>` : ""}
           </div>`).join("") || `<p class="muted">Aucune école pour l'instant.</p>`}</div>
+        <p class="hint" id="rpCalcMsg"></p>
         <button class="pill" id="rpAdd">+ Ajouter une école</button>
       </div>
       <div class="sheet rp-cal">
         <div class="rp-nav"><button class="round-btn" id="rpPrev" aria-label="Mois précédent">‹</button><h2>${nomMois}</h2><button class="round-btn" id="rpNext" aria-label="Mois suivant">›</button>${moisRempl !== today.slice(0, 7) ? `<button class="pill" id="rpAuj">Aujourd'hui</button>` : ""}</div>
         <div class="rp-grille">${["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => `<div class="rp-tete">${d}</div>`).join("")}${cases.join("")}</div>
-        <p class="hint">Touche un jour pour noter où tu remplaces.</p>
+        <p class="hint">Touche un jour pour noter où tu remplaces. Pour une période (plusieurs jours ou semaines), touche le premier jour et choisis la date de fin.</p>
       </div>
       <div class="sheet rp-recap">
         <h2>📊 ${nomMois}</h2>
-        ${rec.parEcole.length ? `<table class="rp-table"><thead><tr><th>École</th><th>Jours</th><th>km (aller)</th></tr></thead><tbody>
-          ${rec.parEcole.map((x) => `<tr><td>${esc(x.nom)}</td><td>${nb1(x.jours)}</td><td>${x.km ? `${nb1(x.km)} × ${x.presences} = ${nb1(x.km * x.presences)}` : "—"}</td></tr>`).join("")}
-          </tbody><tfoot><tr><th>Total</th><th>${nb1(rec.jours)}</th><th>${nb1(rec.km)} km (aller-retour : ${nb1(2 * rec.km)} km)</th></tr></tfoot></table>` : `<p class="muted">Aucun remplacement noté ce mois-ci.</p>`}
-        <p><b>Année ${an} :</b> ${nb1(recAn.jours)} jour${recAn.jours > 1 ? "s" : ""} de remplacement, ${nb1(recAn.km)} km aller (${nb1(2 * recAn.km)} km aller-retour).</p>
-        <p class="hint">Ce récapitulatif t'aide à remplir tes états de frais. Les règles de calcul des indemnités (ISSR, frais de déplacement) dépendent de ta situation et de ton académie : l'application ne calcule pas de montant.</p>
+        ${rec.parEcole.length ? `<table class="rp-table"><thead><tr><th>École</th><th>Jours</th><th>km (aller)</th><th>ISSR estimée</th></tr></thead><tbody>
+          ${rec.parEcole.map((x) => `<tr><td>${esc(x.nom)}</td><td>${nb1(x.jours)}</td><td>${x.km ? `${nb1(x.km)} × ${x.presences} = ${nb1(x.km * x.presences)}` : "—"}</td><td>${x.issr ? eur(x.issr) : x.issrInconnu ? "distance ?" : "—"}</td></tr>`).join("")}
+          </tbody><tfoot><tr><th>Total</th><th>${nb1(rec.jours)}</th><th>${nb1(rec.km)} km (aller-retour : ${nb1(2 * rec.km)} km)</th><th>${eur(rec.issr)}</th></tr></tfoot></table>` : `<p class="muted">Aucun remplacement noté ce mois-ci.</p>`}
+        <p><b>Année ${an} :</b> ${nb1(recAn.jours)} jour${recAn.jours > 1 ? "s" : ""} de remplacement, ${nb1(recAn.km)} km aller (${nb1(2 * recAn.km)} km aller-retour), ISSR estimée ${eur(recAn.issr)}.</p>
+        <details class="hint rp-issr"><summary>Comment l'ISSR est estimée (indicatif)</summary>
+          <p>Montant journalier selon la distance entre l'école de rattachement et l'école du remplacement (décret n° 89-825 du 9 novembre 1989, art. 3). Une journée notée compte pour une indemnité, y compris une demi-journée : vérifie la règle appliquée par ta circonscription. Rien n'est compté pour une école à 0 km (ton école de rattachement). L'ISSR concerne les remplacements de courte ou moyenne durée : pour un remplacement à l'année, ce sont d'autres règles.</p>
+          <p>Barèmes utilisés : ${ISSR_BAREMES.map((b) => `${esc(b.src)} : ${b.t.map((v) => v.toLocaleString("fr-FR")).join(" / ")} € par jour (moins de 10 km, 10-19, 20-29, 30-39, 40-49, 50-59, 60-80 km), puis ${b.sup.toLocaleString("fr-FR")} € par tranche de 20 km.`).join(" ")}</p>
+          <p>Ce n'est pas un calcul officiel : le montant versé est celui de ton administration.</p></details>
         <button class="pill" id="rpCsv">⬇️ Télécharger le mois (tableur)</button>
       </div>
     </div>`;
@@ -1709,21 +1727,53 @@ function viewRemplacements(partiel = false) {
   }
   app.innerHTML = html;
   const majEcole = (id, f, v) => { const e = r.ecoles.find((x) => x.id === id); if (!e) return; e[f] = f === "km" ? (v === "" ? "" : +v) : v; save("remplacements"); };
+  const suggerer = (inp) => {
+    clearTimeout(suggerer.t);
+    const box = inp.parentElement.querySelector(".adr-sugg");
+    suggerer.t = setTimeout(async () => {
+      let l = [];
+      try { l = await chercherAdresse(inp.value); } catch { box.hidden = false; box.innerHTML = `<p class="hint">Recherche d'adresse impossible (pas de connexion ?). Tu peux taper la distance à la main.</p>`; return; }
+      box.hidden = !l.length;
+      box.innerHTML = l.map((a, k) => `<button type="button" data-pick="${k}">${esc(a.label)}</button>`).join("");
+      box._l = l;
+    }, 350);
+  };
+  const cibleAdr = (k) => k === "ratt" ? null : r.ecoles.find((x) => x.id === k);
   app.oninput = (e) => {
     if (e.target.id === "rpRatt") { r.rattachement = e.target.value; save("remplacements"); return; }
+    if (e.target.dataset.adr) { // l'adresse tapée n'a plus de coordonnées tant qu'on n'a pas choisi une suggestion
+      const k = e.target.dataset.adr, v = { label: e.target.value };
+      if (k === "ratt") r.rattAdr = v; else { const ec = cibleAdr(k); if (ec) ec.adr = v; }
+      save("remplacements"); suggerer(e.target); return;
+    }
     const row = e.target.closest("[data-ecole]"); if (row && e.target.dataset.f) { majEcole(row.dataset.ecole, e.target.dataset.f, e.target.value); clearTimeout(viewRemplacements._t); viewRemplacements._t = setTimeout(() => location.hash === "#/remplacements" && viewRemplacements(true), 300); }
   };
 
-  app.onclick = (e) => {
+  app.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.pick != null) {
+      const box = t.closest(".adr-sugg"), inp = box.parentElement.querySelector("[data-adr]"), a = box._l?.[+t.dataset.pick]; if (!a) return;
+      const k = inp.dataset.adr; inp.value = a.label; box.hidden = true;
+      if (k === "ratt") r.rattAdr = a; else { const ec = cibleAdr(k); if (ec) { ec.adr = a; if (!ec.commune) ec.commune = a.label.replace(/^.*\d{5}\s*/, ""); } }
+      save("remplacements"); return;
+    }
+    if (t.dataset.calc) {
+      const ec = cibleAdr(t.dataset.calc), msg = $("#rpCalcMsg");
+      if (!r.rattAdr?.lon) { msg.textContent = "Choisis d'abord l'adresse de ton école de rattachement dans la liste proposée."; return; }
+      if (!ec?.adr?.lon) { msg.textContent = "Choisis l'adresse de cette école dans la liste proposée (tape le début de l'adresse)."; return; }
+      t.disabled = true; t.textContent = "⏳ Calcul…";
+      try { ec.km = await distanceRoute(r.rattAdr, ec.adr); ec.kmAuto = true; save("remplacements"); viewRemplacements(); $("#rpCalcMsg").textContent = `${ec.nom || "École"} : ${nb1(ec.km)} km par le trajet le plus court en voiture (calcul IGN). Tu peux corriger le chiffre si ton administration retient une autre distance.`; }
+      catch { t.disabled = false; t.textContent = "📍 Calculer"; msg.innerHTML = `Calcul impossible pour l'instant (pas de connexion ou service indisponible). Tape la distance à la main, par exemple relevée sur <a href="${lienGeoportail}" target="_blank" rel="noopener">Géoportail</a>.`; }
+      return;
+    }
     if (t.id === "rpAdd") { r.ecoles.push({ id: uid(), nom: "", commune: "", km: "", couleur: COUL_ECOLES[r.ecoles.length % COUL_ECOLES.length] }); save("remplacements"); viewRemplacements(); app.querySelector(".rp-ecole:last-child input")?.focus(); return; }
     if (t.dataset.supprecole) { const e2 = r.ecoles.find((x) => x.id === t.dataset.supprecole); if (confirm(`Supprimer l'école « ${e2?.nom || "sans nom"} » ? Les jours déjà notés resteront comptés sous « École supprimée ».`)) { r.ecoles = r.ecoles.filter((x) => x.id !== t.dataset.supprecole); save("remplacements"); viewRemplacements(); } return; }
     if (t.dataset.coul) { const e2 = r.ecoles.find((x) => x.id === t.dataset.coul); e2.couleur = COUL_ECOLES[(COUL_ECOLES.indexOf(e2.couleur) + 1) % COUL_ECOLES.length]; save("remplacements"); viewRemplacements(); return; }
     if (t.id === "rpPrev" || t.id === "rpNext") { const d = new Date(Y, M - 1 + (t.id === "rpNext" ? 1 : -1), 1); moisRempl = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; viewRemplacements(); return; }
     if (t.id === "rpAuj") { moisRempl = today.slice(0, 7); viewRemplacements(); return; }
     if (t.id === "rpCsv") {
-      const lignes = [["Date", "École", "Commune", "Durée", "Classe", "km (aller)", "Note"]];
-      Object.entries(r.jours).filter(([d, j]) => d.startsWith(moisRempl) && j.e).sort().forEach(([d, j]) => { const e2 = r.ecoles.find((x) => x.id === j.e); lignes.push([d, e2?.nom ?? "", e2?.commune ?? "", DUREES_R[j.d]?.[0] ?? "", j.classe ?? "", e2?.km ?? "", j.note ?? ""]); });
+      const lignes = [["Date", "École", "Commune", "Durée", "Classe", "km (aller)", "ISSR estimée (€)", "Note"]];
+      Object.entries(r.jours).filter(([d, j]) => d.startsWith(moisRempl) && j.e).sort().forEach(([d, j]) => { const e2 = r.ecoles.find((x) => x.id === j.e); const m = issrJour(+e2?.km || 0, d); lignes.push([d, e2?.nom ?? "", e2?.commune ?? "", DUREES_R[j.d]?.[0] ?? "", j.classe ?? "", e2?.km ?? "", m != null ? m.toLocaleString("fr-FR") : "", j.note ?? ""]); });
       const csv = "﻿" + lignes.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `remplacements-${moisRempl}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       return;
@@ -1739,25 +1789,114 @@ function jourRempl(iso) {
     ${r.ecoles.length ? `<p>Où remplaces-tu ?</p><div class="rp-choix">${r.ecoles.map((e) => `<button class="rp-btn ${j.e === e.id ? "on" : ""}" data-e="${e.id}" style="--ec:${e.couleur}">${esc(e.nom || "Sans nom")}${e.commune ? `<small>${esc(e.commune)}</small>` : ""}</button>`).join("")}<button class="rp-btn ${!j.e ? "on" : ""}" data-e="">Pas de remplacement</button></div>`
       : `<p>Ajoute d'abord tes écoles dans « Mes écoles ».</p>`}
     <div class="seg">${Object.entries(DUREES_R).map(([k, [v]]) => `<button data-d="${k}" class="${j.d === k ? "on" : ""}">${v}</button>`).join("")}</div>
+    <label>Jusqu'au (pour une période) <input type="date" name="fin" value="${iso}" min="${iso}"></label>
+    <p class="hint" id="rpPer"></p>
     <label>Classe, niveau, enseignant remplacé <input name="classe" value="${esc(j.classe)}" placeholder="Ex. CE1 de Mme Martin"></label>
     <label>Note <input name="note" value="${esc(j.note)}"></label>
     <div class="actions"><button data-close class="ghost">Annuler</button><button class="primary" id="rpOk">Enregistrer</button></div>`;
+  // Jours de classe d'une période : jours cochés dans les réglages, hors week-ends, vacances et jours fériés.
+  const joursClasse = state.reglages.jours ?? ["Lundi", "Mardi", "Jeudi", "Vendredi"];
+  const periode = (fin) => { const out = []; for (let d = iso; d <= fin && out.length < 400; d = addDays(d, 1)) { if (d === iso || (!statutJour(d) && joursClasse.includes(JOURS_JS[new Date(d + "T12:00").getDay()]))) out.push(d); } return out; };
   openModal(corps(), (m) => {
+    const majPer = () => { const fin = m.querySelector("[name=fin]").value; const n = fin > iso ? periode(fin).length : 1; m.querySelector("#rpPer").textContent = fin > iso ? `${n} jour${n > 1 ? "s" : ""} de classe du ${fmtLong(iso)} au ${fmtLong(fin)} (sans les week-ends, mercredis non travaillés, vacances et jours fériés).` : ""; };
+    m.querySelector("[name=fin]").oninput = majPer;
     m.onclick = (e) => {
       const t = e.target.closest("button"); if (!t) return;
       if (t.dataset.e != null) { j.e = t.dataset.e; m.querySelectorAll("[data-e]").forEach((b) => b.classList.toggle("on", b === t)); }
       if (t.dataset.d) { j.d = t.dataset.d; m.querySelectorAll("[data-d]").forEach((b) => b.classList.toggle("on", b === t)); }
       if (t.id === "rpOk") {
         j.classe = m.querySelector("[name=classe]").value.trim(); j.note = m.querySelector("[name=note]").value.trim();
-        if (j.e) r.jours[iso] = j; else delete r.jours[iso];
+        const fin = m.querySelector("[name=fin]").value, dates = fin > iso ? periode(fin) : [iso];
+        for (const d of dates) { if (j.e) r.jours[d] = { ...j }; else delete r.jours[d]; }
         save("remplacements"); closeModal(true); viewRemplacements();
       }
     };
   });
 }
 
+// ---------- MES RESSOURCES (PDF, images, vidéos, diapos importés) ----------
+let filtreDossier = "";
+async function viewRessources() {
+  let liste = [];
+  try { liste = await res.lister(); } catch (e) { app.innerHTML = `<div class="sheet"><p class="err">Impossible d'ouvrir le stockage des fichiers sur ce navigateur (${esc(e?.message || e)}).</p></div>`; return; }
+  if (document.body.dataset.view !== "ressources") return;
+  const dossiers = [...new Set(liste.map((f) => f.dossier).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+  if (filtreDossier && !dossiers.includes(filtreDossier)) filtreDossier = "";
+  const vus = liste.filter((f) => !filtreDossier || f.dossier === filtreDossier);
+  const pl = await res.place();
+  const urls = [];
+  const vignette = (f) => { const g = res.genre(f); if (g === "image") { const u = URL.createObjectURL(f.blob); urls.push(u); return `<img src="${u}" alt="" loading="lazy">`; } return `<span class="rs-ico">${res.ICONES[g]}</span>`; };
+  app.innerHTML = `
+    <div class="sheet rs-tete">
+      <p>Range ici les fichiers que tu utilises en classe (PDF, images, vidéos, sons…) pour les ouvrir ou les projeter en un clic, sans chercher dans ton ordinateur.</p>
+      <div class="row wrap">
+        <label class="btn primary rs-ajout">＋ Ajouter des fichiers<input type="file" id="rsFile" multiple hidden accept=".pdf,image/*,video/*,audio/*,.ppt,.pptx,.odp,.key,.doc,.docx,.odt,.xls,.xlsx,.ods"></label>
+        <label class="inline">dans le dossier <input id="rsDos" list="rsDosL" value="${esc(filtreDossier)}" placeholder="ex. Maths, Lecture, Anglais"><datalist id="rsDosL">${dossiers.map((d) => `<option value="${esc(d)}">`).join("")}</datalist></label>
+      </div>
+      <p class="hint">Tu peux aussi glisser des fichiers ici. Ils restent sur cet appareil : ils ne sont pas copiés dans ton compte ni dans la sauvegarde.${pl?.dispo ? ` Place utilisée : ${res.taille(pl.utilise)} sur ${res.taille(pl.dispo)} disponibles.` : ""}</p>
+      <p class="hint">PowerPoint et diaporamas : le navigateur ne sait pas les afficher. Enregistre-les en PDF (dans PowerPoint : Fichier > Exporter > PDF) pour les projeter ici ; sinon l'app les ouvre avec ton logiciel habituel.</p>
+    </div>
+    ${dossiers.length ? `<div class="seg wrap rs-filtres"><button data-dos="" class="${!filtreDossier ? "on" : ""}">Tout (${liste.length})</button>${dossiers.map((d) => `<button data-dos="${esc(d)}" class="${filtreDossier === d ? "on" : ""}">${esc(d)} (${liste.filter((f) => f.dossier === d).length})</button>`).join("")}</div>` : ""}
+    <div class="rs-grille" id="rsDrop">${vus.map((f) => `
+      <div class="rs-carte" data-id="${f.id}">
+        <a class="rs-vig" href="#/ressources/${f.id}">${vignette(f)}</a>
+        <div class="rs-info"><a href="#/ressources/${f.id}" class="rs-nom">${esc(f.nom)}</a><span class="hint">${esc(f.dossier || "Sans dossier")} · ${res.taille(f.taille || f.blob?.size || 0)}</span></div>
+        <div class="rs-act"><button class="mini" data-ren="${f.id}">Renommer</button><button class="mini" data-dep="${f.id}">Dossier</button><button class="mini" data-sup="${f.id}">Supprimer</button></div>
+      </div>`).join("") || `<div class="empty"><span>📂</span><p>${liste.length ? "Aucun fichier dans ce dossier." : "Aucun fichier pour l'instant. Ajoute tes PDF, images ou vidéos de classe."}</p></div>`}</div>`;
+  const ajouter = async (files) => {
+    const dossier = ($("#rsDos")?.value || "").trim();
+    let n = 0;
+    for (const file of files) {
+      try { await res.enregistrer({ id: uid(), nom: file.name, type: file.type, taille: file.size, dossier, ajoute: new Date().toISOString(), blob: file }); n++; }
+      catch (e) { alert(`« ${file.name} » n'a pas pu être enregistré (${/quota/i.test(e?.name + e?.message) ? "plus assez de place sur l'appareil" : e?.message || e}).`); }
+    }
+    if (dossier) filtreDossier = dossier;
+    if (n) viewRessources();
+  };
+  $("#rsFile").onchange = (e) => ajouter([...e.target.files]);
+  const zone = app;
+  zone.ondragover = (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { e.preventDefault(); $("#rsDrop")?.classList.add("survol"); } };
+  zone.ondragleave = (e) => { if (!app.contains(e.relatedTarget)) $("#rsDrop")?.classList.remove("survol"); };
+  zone.ondrop = (e) => { if (!e.dataTransfer?.files?.length) return; e.preventDefault(); $("#rsDrop")?.classList.remove("survol"); ajouter([...e.dataTransfer.files]); };
+  app.onclick = async (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.dos != null) { filtreDossier = t.dataset.dos; return viewRessources(); }
+    const id = t.dataset.ren || t.dataset.dep || t.dataset.sup; if (!id) return;
+    const f = await res.lire(id); if (!f) return;
+    if (t.dataset.ren) { const n = prompt("Nouveau nom :", f.nom); if (n && n.trim()) { f.nom = n.trim(); await res.enregistrer(f); } }
+    if (t.dataset.dep) { const d = prompt(`Dossier pour « ${f.nom} » (vide = sans dossier). Dossiers existants : ${dossiers.join(", ") || "aucun"}`, f.dossier || ""); if (d != null) { f.dossier = d.trim(); await res.enregistrer(f); } }
+    if (t.dataset.sup && confirm(`Supprimer « ${f.nom} » de BagaSchool ? (Le fichier d'origine sur ton ordinateur n'est pas touché.)`)) await res.supprimer(id);
+    viewRessources();
+  };
+  toolCleanup = () => urls.forEach((u) => URL.revokeObjectURL(u));
+}
+async function viewRessource(id) {
+  const f = await res.lire(id).catch(() => null);
+  if (!f) return notFound();
+  setTitle(f.nom);
+  const g = res.genre(f), url = URL.createObjectURL(f.blob);
+  const ouvrirAilleurs = `<a class="btn ghost" href="${url}" download="${esc(f.nom)}" target="_blank" rel="noopener">Ouvrir avec une autre application</a>`;
+  const contenu = g === "pdf" ? `<iframe class="rs-pdf" src="${url}#view=FitH" title="${esc(f.nom)}"></iframe><p class="hint center rs-pdf-aide">Le PDF ne s'affiche pas ? ${ouvrirAilleurs}</p>`
+    : g === "image" ? `<img class="rs-img" src="${url}" alt="${esc(f.nom)}">`
+    : g === "video" ? `<video class="rs-img" src="${url}" controls playsinline></video>`
+    : g === "audio" ? `<div class="tool-center"><span class="rs-ico big">🎵</span><audio src="${url}" controls></audio></div>`
+    : `<div class="tool-center rs-autre"><span class="rs-ico big">${res.ICONES[g]}</span><p>${g === "diapo" ? "Le navigateur ne peut pas afficher un diaporama PowerPoint ou Keynote. Pour le projeter ici, enregistre-le en PDF (Fichier > Exporter > PDF) et ajoute le PDF. Tu peux aussi l'ouvrir avec ton logiciel :" : "Ce type de fichier ne s'affiche pas dans le navigateur. Tu peux l'ouvrir avec ton logiciel :"}</p>${ouvrirAilleurs}</div>`;
+  app.innerHTML = `
+    <section class="board rs-board" id="board" style="--tile:#e8e3ff">
+      <header class="board-head">
+        <a href="#/ressources" class="round-btn" aria-label="Retour à mes ressources">←</a>
+        <h2><span>${res.ICONES[g]}</span> ${esc(f.nom)}</h2>
+        <button class="round-btn" id="fs" aria-label="Plein écran" title="Plein écran">⛶</button>
+      </header>
+      <div class="board-body rs-corps">${contenu}</div>
+    </section>`;
+  const finAnnot = installerAnnotation($("#board")), finTap = tapFiable($("#board"));
+  $("#fs").onclick = () => { const b = $("#board"); if (document.fullscreenElement) document.exitFullscreen?.(); else { try { (b.requestFullscreen || b.webkitRequestFullscreen)?.call(b)?.catch?.(() => {}); } catch {} } };
+  toolCleanup = () => { finAnnot(); finTap(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+}
+
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
@@ -1765,7 +1904,7 @@ function route(doux = false) {
   const y = window.scrollY;
   try { toolCleanup?.(); } catch {}
   toolCleanup = null;
-  app.onclick = app.oninput = app.onchange = null;
+  app.onclick = app.oninput = app.onchange = app.ondragover = app.ondragleave = app.ondrop = null;
   const [, name = "accueil", id] = location.hash.split("/");
   if (id === "new" && name === "fiches") { location.replace(`#/fiches/${newFiche().id}`); return; }
   if (id === "modele" && name === "fiches") { location.replace("#/fiches"); setTimeout(choisirModele, 0); return; }
@@ -1787,7 +1926,7 @@ function route(doux = false) {
     lier: () => location.replace("#/connexion"),
     connexion: () => viewConnexion(id), inscription: () => viewInscription(id), bienvenue: () => viewBienvenue(id), admin: viewAdmin,
     devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), aide: viewAide,
-    journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements,
+    journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements, ressources: () => (id ? viewRessource(id) : viewRessources()),
   };
   document.body.dataset.view = name;
   if (name !== "outils" && ecran.actif) surveiller();
