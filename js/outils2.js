@@ -55,12 +55,12 @@ function cahier(el, ctx) {
     const pos = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
     cv.onpointerdown = (e) => { if (mode !== "stylo") return; cv.setPointerCapture(e.pointerId); last = pos(e); };
     cv.onpointermove = (e) => {
-      if (!last) return; const q = pos(e);
+      if (!last) return; if (e.pointerType === "mouse" && e.buttons === 0) { cv.onpointerup(); return; } const q = pos(e);
       g.globalCompositeOperation = gomme ? "destination-out" : "source-over";
       g.strokeStyle = couleur; g.lineWidth = gomme ? 24 : 3.5;
       g.beginPath(); g.moveTo(...last); g.lineTo(...q); g.stroke(); last = q;
     };
-    cv.onpointerup = cv.onpointercancel = () => { if (!last) return; last = null; P().dessin = cv.toDataURL("image/png"); sauver(); };
+    cv.onpointerup = cv.onpointercancel = cv.onlostpointercapture = () => { if (!last) return; last = null; P().dessin = cv.toDataURL("image/png"); sauver(); };
   };
   el.oninput = (e) => {
     const f = e.target.closest("[data-f]")?.dataset.f; if (!f) return;

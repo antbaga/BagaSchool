@@ -267,6 +267,9 @@ function calcul(el) {
   const OPS = { "+": "Additions", "−": "Soustractions", "×": "Multiplications", "÷": "Divisions" };
   let ops = new Set(["+"]), max = 20, tables = [2, 3, 4, 5], q = null, show = false;
   let mode = localStorage.getItem("bagaschool-cm-mode") || "niveau", niv = localStorage.getItem("bagaschool-rituel-niv") || "CE1", types = new Set(CM_NIV[niv] || CM_NIV.CE1);
+  // Affichage : un calcul à la fois (« un »), défilement chronométré (« defile »), tableau + chrono (« tableau »)
+  let aff = localStorage.getItem("bagaschool-cm-aff") || "un", nb = +(localStorage.getItem("bagaschool-cm-nb") || 20), duree = +(localStorage.getItem("bagaschool-cm-duree") || 60);
+  let serie = [], pos = -1, debut = 0, pause = 0, tick = null, fini = false, voirRep = false;
   if (!CM_NIV[niv]) niv = "CE1";
   const gen = () => {
     if (mode === "niveau") { const ks = [...types]; const k = ks[rnd(ks.length)]; const [txt, r] = CM_TYPES[k][1](); return { txt, r, k }; }
@@ -278,14 +281,46 @@ function calcul(el) {
     if (op === "÷") { b = tables[rnd(tables.length)]; r = 1 + rnd(10); a = b * r; }
     return { txt: `${a} ${op} ${b}`, r };
   };
-  const question = () => {
-    if (!q) return "Prêt ?";
-    const rep = `<span class="calc-r ${show ? "" : "hide"}">${show ? (typeof q.r === "number" ? q.r.toLocaleString("fr-FR") : q.r) : "?"}</span>`;
+  const fmtR = (r) => typeof r === "number" ? r.toLocaleString("fr-FR") : r;
+  const ecrire = (q, show) => {
+    const rep = `<span class="calc-r ${show ? "" : "hide"}">${show ? fmtR(q.r) : "?"}</span>`;
     if (q.txt.includes("?")) return q.txt.replace("?", rep);
     return q.txt.startsWith("L") ? `${q.txt} : ${rep}` : `${q.txt} = ${rep}`;
   };
+  const question = () => q ? ecrire(q, show) : "Prêt ?";
+  // ---- séries chronométrées ----
+  const stop = () => { clearInterval(tick); tick = null; };
+  const ecoule = () => (pause || performance.now()) - debut; // ms
+  const lancer = () => { serie = Array.from({ length: nb }, gen); pos = 0; fini = false; voirRep = false; pause = 0; debut = performance.now(); stop(); tick = setInterval(avancer, 100); bip(660, .08); render(); };
+  const finir = () => { stop(); fini = true; pos = -1; bip(523, .15); bip(392, .3, .18); render(); };
+  const avancer = () => {
+    if (pause) return;
+    const t = ecoule(), tot = duree * 1000;
+    if (t >= tot) return finir();
+    if (aff === "defile") { const k = Math.floor(t / (tot / nb)); if (k !== pos) { pos = k; bip(880, .04); render(); return; } }
+    const bar = el.querySelector(".cm-bar i"), txt = el.querySelector(".cm-temps");
+    if (bar) bar.style.width = `${100 - (t / tot) * 100}%`;
+    if (aff === "defile") { const it = el.querySelector(".cm-defile-bar i"), per = tot / nb; if (it) it.style.width = `${100 - ((t % per) / per) * 100}%`; }
+    if (txt) txt.textContent = fmtT(Math.ceil((tot - t) / 1000));
+  };
+  const fmtT = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  const reglagesSerie = () => `<label class="inline">Calculs <select id="cmNb">${[5, 10, 15, 20, 30, 40].map((n) => `<option ${n === nb ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+    <label class="inline">Temps <select id="cmDuree">${[[30, "30 s"], [60, "1 min"], [90, "1 min 30"], [120, "2 min"], [180, "3 min"], [300, "5 min"], [600, "10 min"]].map(([v, l]) => `<option value="${v}" ${v === duree ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
+  const centreSerie = () => {
+    const tot = duree * 1000, reste = Math.max(0, Math.ceil((tot - ecoule()) / 1000));
+    const corr = `<ol class="cm-liste ${voirRep ? "rep" : ""}">${serie.map((x) => `<li>${ecrire(x, voirRep)}</li>`).join("")}</ol>`;
+    if (fini) return `<div class="cm-fin"><h3>⏰ Temps écoulé !</h3>${corr}<div class="pills"><button class="big-btn soft" id="cmRep">${voirRep ? "🙈 Cacher les réponses" : "👀 Correction"}</button><button class="big-btn" id="cmGo">↻ Nouvelle série</button></div></div>`;
+    if (pos < 0) return `<div class="cm-pret"><p class="muted">${aff === "defile" ? `${nb} calculs défilent tout seuls, un toutes les ${(Math.round(duree / nb * 10) / 10).toLocaleString("fr-FR")} s. Les élèves écrivent les réponses sur leur ardoise ou leur cahier.` : `${nb} calculs affichés d'un coup, ${fmtT(duree)} pour tout faire.`}</p><button class="big-btn" id="cmGo">▶ Démarrer</button></div>`;
+    const barre = `<div class="cm-chrono"><div class="cm-bar"><i style="width:${100 - (ecoule() / tot) * 100}%"></i></div><span class="cm-temps">${fmtT(reste)}</span><button class="pill" id="cmPause">${pause ? "▶ Reprendre" : "⏸ Pause"}</button><button class="pill" id="cmStop">⏹ Arrêter</button></div>`;
+    if (aff === "defile") { const x = serie[pos]; return `${barre}<p class="muted">Calcul ${pos + 1} / ${nb}</p><div class="calc-q">${ecrire(x, false).replace(/<span class="calc-r hide">\?<\/span>/, "…")}</div><div class="cm-defile-bar"><i></i></div>`; }
+    return `<div class="cm-tab-wrap">${barre}<ol class="cm-liste cm-grille">${serie.map((x) => `<li>${ecrire(x, false).replace(/<span class="calc-r hide">\?<\/span>/, '<span class="cm-trou"></span>')}</li>`).join("")}</ol></div>`;
+  };
   const render = () => {
     el.innerHTML = `
+      <div class="tool-top wrap">
+        <div class="seg cm-aff">${[["un", "Un par un"], ["defile", "⏱️ Chrono (défilent)"], ["tableau", "📋 Tableau + chrono"]].map(([k, v]) => `<button data-aff="${k}" class="${aff === k ? "on" : ""}">${v}</button>`).join("")}</div>
+        ${aff !== "un" ? reglagesSerie() : ""}
+      </div>
       <div class="tool-top wrap">
         <div class="seg"><button data-mode="niveau" class="${mode === "niveau" ? "on" : ""}">Par niveau</button><button data-mode="libre" class="${mode === "libre" ? "on" : ""}">Libre</button></div>
         ${mode === "niveau" ? `
@@ -295,15 +330,21 @@ function calcul(el) {
         ${ops.has("+") || ops.has("−") ? `<label class="inline">Jusqu'à <select id="mx">${[10, 20, 50, 100, 1000].map((m) => `<option ${m === max ? "selected" : ""}>${m}</option>`).join("")}</select></label>` : ""}
         ${ops.has("×") || ops.has("÷") ? `<div class="tables">Tables : ${[2, 3, 4, 5, 6, 7, 8, 9, 10].map((t) => `<button class="mini ${tables.includes(t) ? "on" : ""}" data-t="${t}">${t}</button>`).join("")}</div>` : ""}`}
       </div>
-      <div class="tool-center">
+      ${aff === "un" ? `<div class="tool-center">
         ${q && q.k ? `<p class="muted">${CM_TYPES[q.k][0]}</p>` : ""}
         <div class="calc-q">${question()}</div>
         <div class="pills"><button class="big-btn soft" id="sh" ${q ? "" : "disabled"}>👀 Réponse</button><button class="big-btn" id="nx">Suivant ➜</button></div>
-      </div>`;
+      </div>` : `<div class="tool-center cm-serie cm-${aff}">${centreSerie()}</div>`}`;
   };
   render();
   el.onclick = (e) => {
     const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.aff) { aff = t.dataset.aff; localStorage.setItem("bagaschool-cm-aff", aff); stop(); pos = -1; fini = false; return render(); }
+    if (t.id === "cmGo") return lancer();
+    if (t.id === "cmStop") return finir();
+    if (t.id === "cmPause") { if (pause) { debut += performance.now() - pause; pause = 0; } else pause = performance.now(); return render(); }
+    if (t.id === "cmRep") { voirRep = !voirRep; return render(); }
+    if (tick && (t.dataset.mode || t.dataset.niv || t.dataset.ty || t.dataset.op || t.dataset.t)) { stop(); pos = -1; }
     if (t.dataset.mode) { mode = t.dataset.mode; localStorage.setItem("bagaschool-cm-mode", mode); q = null; }
     if (t.dataset.niv) { niv = t.dataset.niv; types = new Set(CM_NIV[niv]); q = null; }
     if (t.dataset.ty) { const k = t.dataset.ty; if (types.has(k)) { if (types.size > 1) types.delete(k); } else types.add(k); q = null; }
@@ -313,7 +354,12 @@ function calcul(el) {
     if (t.id === "nx") { q = gen(); show = false; }
     render();
   };
-  el.onchange = (e) => { if (e.target.id === "mx") { max = +e.target.value; q = null; render(); } };
+  el.onchange = (e) => {
+    if (e.target.id === "mx") { max = +e.target.value; q = null; render(); }
+    if (e.target.id === "cmNb") { nb = +e.target.value; localStorage.setItem("bagaschool-cm-nb", nb); stop(); pos = -1; fini = false; render(); }
+    if (e.target.id === "cmDuree") { duree = +e.target.value; localStorage.setItem("bagaschool-cm-duree", duree); stop(); pos = -1; fini = false; render(); }
+  };
+  return stop;
 }
 
 // ---------- Horloge ----------
@@ -525,12 +571,13 @@ function ardoise(el) {
   cv.onpointerdown = (e) => { cv.setPointerCapture(e.pointerId); last = pos(e); };
   cv.onpointermove = (e) => {
     if (!last) return;
+    if (e.pointerType === "mouse" && e.buttons === 0) { last = null; return; } // bouton relâché ailleurs
     const p = pos(e);
     g.globalCompositeOperation = erase ? "destination-out" : "source-over";
     g.strokeStyle = color; g.lineWidth = erase ? size * 5 : size;
     g.beginPath(); g.moveTo(...last); g.lineTo(...p); g.stroke(); last = p;
   };
-  cv.onpointerup = cv.onpointercancel = () => { last = null; };
+  cv.onpointerup = cv.onpointercancel = cv.onlostpointercapture = () => { last = null; };
   el.onclick = (e) => {
     const t = e.target.closest("button"); if (!t) return;
     const seg = t.parentElement;

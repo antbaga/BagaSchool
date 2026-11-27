@@ -916,3 +916,69 @@ body[data-view=bienvenue] main{margin-left:0!important}
 .acc-compte{position:relative;display:flex!important;gap:10px;align-items:center;flex-wrap:wrap;padding-right:40px!important}
 .acc-compte span{flex:1;min-width:200px}
 @media (max-width:520px){.bv{padding:16px 14px}.bv-tour{grid-template-columns:1fr}.bv h2{font-size:23px}}
+
+/* ===== v0.9 : remplacements (adresses, ISSR) ===== */
+.rp-ecole{grid-template-columns:30px 1fr 100px 36px;grid-template-areas:"c n n x" ". m k ." ". a a a" ". b t t"}
+.rp-ecole .rp-adr{grid-area:a}.rp-ecole .rp-calc{grid-area:b;justify-self:start}.rp-ecole .rp-tr{grid-area:t;align-self:center;margin:0}
+.rp-ecole{border-bottom:1px dashed var(--line);padding-bottom:10px}
+.adr-box{position:relative}
+.adr-box input{width:100%}
+.adr-sugg{position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--panel);border-radius:12px;box-shadow:0 10px 30px #3b335533;padding:4px;display:flex;flex-direction:column}
+.adr-sugg button{text-align:left;padding:10px 12px;border-radius:10px;min-height:44px}
+.adr-sugg button:hover,.adr-sugg button:focus{background:var(--primary-soft)}
+.adr-sugg .hint{margin:8px}
+.adr-sugg[hidden]{display:none}
+.rp-issr p{margin:.5em 0}
+
+/* ===== v0.9 : calcul mental en séries ===== */
+.cm-serie{width:100%;gap:14px}
+.cm-chrono{display:flex;align-items:center;gap:12px;width:100%;max-width:900px;flex-wrap:wrap}
+.cm-bar{flex:1;min-width:160px;height:22px;background:#f0ecfa;border-radius:12px;overflow:hidden}
+.cm-bar i{display:block;height:100%;background:linear-gradient(90deg,#ff8fab,#7a6cf0);border-radius:12px;transition:width .1s linear}
+.cm-temps{font-size:clamp(28px,5vmin,48px);font-weight:900;font-variant-numeric:tabular-nums;min-width:3.2ch;text-align:center}
+.cm-defile-bar{width:min(600px,90%);height:8px;background:#f0ecfa;border-radius:6px;overflow:hidden}
+.cm-defile-bar i{display:block;height:100%;width:100%;background:#7a6cf0}
+.cm-pret{text-align:center;max-width:620px}
+.cm-tab-wrap{display:flex;flex-direction:column;gap:14px;width:100%;align-items:center}
+.cm-liste{list-style:none;counter-reset:cm;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:8px 22px;width:100%;max-width:1200px}
+.cm-liste li{counter-increment:cm;font-size:clamp(20px,3.2vmin,34px);font-weight:800;font-variant-numeric:tabular-nums;background:#fff;border-radius:12px;padding:8px 14px;box-shadow:var(--shadow);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.cm-liste li::before{content:counter(cm);font-size:.55em;color:var(--muted);min-width:1.6em}
+.cm-trou{display:inline-block;min-width:2.2em;border-bottom:3px dotted #c9c2f7;height:1em}
+.cm-fin{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%}
+.cm-fin h3{font-size:30px;margin:0}
+.board:fullscreen .cm-liste li,.projection .cm-liste li{font-size:clamp(24px,3.6vmin,44px)}
+
+/* ===== v0.9 : annotation par-dessus les outils, TBI ===== */
+.board{position:relative}
+.board button,.board .tile{touch-action:manipulation}
+.annot{position:absolute;z-index:30}
+.annot canvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+.annot.main canvas{pointer-events:none}
+.annot.main{pointer-events:none}
+.annot-barre{pointer-events:auto;position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:2px;align-items:center;background:#fffffff2;border-radius:18px;box-shadow:0 8px 28px #3b335540;padding:5px;max-height:calc(100% - 16px);overflow-y:auto;touch-action:none}
+.annot-barre button{min-width:46px;min-height:44px;border-radius:14px;display:grid;place-items:center;font-size:20px;background:transparent}
+.annot-barre button.on{background:var(--primary-soft);box-shadow:inset 0 0 0 2px var(--primary)}
+.annot-barre .dot{width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1px #0002}
+.annot-sep{height:1px;align-self:stretch;background:var(--line);margin:2px 4px}
+#annotBtn.on{background:var(--primary);color:#fff}
+
+/* ===== v0.9 : mes ressources ===== */
+.rs-tete .row{align-items:center;gap:12px}
+.rs-ajout{cursor:pointer}
+.rs-filtres{margin:6px 0 12px}
+.rs-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;border-radius:18px;transition:background .15s}
+.rs-grille.survol{background:var(--primary-soft);outline:3px dashed var(--primary)}
+.rs-carte{background:var(--panel);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.rs-vig{height:130px;display:grid;place-items:center;background:#f7f4ff;text-decoration:none}
+.rs-vig img{width:100%;height:100%;object-fit:cover}
+.rs-ico{font-size:52px}.rs-ico.big{font-size:90px}
+.rs-info{padding:10px 12px 4px;display:flex;flex-direction:column;gap:2px}
+.rs-nom{font-weight:800;color:var(--ink);text-decoration:none;word-break:break-word}
+.rs-act{display:flex;gap:4px;flex-wrap:wrap;padding:6px 10px 10px}
+.rs-corps{padding:8px;align-items:center;justify-content:center}
+.rs-pdf{width:100%;flex:1;min-height:70vh;border:0;border-radius:10px;background:#fff}
+.rs-img{max-width:100%;max-height:78vh;object-fit:contain;border-radius:10px;margin:auto}
+.board:fullscreen .rs-img{max-height:calc(100vh - 90px)}
+.board:fullscreen .rs-pdf{min-height:calc(100vh - 90px)}
+.rs-pdf-aide{margin:4px 0 0}
+.rs-autre{max-width:620px;text-align:center}
