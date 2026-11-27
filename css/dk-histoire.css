@@ -1,1 +1,178 @@
-/* À découvrir : module histoire */
+/* À découvrir : module histoire (js/decouvrir/histoire.js) — préfixe hi- */
+.hi-zone{display:flex;flex-direction:column;gap:12px}
+.hi-consigne{margin:0;text-align:center;font-weight:700;color:var(--ink)}
+.hi-note{margin:-4px 0 0;text-align:center;font-size:14px;font-weight:700;color:var(--muted)}
+.hi-msg{text-align:center;font-weight:800;font-size:18px;min-height:1.4em}
+.hi-msg:empty{display:none}
+.hi-actions{margin:2px 0}
+.hi-actions .big-btn{font-size:18px;padding:10px 20px;min-height:50px}
+.hi-hpbox{font-size:15px}
+.hi-attention{background:#fff6dc;border-radius:12px;padding:8px 12px;font-weight:600}
+
+/* ---- cartes-repères ---- */
+.hi-carte{display:inline-flex;align-items:flex-start;gap:6px;text-align:left;font:700 16px/1.25 var(--font);padding:7px 12px 7px 9px;min-height:0;border-radius:12px;
+  background:var(--cc);color:var(--ink);border:0;border-left:5px solid var(--cf);box-shadow:0 3px 0 color-mix(in srgb,var(--cf) 45%,transparent);
+  touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;max-width:260px}
+.hi-carte b{color:var(--cf);white-space:nowrap}
+.hi-ico{flex:none;font-size:1.05em;line-height:1.2}
+.hi-carte.on{outline:3px solid var(--primary);outline-offset:2px}
+.hi-carte.good{background:#c9ecd4;border-left-color:#2f9e63;box-shadow:0 3px 0 #6fb985}
+.hi-carte.bad{background:#ffd0d6;border-left-color:#e0556a;box-shadow:0 3px 0 #e0556a;animation:hiSecoue .4s}
+@keyframes hiSecoue{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.hi-carte.bad{animation:none}}
+.hi-carte.dk-ghost{max-width:240px}
+.hi-banque{background:#faf8ff;border-radius:16px;padding:10px;min-height:66px;align-items:flex-start}
+.hi-banque.dk-survol{outline-offset:-2px}
+
+/* ---- fiche d'explication ---- */
+.hi-fiche{background:#faf8ff;border-radius:18px;padding:14px 18px;border-left:6px solid var(--cf,var(--primary));font-size:17px}
+.hi-fiche.vide{border-left-color:var(--primary-soft)}
+.hi-fiche h3{margin:0;font-size:22px}
+.hi-fiche p{margin:8px 0 0}
+.hi-fiche h4{margin:12px 0 4px;font-size:17px}
+.hi-fiche-top{display:flex;gap:12px;align-items:center}
+.hi-fiche-ico{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:var(--cc);font-size:26px;flex:none}
+.hi-fiche-date{font-weight:900;color:var(--cf);font-size:18px}
+.hi-tags{display:flex;flex-wrap:wrap;gap:4px}
+.hi-tags .dk-tag{font-size:13px}
+.hi-tcat{background:var(--cc)!important;color:var(--cf)!important}
+.hi-hp{background:#fff1d6!important;color:#9a6a00!important}
+.hi-tper{background:#f0f0f0!important;color:#666!important}
+.hi-fper{border-left-color:var(--pf);background:color-mix(in srgb,var(--pc) 22%,#fff)}
+.hi-fper h3{color:var(--pf)}
+.hi-liste{list-style:none;padding:0;margin:4px 0 0;display:grid;gap:4px}
+.hi-liste li{display:flex;gap:8px;align-items:baseline;background:#fff;border-radius:10px;padding:5px 10px;border-left:4px solid var(--cf)}
+.hi-liste li b{color:var(--cf);white-space:nowrap}
+
+/* ---- grande frise ---- */
+.hi-gscroll{overflow-x:auto;padding:4px 2px 2px;-webkit-overflow-scrolling:touch}
+.hi-gf{min-width:780px;padding:0 54px}
+.hi-gbar{display:flex;gap:3px;align-items:stretch}
+.hi-gper{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;min-height:120px;padding:10px 6px;border-radius:14px;
+  background:var(--pc);color:var(--pf);border:3px solid transparent;font:800 18px/1.15 var(--font);text-align:center;cursor:pointer;position:relative}
+.hi-gper>b{font-size:clamp(16px,1.6vw,24px)}
+.hi-gper small{font-size:13px;font-weight:700;opacity:.85}
+.hi-gemo{font-size:30px;line-height:1}
+.hi-gper.on{border-color:var(--pf);box-shadow:0 6px 16px color-mix(in srgb,var(--pf) 35%,transparent);transform:translateY(-3px)}
+.hi-gbar>.hi-gper:first-child{border-radius:22px 10px 10px 22px}
+.hi-gbar>.hi-gper:last-child,.hi-gbar>.hi-reste:last-child{border-radius:10px 22px 22px 10px}
+.hi-gfin{flex:none;align-self:center;width:0;height:0;border:22px solid transparent;border-left:20px solid var(--fc,#e6c9f3);margin:0 -42px 0 -3px}
+.hi-gbornes{position:relative;height:46px;margin-top:4px}
+.hi-gb{position:absolute;top:10px;translate:-50% 0;white-space:nowrap;font-weight:700;font-size:15px;color:var(--ink)}
+.hi-gb b{font-size:18px;font-weight:900}
+.hi-gb::before{content:"";position:absolute;left:50%;top:-14px;height:12px;border-left:3px solid var(--ink)}
+.hi-gb.hi-gb0,.hi-gb.hi-gbn{top:30px;font-size:14px}.hi-gb.hi-gb0::before,.hi-gb.hi-gbn::before{top:-34px;height:32px}
+.hi-gbornes{height:56px}
+.hi-gb.hi-gb0{left:0;translate:0 0;color:var(--muted)}.hi-gb.hi-gb0::before{left:2px}
+.hi-gb.hi-gbn{left:auto;right:0;translate:0 0;color:var(--muted)}.hi-gb.hi-gbn::before{left:auto;right:2px}
+.hi-gb.bas{top:30px}.hi-gb.bas::before{top:-34px;height:32px}
+.hi-gbornes:has(.bas){height:62px}
+.hi-gb.hi-gb0.haut{top:10px}.hi-gb.hi-gb0.haut::before{top:-14px;height:12px}
+.hi-gb.hi-gbn.loin{top:58px}.hi-gb.hi-gbn.loin::before{top:-62px;height:60px}
+.hi-gbornes:has(.loin){height:82px}
+.hi-reste{min-width:6px;background:repeating-linear-gradient(90deg,#fbe08a 0 2px,#c5e6ad 2px 4px,#b9dcf6 4px 6px,#e6c9f3 6px 8px);border-radius:4px;outline:3px solid #e0556a}
+.hi-fleche{color:#c23a50!important;font-weight:900!important}
+.hi-loupe-titre{text-align:center;font-weight:800;color:var(--primary);margin:6px 0;background:var(--primary-soft);border-radius:12px;padding:6px}
+.hi-loupe .hi-gper{min-height:96px}
+.hi-loupe .hi-gper>b{font-size:clamp(14px,1.4vw,20px)}
+.hi-legende{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:2px}
+.hi-legende button{min-height:34px;padding:4px 12px;border-radius:999px;background:#fff;box-shadow:var(--shadow);font-size:14px;color:var(--pf)}
+.hi-legende i{display:inline-block;width:16px;height:16px;border-radius:5px;background:var(--pc);border:2px solid var(--pf)}
+
+/* placer les périodes */
+.hi-gper.gris{background:#f1eef6;color:var(--muted)}
+.hi-gper.hi-cible{cursor:default}
+.hi-slot{display:inline-flex;align-items:center;justify-content:center;min-width:110px;min-height:48px;border:3px dashed #c9c1dc;border-radius:14px;background:#ffffffb0;color:#b3aac6;font-size:22px;font-weight:900;padding:2px}
+.hi-slot:has(.hi-lab){border-style:solid;border-color:transparent;background:none}
+.hi-slotb{min-width:118px;min-height:44px;font-size:18px}
+.hi-gbornes:has(.hi-slotb){height:70px}
+.hi-gbornes .hi-gb:has(.hi-slotb){top:14px}
+.hi-lab{font-size:18px;white-space:nowrap}
+.hi-labb{background:#e7e2ff;box-shadow:0 3px 0 #b6aaf0}
+.hi-slot.good .hi-lab{background:#c9ecd4;box-shadow:0 3px 0 #6fb985}
+.hi-slot.bad .hi-lab{background:#ffd0d6;box-shadow:0 3px 0 #e0556a}
+
+/* placer les dates */
+.hi-gbar-dates .hi-gper{justify-content:flex-start;min-height:190px;gap:8px}
+.hi-gbar-dates .hi-gper>b{font-size:17px}
+.hi-poses{display:flex;flex-direction:column;gap:6px;width:100%;align-items:stretch}
+.hi-carte.hi-mini{font-size:13px;padding:5px 7px;max-width:none;border-left-width:4px}
+
+/* ---- frise d'une période ---- */
+.hi-frises{display:flex;justify-content:center}
+.hi-fsel button{flex-direction:column;gap:0;line-height:1.15;padding:6px 12px}
+.hi-fsel button small{font-weight:600;font-size:12px;color:var(--muted)}
+.hi-cats{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.hi-chip{min-height:38px;padding:5px 12px;border-radius:999px;background:#f4f1fb;font-size:15px;color:var(--muted);border:2px solid transparent}
+.hi-chip span{font-size:12px;background:#fff;border-radius:999px;padding:0 7px;margin-left:2px}
+.hi-chip.on{background:var(--cc,#fff);color:var(--cf,var(--primary));border-color:var(--cf,var(--primary));box-shadow:var(--shadow)}
+.hi-fbar{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.hi-ftitre{font-size:20px}
+.hi-ftitre .muted{font-size:15px;font-weight:700}
+.hi-zoomb{display:flex;gap:6px}
+.hi-zoomb button{width:46px;height:46px;min-height:0;padding:0;border-radius:14px;background:#fff;box-shadow:var(--shadow);font-size:24px;font-weight:900}
+.hi-scroll{isolation:isolate;overflow-x:auto;overflow-y:hidden;background:#fbf9ff;border-radius:20px;border:2px solid #f0ebfa;touch-action:pan-y;-webkit-overflow-scrolling:touch;cursor:grab}
+.hi-track{position:relative;--hup:120px;--hdown:8px;padding-top:6px}
+.hi-up{position:relative;height:var(--hup)}
+.hi-up .hi-carte{position:absolute;left:var(--x);bottom:calc(var(--l,0) * 62px + 18px);translate:-50% 0;max-width:190px;font-size:14px;padding:5px 9px 5px 7px;border-left-width:4px;line-height:1.2}
+.hi-up .hi-carte b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hi-up .hi-carte .hi-txt{display:block;max-height:49px;overflow:hidden}
+.hi-up .hi-carte::after{content:"";position:absolute;left:50%;top:100%;height:calc(var(--l,0) * 62px + 18px);border-left:2px solid var(--cf);opacity:.6;pointer-events:none}
+.hi-up .hi-carte::before{content:"";position:absolute;left:50%;top:calc(100% + var(--l,0) * 62px + 18px - 6px);width:12px;height:12px;margin-left:-5px;border-radius:50%;background:var(--cf);box-shadow:0 0 0 3px #fff;pointer-events:none}
+.hi-up .hi-carte.good::before{background:#2f9e63}.hi-up .hi-carte.bad::before{background:#e0556a}
+.hi-up .hi-carte{z-index:calc(30 - var(--l,0))}
+.hi-up .hi-carte.on{z-index:40}
+.hi-up .hi-carte:hover{z-index:41}
+.hi-vide-txt{position:absolute;top:50%;translate:-50% -50%;color:#b3aac6;font-weight:800;font-size:18px;white-space:nowrap;pointer-events:none}
+.hi-axe{position:relative;height:46px}
+.hi-ligne{position:absolute;top:0;height:5px;border-radius:3px;background:var(--ink)}
+.hi-ligne::after{content:"";position:absolute;right:-12px;top:50%;translate:0 -50%;border:9px solid transparent;border-left:12px solid var(--ink)}
+.hi-tick{position:absolute;top:0;width:0;height:9px;border-left:1.5px solid #8a829c;translate:-50% 0}
+.hi-tick.mid{height:13px;border-left-width:2px;border-color:var(--ink)}
+.hi-tick.maj{height:17px;border-left-width:3px;border-color:var(--ink)}
+.hi-tlab{position:absolute;top:18px;translate:-50% 0;font-size:14px;font-weight:700;white-space:nowrap;color:var(--ink)}
+.hi-tlab.maj{font-weight:900;font-size:15px}
+.hi-bandes,.hi-siecles{position:relative;height:28px}
+.hi-siecles{height:24px;margin-top:3px}
+.hi-bande{position:absolute;top:0;height:100%;background:var(--pc);color:var(--pf);font-weight:800;font-size:14px;border-radius:8px;display:flex;align-items:center;overflow:hidden;box-shadow:inset 0 0 0 2px #fff}
+.hi-bande span{position:sticky;left:6px;padding:0 8px;white-space:nowrap}
+.hi-siecle{position:absolute;top:0;height:100%;background:#f1eef8;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--muted);box-shadow:inset 0 0 0 2px #fbf9ff}
+.hi-siecle.alt{background:#e7e2f3}
+.hi-down{position:relative;height:var(--hdown);margin-top:6px}
+.hi-barre{position:absolute;left:var(--x);top:calc(var(--l,0) * 36px);min-height:0;height:30px;padding:0;background:none;display:block;text-align:left;width:var(--w);overflow:visible}
+.hi-barre:active{transform:none}
+.hi-barre i{position:absolute;inset:0;border-radius:8px;background:var(--cc);border:2px solid var(--cf)}
+.hi-barre span{position:absolute;left:6px;top:50%;translate:0 -50%;white-space:nowrap;font-size:14px;font-weight:800;color:var(--ink)}
+.hi-barre.dehors span{left:calc(100% + 6px)}
+.hi-barre.gauche span{left:auto;right:calc(100% + 6px)}
+.hi-barre small{color:var(--cf);font-weight:800}
+.hi-barre.on i{box-shadow:0 0 0 3px var(--primary)}
+.hi-track.dk-survol{outline:none!important}
+.hi-track.dk-survol .hi-up{background:#7a6cf00f;border-radius:16px}
+
+/* ---- remettre dans l'ordre ---- */
+.hi-sens{display:flex;justify-content:space-between;font-weight:800;color:var(--primary);background:linear-gradient(90deg,#ece9ff,#fff,#ece9ff);border-radius:999px;padding:4px 14px}
+.hi-ordre{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:stretch}
+.hi-case{display:flex;flex-direction:column;align-items:stretch;gap:4px}
+.hi-num{align-self:center;font-weight:900;color:var(--muted);font-size:15px}
+.hi-carte.hi-grande{flex:1;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:none;min-height:110px;font-size:17px;border-left:0;border-top:6px solid var(--cf);padding:10px}
+.hi-carte.hi-grande .hi-ico{font-size:28px}
+.hi-carte.hi-grande b{display:block;margin-bottom:2px}
+.hi-carte.hi-grande.good{border-top-color:#2f9e63}.hi-carte.hi-grande.bad{border-top-color:#e0556a}
+
+@media (max-width:600px){
+  .hi-actions .big-btn{font-size:16px;padding:8px 14px}
+  .hi-fbar{flex-wrap:wrap}
+  .hi-fiche{font-size:16px}
+  .hi-ordre{grid-template-columns:1fr 1fr}
+}
+/* au tableau */
+.board:fullscreen .hi-carte,.projection .hi-carte{font-size:18px}
+.board:fullscreen .hi-up .hi-carte,.projection .hi-up .hi-carte{font-size:15px}
+.hi-slot .hi-lab{white-space:normal;text-align:center;line-height:1.1;max-width:100%}
+.hi-gper .hi-slot{max-width:100%}
+.hi-gbornes:has(.hi-slotb) .hi-gb0{display:none}
+.hi-gbornes:has(.hi-slotb) .hi-gbn{top:24px}
+.hi-gbornes:has(.hi-slotb) .hi-gbn::before{top:-28px;height:26px}
+@media (max-width:600px){.hi-gf{min-width:660px;padding:0 36px}.hi-gper{min-height:104px}.hi-gemo{font-size:24px}}
+@media (max-width:600px){.hi-chip{min-height:32px;font-size:13px;padding:3px 10px}.hi-zoomb button{width:40px;height:40px}.hi-ftitre{font-size:18px}}

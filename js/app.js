@@ -23,7 +23,7 @@ import { installerBarre } from "./barre.js";
 import * as res from "./ressources.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.10.1";
+export const VERSION = "0.12.0";
 
 // ---------- état ----------
 let state = {};

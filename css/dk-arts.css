@@ -1,1 +1,178 @@
-/* À découvrir : module arts */
+/* À découvrir : histoire des arts (js/decouvrir/arts.js) — préfixe ak- */
+.ak-vue{display:flex;flex-direction:column;gap:14px;flex:1;min-width:0}
+
+/* Images et repli */
+.ak-img{position:relative;overflow:hidden;background:#f4f1fb;border-radius:14px}
+.ak-img>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s}
+.ak-img.ok>img{opacity:1}
+.ak-img.ok>.ak-repli{visibility:hidden}
+.ak-repli{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px;text-align:center;
+  background:linear-gradient(150deg,#fff 0%,var(--c) 75%);color:var(--f);border:2px solid color-mix(in srgb,var(--c) 70%,#fff);border-radius:inherit}
+.ak-repli-ico{font-size:clamp(28px,5vmin,52px);line-height:1;filter:saturate(.8)}
+.ak-repli b{font-size:15px;line-height:1.2;font-weight:900}
+.ak-img.mini{width:44px;height:44px;flex:none;border-radius:10px}
+.ak-img.mini .ak-repli b{display:none}.ak-img.mini .ak-repli-ico{font-size:22px}
+
+/* Frise des périodes */
+.ak-frise{display:flex;gap:6px;flex-wrap:wrap;align-items:stretch}
+.ak-frise button{flex:1 1 120px;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;border-radius:14px;padding:6px 10px;background:var(--c,#f4f1fb);color:var(--f,var(--ink));font-weight:900;font-size:16px;line-height:1.15;position:relative;box-shadow:0 3px 0 color-mix(in srgb,var(--f,#ccc) 35%,transparent)}
+.ak-frise button small{font-weight:700;font-size:12px;opacity:.85}
+.ak-frise button b{position:absolute;top:4px;right:8px;font-size:12px;background:#fff9;border-radius:99px;padding:0 7px}
+.ak-frise .ak-fr-tout{flex:0 1 96px;background:#f4f1fb}
+.ak-frise button.on{outline:3px solid var(--f,var(--primary));outline-offset:2px}
+.ak-frise .ak-fr:not(:last-child)::after{content:"";position:absolute;right:-9px;top:50%;transform:translateY(-50%);border:7px solid transparent;border-left-color:var(--c);z-index:1}
+
+/* Galerie */
+.ak-galerie{display:flex;flex-direction:column;gap:18px}
+.ak-sect-t{margin:0 0 8px;font-size:20px;color:var(--f);display:flex;gap:10px;align-items:baseline;border-bottom:3px solid var(--c);padding-bottom:4px}
+.ak-sect-t small{font-size:14px;color:var(--muted);font-weight:700}
+.ak-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.ak-carte{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:4px;padding:8px 8px 10px;background:#fff;border-radius:18px;box-shadow:var(--shadow);text-align:left;cursor:pointer;min-height:0}
+.ak-carte:hover{transform:translateY(-2px)}
+.ak-carte .ak-img{aspect-ratio:4/3}
+.ak-carte-t{font-weight:900;font-size:16px;line-height:1.2;margin-top:4px}
+.ak-carte-s{font-size:13px;color:var(--muted);font-weight:700;line-height:1.25}
+
+/* Fiche */
+.ak-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.ak-nav-g{display:flex;align-items:center;gap:8px}
+.ak-pos{font-weight:900;color:var(--muted);min-width:56px;text-align:center}
+.ak-fiche{grid-template-columns:minmax(0,1fr) minmax(280px,400px)}
+.ak-grand{min-height:min(70vh,640px);background:#2b2738}
+.ak-grand>.ak-repli{position:absolute;inset:0;border-radius:0}
+.ak-grand>.ak-repli .ak-repli-ico{font-size:90px}.ak-grand>.ak-repli b{font-size:26px}
+.ak-zoomsvg{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+.ak-charge{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:var(--f);font-weight:800;margin:0}
+.ak-astuce{position:absolute;left:10px;bottom:10px;margin:0;font-size:12px;color:#fff;background:#0006;border-radius:10px;padding:3px 8px;pointer-events:none}
+.ak-info{font-size:17px;max-height:min(78vh,820px);overflow:auto}
+.ak-info h3{font-size:26px;line-height:1.15;margin:8px 0}
+.ak-badges{display:flex;gap:6px;flex-wrap:wrap}
+.ak-badge{font-size:13px;font-weight:900;border-radius:10px;padding:2px 10px;background:var(--c);color:var(--f)}
+.ak-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:8px 0 10px;font-size:15px;background:#fff;border-radius:14px;padding:10px 12px}
+.ak-dl dt{color:var(--muted);font-weight:800}.ak-dl dd{margin:0;font-weight:700}
+.ak-h4{margin:14px 0 4px;font-size:16px;color:var(--primary)}
+.ak-obs{margin:4px 0;padding-left:22px}.ak-obs li{margin:3px 0}
+.ak-plus{background:#fff7d6;border-radius:12px;padding:8px 10px}
+.ak-credit{font-size:12px;color:var(--muted);line-height:1.4;margin-top:12px!important;word-break:break-word}
+.ak-credit a{font-weight:800}
+.ak-cred-off{font-style:italic}
+
+/* Œuvre mystère */
+.ak-myst-img{background:#2b2738;min-height:min(62vh,560px)}
+.ak-myst-img>.ak-img{position:absolute;inset:12px;border-radius:14px;background:transparent}
+.ak-flou>img{object-fit:contain;filter:blur(var(--flou,20px)) saturate(1.1);transform:scale(1.08);transition:filter .6s,transform .6s,opacity .35s}
+.ak-flou.net>img{filter:none;transform:none}
+.ak-flou>.ak-repli b{font-size:60px}
+.ak-tour{font-weight:800;color:var(--muted);margin:0 0 4px!important}
+.ak-indices{margin:6px 0 10px;padding-left:24px;font-size:17px}.ak-indices li{margin:4px 0;font-weight:700}
+.ak-choix{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0}
+.ak-rep{background:#fff;box-shadow:0 3px 0 #e3dff0;border-radius:14px;font-size:18px;font-weight:800;min-height:52px;padding:8px 12px;text-align:center;line-height:1.2}
+.ak-rep.good{background:#c9ecd4;box-shadow:0 3px 0 #6fb985}
+.ak-rep.bad{background:#ffd0d6;box-shadow:0 3px 0 #e0556a}
+.ak-rep:disabled{opacity:1;cursor:default}
+.ak-fin{display:flex;flex-direction:column;align-items:center;gap:8px;padding:30px 10px;text-align:center}
+.ak-fin-ico{font-size:72px}.ak-fin h3{margin:0;font-size:28px}
+
+/* Mots : explorer */
+.ak-mots{grid-template-columns:minmax(0,1fr) minmax(260px,380px)}
+.ak-motsgrille{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;align-content:start}
+.ak-mot{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:8px 6px 10px;font-weight:800;font-size:15px;line-height:1.15;min-height:0}
+.ak-mot svg{width:100%;max-width:120px;height:auto;aspect-ratio:4/3}
+.ak-mot.on{outline:3px solid var(--primary);outline-offset:1px;background:#f7f5ff}
+.ak-new{position:absolute;top:4px;right:4px;font-style:normal;font-size:11px;font-weight:900;background:var(--pink);color:#fff;border-radius:99px;padding:1px 7px}
+.ak-motcarte{display:flex;flex-direction:column;position:sticky;top:calc(var(--top) + 10px);align-self:start}
+.ak-grandschema{background:#fff;border-radius:16px;padding:8px}
+.ak-grandschema svg{width:100%;height:auto;max-height:36vh;display:block}
+.ak-motcarte h3{font-size:30px;margin:10px 0 4px}
+.ak-def{font-size:20px;font-weight:700;line-height:1.35}
+.ak-exs{display:flex;flex-wrap:wrap;gap:8px}
+.ak-ex{display:flex;align-items:center;gap:8px;background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:6px 12px 6px 6px;font-weight:800;text-align:left}
+
+/* Jeux d'étiquettes */
+.ak-jeu{display:flex;flex-direction:column;gap:12px}
+.ak-consigne{margin:0;font-weight:800;text-align:center;font-size:17px}
+.ak-banque{background:#faf8ff;border-radius:16px;border:2px dashed #e3dff0}
+.ak-banque.dk-survol{background:var(--primary-soft)}
+.ak-defs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.ak-defc{display:flex;flex-direction:column;gap:6px;background:#fff;border-radius:18px;box-shadow:var(--shadow);padding:10px;border:3px solid transparent}
+.ak-defschema svg{width:100%;height:auto;max-height:130px;display:block}
+.sans-dessins .ak-defschema{display:none}
+.ak-defc p{margin:0;font-size:16px;font-weight:700;line-height:1.3;flex:1}
+.ak-slot{min-height:46px;border-radius:12px;background:#f4f1fb;border:2px dashed #d8d2ec;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;padding:4px}
+.ak-slot:has([data-etq]){border-style:solid;border-color:transparent;background:transparent}
+.ak-actions{gap:10px}
+.ak-jeu .dk-etq{font-size:18px}
+
+/* Sur l'œuvre */
+.ak-tableaux{align-self:center}
+.ak-surjeu{flex-direction:row;align-items:flex-start;flex-wrap:wrap}
+.ak-zonewrap{flex:1 1 440px;display:flex;justify-content:center;min-width:0}
+.ak-zonecadre{position:relative;aspect-ratio:var(--r);width:min(100%,calc(66vh * var(--r)));border-radius:10px;overflow:hidden;box-shadow:0 8px 24px #3b335530;background:#2b2738}
+.ak-zonefond,.ak-zonefond>svg,.ak-zoneimg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ak-zoneimg{object-fit:fill}
+.ak-zone{position:absolute;border:3px dashed #fff;border-radius:10px;background:#ffffff26;box-shadow:0 0 0 2px #3b335566;display:flex;align-items:center;justify-content:center}
+.ak-zone .ak-slot{background:transparent;border:0;min-height:0;padding:2px}
+.ak-zone .dk-etq{font-size:16px;padding:4px 10px;box-shadow:0 3px 0 #e0b85a,0 4px 12px #0005}
+.ak-zn{position:absolute;top:-2px;left:-2px;width:26px;height:26px;border-radius:8px 0 8px 0;background:#fff;color:var(--ink);font-weight:900;font-size:15px;display:grid;place-items:center}
+.ak-cote{flex:1 1 260px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.ak-infos{margin:0;padding-left:22px;background:#fff;border-radius:14px;padding:10px 10px 10px 30px}.ak-infos li{margin:4px 0}
+
+/* Quiz */
+.ak-quiz{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:900px;width:100%;margin:0 auto}
+.ak-quiz .quiz-target{width:100%}
+.ak-qimg .ak-img{width:min(420px,80vw);aspect-ratio:4/3}
+.ak-qimg .ak-img>img{object-fit:contain;background:#2b2738}
+.ak-quiz .ak-choix{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));width:100%}
+.ak-choix-oe{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))!important}
+.ak-rep-oe{display:flex;flex-direction:column;justify-content:flex-start;gap:6px;padding:8px}
+.ak-rep-oe .ak-img{width:100%;aspect-ratio:4/3}
+.ak-quiz .answer{width:100%;text-align:center}
+
+/* Frise à compléter */
+.ak-etq-oe{display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;font-size:16px;text-align:left;line-height:1.15}
+.ak-etq-oe{max-width:260px;white-space:normal}
+.ak-etq-oe>span{min-width:0;overflow-wrap:anywhere}
+.ak-date{display:none;font-size:12px;font-weight:800;color:var(--muted);margin-left:2px}
+.revele .ak-date{display:inline}
+.ak-periodes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.ak-col{display:flex;flex-direction:column;gap:6px;background:color-mix(in srgb,var(--c) 40%,#fff);border-radius:16px;padding:8px;min-height:180px;border-top:8px solid var(--c)}
+.ak-col-t{text-align:center;font-weight:900;color:var(--f);line-height:1.15}
+.ak-court{display:none}
+.ak-col-t small{display:block;font-size:12px;font-weight:700;opacity:.85}
+.ak-col .ak-slot{flex:1;flex-direction:column;justify-content:flex-start;background:#ffffff80;border-color:color-mix(in srgb,var(--c) 80%,#fff)}
+.ak-col .ak-slot:has([data-etq]){border-style:dashed;border-color:color-mix(in srgb,var(--c) 80%,#fff);background:#ffffff80}
+.ak-col .ak-etq-oe{width:100%}
+.ak-ligne{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.ak-case{position:relative;background:#faf8ff;border-radius:16px;padding:22px 6px 6px;min-height:90px;display:flex}
+.ak-case .ak-slot{flex:1}
+.ak-case .ak-etq-oe{width:100%}
+.ak-fleche{display:flex;justify-content:space-between;font-weight:800;color:var(--muted);position:relative;padding:8px 4px 0;border-top:4px solid #d8d2ec;margin:0 10px}
+.ak-fleche::after{content:"";position:absolute;right:-12px;top:-12px;border:10px solid transparent;border-left:14px solid #d8d2ec}
+
+@media (max-width:820px){
+  .ak-fiche,.ak-mots{grid-template-columns:1fr}
+  .ak-motcarte{position:static;order:-1}
+  .ak-grand{min-height:52vh}
+  .ak-info{max-height:none}
+  .ak-periodes{grid-template-columns:1fr}
+  .ak-col{min-height:0;flex-direction:row;align-items:stretch}
+  .ak-col-t{width:100px;flex:none;display:flex;flex-direction:column;justify-content:center;font-size:14px;hyphens:auto;overflow-wrap:anywhere}
+  .ak-col .ak-slot{min-height:52px}
+  .ak-col .ak-long{display:none}.ak-col .ak-court{display:inline}
+  .ak-frise .ak-fr::after{display:none}
+  .ak-grille{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .ak-motsgrille{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+}
+@media (max-width:480px){
+  .ak-frise button{flex:1 1 30%;min-height:56px;font-size:13px;padding:6px 4px;overflow-wrap:anywhere;hyphens:auto}
+  .ak-frise button small{display:none}
+  .ak-info h3{font-size:22px}
+  .ak-defs{grid-template-columns:1fr 1fr}
+  .ak-defc p{font-size:14px}
+}
+/* Plein écran / projection : plus grand */
+.board:fullscreen .ak-info,.projection .ak-info{font-size:20px}
+.board:fullscreen .ak-grand,.projection .ak-grand{min-height:calc(100vh - 170px)}
+/* la banque d'étiquettes reste visible quand on fait défiler les cartes */
+.ak-jeu:not(.ak-surjeu)>.ak-banque{position:sticky;top:calc(var(--top) + 6px);z-index:4;background:#faf8fff2;backdrop-filter:blur(4px)}
+body.projection .ak-jeu:not(.ak-surjeu)>.ak-banque,.board:fullscreen .ak-jeu:not(.ak-surjeu)>.ak-banque{top:6px}
