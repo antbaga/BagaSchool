@@ -5,6 +5,8 @@
 const rnd = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pad = (n) => String(n).padStart(2, "0");
+// Date du jour et horloge : partagées avec les rituels du matin.
+import { dateDuJour, horloge } from "./rituels.js";
 
 let audio;
 function bip(freq = 880, dur = 0.25, when = 0) {
@@ -180,30 +182,6 @@ function feu(el) {
   el.onclick = (e) => { const t = e.target.closest("[data-k]"); if (t) { cur = t.dataset.k; render(); } };
 }
 
-// ---------- Date du jour ----------
-function date(el) {
-  const draw = () => {
-    const d = new Date(), f = (x, o) => x.toLocaleDateString("fr-FR", o);
-    const hier = new Date(d); hier.setDate(d.getDate() - 1);
-    const dem = new Date(d); dem.setDate(d.getDate() + 1);
-    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-    el.innerHTML = `
-      <div class="tool-center date-tool">
-        <div class="date-card">
-          <div class="date-month">${cap(f(d, { month: "long" }))} ${d.getFullYear()}</div>
-          <div class="date-num">${d.getDate()}</div>
-          <div class="date-day">${cap(f(d, { weekday: "long" }))}</div>
-        </div>
-        <p class="date-sentence">Aujourd'hui, nous sommes ${f(d, { weekday: "long" })} ${d.getDate() === 1 ? "1er" : d.getDate()} ${f(d, { month: "long" })} ${d.getFullYear()}.</p>
-        <div class="date-row"><span>Hier : <b>${f(hier, { weekday: "long" })}</b></span><span>Demain : <b>${f(dem, { weekday: "long" })}</b></span></div>
-        <div class="date-clock">${pad(d.getHours())}:${pad(d.getMinutes())}</div>
-      </div>`;
-  };
-  draw();
-  const t = setInterval(draw, 15000);
-  return () => clearInterval(t);
-}
-
 // ---------- Dés ----------
 const PIPS = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
 const dieHTML = (v) => `<div class="die">${Array.from({ length: 9 }, (_, i) => `<i class="${PIPS[v].includes(i + 1) ? "p" : ""}"></i>`).join("")}</div>`;
@@ -360,60 +338,6 @@ function calcul(el) {
     if (e.target.id === "cmDuree") { duree = +e.target.value; localStorage.setItem("bagaschool-cm-duree", duree); stop(); pos = -1; fini = false; render(); }
   };
   return stop;
-}
-
-// ---------- Horloge ----------
-function horloge(el) {
-  let mins = (new Date().getHours() % 12) * 60 + new Date().getMinutes(), digital = true, drag = null;
-  el.innerHTML = `
-    <div class="clock-wrap">
-      <svg viewBox="-110 -110 220 220" class="clock" id="ck">
-        <circle r="104" class="clock-face"/>
-        ${Array.from({ length: 60 }, (_, i) => { const a = i * 6 * Math.PI / 180, r1 = i % 5 ? 96 : 90; return `<line x1="${Math.sin(a) * r1}" y1="${-Math.cos(a) * r1}" x2="${Math.sin(a) * 100}" y2="${-Math.cos(a) * 100}" class="${i % 5 ? "tk" : "tk5"}"/>`; }).join("")}
-        ${Array.from({ length: 12 }, (_, i) => { const a = (i + 1) * 30 * Math.PI / 180; return `<text x="${Math.sin(a) * 76}" y="${-Math.cos(a) * 76}" class="num">${i + 1}</text>`; }).join("")}
-        <line id="hh" class="hand-h" x1="0" y1="0" x2="0" y2="-50"/>
-        <line id="mh" class="hand-m" x1="0" y1="0" x2="0" y2="-80"/>
-        <circle r="6" class="hub"/>
-      </svg>
-      <div class="clock-side">
-        <div class="clock-digital" id="dg"></div>
-        <p class="muted">Fais glisser la grande aiguille.</p>
-        <div class="pills"><button class="pill" data-a="-60">− 1 h</button><button class="pill" data-a="-5">− 5 min</button><button class="pill" data-a="5">+ 5 min</button><button class="pill" data-a="60">+ 1 h</button></div>
-        <div class="pills"><button class="pill" id="now">Heure actuelle</button><button class="pill" id="rand">Heure au hasard</button><button class="pill" id="dgt">Masquer l'heure</button></div>
-      </div>
-    </div>`;
-  const hh = el.querySelector("#hh"), mh = el.querySelector("#mh"), dg = el.querySelector("#dg"), svg = el.querySelector("#ck");
-  const draw = () => {
-    mins = ((mins % 720) + 720) % 720;
-    const m = mins % 60, h = Math.floor(mins / 60) || 12;
-    mh.setAttribute("transform", `rotate(${m * 6})`);
-    hh.setAttribute("transform", `rotate(${mins * 0.5})`);
-    dg.textContent = digital ? `${h}:${pad(m)}` : "?:??";
-    el.querySelector("#dgt").textContent = digital ? "Masquer l'heure" : "Afficher l'heure";
-  };
-  const angleMin = (e) => {
-    const r = svg.getBoundingClientRect(), x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
-    return Math.round(((Math.atan2(x, -y) * 180 / Math.PI + 360) % 360) / 6) % 60;
-  };
-  svg.onpointerdown = (e) => { drag = true; svg.setPointerCapture(e.pointerId); move(e); };
-  const move = (e) => {
-    if (!drag) return;
-    const nm = angleMin(e), old = mins % 60;
-    let base = mins - old;
-    if (old > 45 && nm < 15) base += 60; else if (old < 15 && nm > 45) base -= 60;
-    mins = base + nm; draw();
-  };
-  svg.onpointermove = move;
-  svg.onpointerup = svg.onpointercancel = () => { drag = false; };
-  el.onclick = (e) => {
-    const t = e.target.closest("button"); if (!t) return;
-    if (t.dataset.a) mins += +t.dataset.a;
-    if (t.id === "now") { const d = new Date(); mins = (d.getHours() % 12) * 60 + d.getMinutes(); }
-    if (t.id === "rand") mins = rnd(144) * 5;
-    if (t.id === "dgt") digital = !digital;
-    draw();
-  };
-  draw();
 }
 
 // ---------- Cadre de dix ----------
@@ -597,10 +521,10 @@ export const OUTILS = [
   { id: "groupes", nom: "Groupes", icone: "🧩", couleur: "#d7ccff", desc: "Forme des groupes au hasard", mount: groupes },
   { id: "voix", nom: "Niveaux de voix", icone: "🔊", couleur: "#c9ecd4", desc: "Affiche le niveau sonore attendu", mount: voix },
   { id: "feu", nom: "Feu tricolore", icone: "🚦", couleur: "#ffd7bf", desc: "Rouge, orange, vert", mount: feu },
-  { id: "date", nom: "Date du jour", icone: "📅", couleur: "#cfe6ff", desc: "Date en grand et phrase du jour", mount: date },
+  { id: "date", nom: "Date du jour", icone: "📅", couleur: "#cfe6ff", desc: "En français et en anglais, à construire", mount: dateDuJour },
   { id: "des", nom: "Dés", icone: "🎲", couleur: "#ffe3a3", desc: "De 1 à 6 dés", mount: des },
   { id: "calcul", nom: "Calcul mental", icone: "🧮", couleur: "#cfe6ff", desc: "Par niveau, du CP au CM2", mount: calcul },
-  { id: "horloge", nom: "Horloge", icone: "🕒", couleur: "#c9ecd4", desc: "Lire l'heure, aiguilles à bouger", mount: horloge },
+  { id: "horloge", nom: "Horloge", icone: "🕒", couleur: "#c9ecd4", desc: "Lire l'heure, placer les aiguilles, durées", mount: horloge },
   { id: "cadre", nom: "Cadre de dix", icone: "🔟", couleur: "#ffd7bf", desc: "Jetons à placer", mount: cadre },
   { id: "droite", nom: "Droite graduée", icone: "📏", couleur: "#d7ccff", desc: "Graduations, nombres cachés", mount: droite },
   { id: "fractions", nom: "Barres de fractions", icone: "🍫", couleur: "#ffd0dc", desc: "Comparer des fractions", mount: fractions },

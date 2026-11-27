@@ -790,6 +790,75 @@ kbd{background:#fff;border:1px solid #d9d2e8;border-bottom-width:3px;border-radi
 .rit-rep{font-size:22px;padding:10px 18px;border-radius:14px;background:#f4f1fb;font-weight:700;flex:1 1 300px;text-align:left}
 .rit-rep.vu{background:#dff3e6;color:#1d5e36}
 
+/* Rituels v0.10 : nombre du jour (choix), matériel, date FR/EN, horloge, mot du jour */
+.rit-choix{background:#fff;border-radius:18px;box-shadow:var(--shadow);padding:12px 16px;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+.rit-choix .mini{min-height:44px;padding:6px 12px;font-size:16px}
+.rit-materiel{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;align-items:flex-end}
+.rit-materiel svg{height:64px;width:auto}.rit-materiel i{width:8px}
+.rit-materiel line{stroke:#3b3355;stroke-width:.6}
+.mt-c{fill:#ffe3a3;stroke:#3b3355;stroke-width:1.2}.mt-d{fill:#cfe6ff;stroke:#3b3355;stroke-width:1.2}.mt-u{fill:#ffd0dc;stroke:#3b3355;stroke-width:1.2}
+.rit-tables{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.rit-tables span{border-radius:10px;padding:2px 10px;font-weight:900}
+.rit-tables .oui{background:#dff3e6;color:#1d5e36}.rit-tables .non{background:#f4f1fb;color:#a59fbd}
+.dt-board{display:flex;flex-direction:column;gap:16px;align-items:center;width:100%}
+.dt-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;width:min(1100px,100%)}
+.dt-tile{container-type:inline-size;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;border-radius:22px;background:#fff;box-shadow:var(--shadow);padding:14px 8px;border:4px solid transparent}
+.dt-tile.t-jour{background:#fff4d6}.dt-tile.t-num{background:#ffe3ea}.dt-tile.t-mois{background:#e3f0ff}.dt-tile.t-annee{background:#e6f6ea}
+.dt-tile.actif{border-color:var(--primary)}
+.dt-tile.ok{border-color:#2f9e5b}.dt-tile.ko{border-color:#e0556a;animation:dtko .4s}
+@keyframes dtko{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.dt-lab{font-size:15px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.dt-val{font-size:min(15cqi,64px);font-weight:900;line-height:1.05;display:flex;flex-direction:column;align-items:center;white-space:nowrap}
+.t-num .dt-val,.t-annee .dt-val{font-size:min(30cqi,96px)}
+.dt-val small{font-size:.5em;color:#2448b8;font-weight:800;margin-top:4px}
+.dt-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;width:min(1100px,100%)}
+.dt-p-num{grid-template-columns:repeat(7,1fr);width:min(620px,100%)}
+.dt-p-annee{grid-template-columns:repeat(3,1fr);width:min(520px,100%)}
+.dt-opt{min-height:56px;border-radius:16px;background:#f4f1fb;font-size:20px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px}
+.dt-opt small{font-size:14px;color:#2448b8}
+.dt-opt.on{background:var(--primary);color:#fff}.dt-opt.on small{color:#fff}
+.dt-phrases{display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;width:min(1100px,100%)}
+.dt-phrase{font-size:clamp(22px,3vw,36px);margin:0}
+.dt-phrase.en,.dt-sous.en{color:#2448b8}
+.dt-sous{font-size:clamp(16px,2vw,22px);margin:0;color:var(--ink)}
+.dt-extra{font-size:16px;color:var(--muted);margin:6px 0 0}
+.dt-bravo{font-size:28px;font-weight:900;color:#1d5e36;margin:0}.dt-encore{font-size:20px;font-weight:800;color:#b03447;margin:0}
+.dt-heure{font-size:22px;font-weight:900;color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:700px){.dt-tiles{grid-template-columns:repeat(2,1fr)}.dt-tile{min-height:110px}}
+.clock.mobile{cursor:grab}
+.clock.sm{width:min(34vmin,220px);cursor:default}
+.num-min{font:800 11px var(--font);fill:#4d8ef0;text-anchor:middle;dominant-baseline:central}
+.clk-phrase{font-size:clamp(20px,2.6vw,28px);font-weight:800;margin:0;text-align:center}
+.clk-en{font-size:20px;font-weight:700;color:#2448b8;margin:0}
+.clk-moment{font-size:22px;font-weight:800;margin:0}
+.clk-q{font-size:28px;margin:0}
+.clk-choix{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.clk-c{min-height:72px;font-size:32px;font-weight:900;border-radius:18px;background:#fff;box-shadow:var(--shadow);font-variant-numeric:tabular-nums}
+.clk-c.good{background:#dff3e6;color:#1d5e36;box-shadow:0 0 0 4px #2f9e5b}.clk-c.bad{background:#ffe1e5;color:#b03447}
+.clk-c:disabled{opacity:1}
+.clk-rep{display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;font-size:20px}
+.clk-ok{color:#1d5e36;font-weight:900;font-size:22px;margin:0}.clk-ko{color:#b03447;font-weight:800;font-size:20px;margin:0}
+.clk-duree{display:flex;flex-direction:column;gap:16px;align-items:center;width:100%}
+.clk-enonce{font-size:clamp(22px,2.8vw,32px);font-weight:800;text-align:center;background:#fff;border-radius:18px;box-shadow:var(--shadow);padding:16px 22px;margin:0;width:min(1000px,100%)}
+.clk-deux{display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap}
+.clk-une{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:20px}
+.clk-d{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums}
+.clk-mystere{width:min(34vmin,220px);aspect-ratio:1;border-radius:50%;border:5px dashed #b9b2cc;display:flex;align-items:center;justify-content:center;font-size:80px;font-weight:900;color:#b9b2cc}
+.clk-fl{display:flex;flex-direction:column;align-items:center;font-size:40px;color:var(--primary)}
+.clk-fl span{font-size:24px;font-weight:900;background:var(--primary-soft);border-radius:12px;padding:2px 12px}
+.frise-bonds{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;margin-top:6px}
+.fb-t{background:#fff;box-shadow:var(--shadow);border-radius:12px;padding:6px 12px;font-weight:900;font-size:22px}
+.fb-j{color:var(--primary);font-weight:900;font-size:18px;position:relative;padding:0 18px}
+.fb-j::after{content:"➜";display:block;text-align:center;font-size:18px;line-height:1}
+.mdj-tete{display:flex;flex-direction:column;align-items:center;gap:8px}
+.mdj-mot{font-size:clamp(56px,10vw,120px);font-weight:900;color:var(--primary);line-height:1.05;text-align:center}
+.mdj-mot .sy0{color:#d0342c}.mdj-mot .sy1{color:#2448b8}
+.mdj-info{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.mdj-nat,.mdj-theme{border-radius:12px;padding:4px 12px;font-weight:800;font-size:16px}
+.mdj-nat{background:#f4f1fb}.mdj-theme{background:#fff4d6}
+.rit-corps mark{background:#fff0a8;border-radius:6px;padding:0 3px}
+.mdj-revis{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center}
+
 /* Anglais */
 .en-jeu{display:flex;flex-direction:column;gap:14px;align-items:center}
 .en-flash{min-height:44vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#fff;border-radius:22px;box-shadow:var(--shadow);width:min(700px,100%);padding:20px}

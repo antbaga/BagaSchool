@@ -18,7 +18,7 @@ import { installerAnnotation, tapFiable } from "./annoter.js";
 import * as res from "./ressources.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.9.0";
+export const VERSION = "0.10.0";
 
 // ---------- état ----------
 let state = {};
