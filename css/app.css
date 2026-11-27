@@ -1051,3 +1051,48 @@ body[data-view=bienvenue] main{margin-left:0!important}
 .board:fullscreen .rs-pdf{min-height:calc(100vh - 90px)}
 .rs-pdf-aide{margin:4px 0 0}
 .rs-autre{max-width:620px;text-align:center}
+
+/* ===== v0.10 : sciences en 3D, pensées pour le TBI ===== */
+.space-main{background:#0b0d26}
+.space-cv{width:100%;height:clamp(340px,66vh,1000px);display:block;touch-action:manipulation;cursor:pointer}
+.globe{max-height:none;height:clamp(340px,66vh,1000px);aspect-ratio:auto;background:radial-gradient(circle,#1d2150,#0b0d26 75%)}
+.explore-space{grid-template-columns:minmax(0,1fr) minmax(280px,380px)}
+.pl-bar{gap:6px}
+.pl-bar button{display:inline-flex;align-items:center;gap:7px;border-radius:22px;background:#f4f1fb;padding:6px 14px;min-height:44px;font-weight:800}
+.pl-bar button.on{background:var(--primary);color:#fff}
+.pl-bar i{width:18px;height:18px;border-radius:50%;flex:none}
+.ec-space{display:flex;flex-direction:column;overflow-y:auto;max-height:clamp(340px,66vh,1000px)}
+.ec-3d-wrap{display:flex;justify-content:center;margin:2px 0 4px}
+.ec-3d{width:min(100%,230px);aspect-ratio:1;display:block}
+.ec-txt{font-weight:700}
+.ec-plus{background:#fff6d6;border-radius:12px;padding:10px 12px}
+.ec-facts dd sup{font-size:.65em}
+.credits{font-size:12px;margin-top:-6px}
+/* Grand écran et TBI : textes lisibles du fond de la classe, boutons faciles au stylet */
+@media (min-width:1280px){
+  .explore-card{font-size:18px;padding:18px 22px}.explore-card h3{font-size:28px}.ec-facts{font-size:17px}.ec-type{font-size:15px}
+  .explore-space{grid-template-columns:minmax(0,1fr) minmax(320px,430px)}
+  .ec-3d{width:min(100%,270px)}
+  #tool .tool-top .pill,#tool .seg button,.pl-bar button{min-height:48px;font-size:17px}
+  .moon-name{font-size:28px}
+}
+.board:fullscreen .explore-card,body.projection .explore-card{font-size:clamp(18px,2.1vmin,28px)}
+.board:fullscreen .explore-card h3,body.projection .explore-card h3{font-size:clamp(26px,3.4vmin,44px)}
+.board:fullscreen .ec-facts,body.projection .ec-facts{font-size:inherit}
+.board:fullscreen :is(.space-cv,.globe,.ec-space),body.projection :is(.space-cv,.globe,.ec-space){height:auto;max-height:none}
+.board:fullscreen .explore-space,body.projection .explore-space{grid-template-columns:minmax(0,1fr) minmax(340px,32vw)}
+.board:fullscreen :is(.space-cv,.globe){height:calc(100vh - 250px)}
+body.projection :is(.space-cv,.globe){height:calc(100vh - 120px)}
+.board:fullscreen .ec-space{max-height:calc(100vh - 250px)}
+body.projection .ec-space{max-height:calc(100vh - 120px)}
+.board:fullscreen .ec-3d,body.projection .ec-3d{width:min(100%,34vmin)}
+/* Téléphone : la vue en carré, la fiche dessous, la barre des planètes défile */
+@media (max-width:820px){
+  .explore-space{grid-template-columns:1fr}
+  .space-cv,.globe{height:auto;aspect-ratio:1;max-height:78vh}
+  .ec-space{max-height:none;overflow:visible}
+  .ec-3d{width:min(60vw,200px)}
+  .pl-bar{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;padding-bottom:4px;scrollbar-width:none}
+  .pl-bar button{flex:none}
+}
+.ec-space .ec-facts{grid-template-columns:minmax(0,46%) minmax(0,1fr)}
