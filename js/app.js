@@ -5,7 +5,10 @@ import { DECOUVRIR } from "./decouvrir.js";
 import { JEUX } from "./jeux.js";
 import { OUTILS2 } from "./outils2.js";
 import { ANGLAIS } from "./anglais.js";
-const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...ANGLAIS, ...DECOUVRIR, ...JEUX];
+import { FRANCAIS } from "./francais.js";
+import { MESURES } from "./mesures.js";
+import { GEO } from "./geo.js";
+const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...FRANCAIS, ...MESURES, ...GEO, ...ANGLAIS, ...DECOUVRIR, ...JEUX];
 import { GENERATEURS, seeded } from "./imprimer.js";
 import { CALENDRIERS, ZONES, joursFeries } from "./data/calendrier.js";
 import { sync, initSync, marquer, demarrer, arreter, oublier, appareil, actif as syncActif, appareilsConnectes } from "./sync.js";
@@ -666,6 +669,8 @@ function viewOutils() {
     ["☀️ Au tableau", "Rituels du matin, cahier, calcul posé, géométrie : à projeter et à manipuler.", OUTILS2],
     ["🧑‍🏫 Gérer la classe", "", OUTILS_CLASSE.filter((o) => GESTION.includes(o.id))],
     ["🧮 Maths, mots et dessin", "", OUTILS_CLASSE.filter((o) => !GESTION.includes(o.id))],
+    ["✏️ Français", "Du CP au CM2 : étiquettes, homophones, accords. Choisis le niveau dans chaque jeu.", FRANCAIS],
+    ["🔢 Maths", "Du CP au CM2 : mesures et conversions, problèmes, géométrie.", [...MESURES, ...GEO]],
     ["🇬🇧 Anglais", "Images et son pour les petits, mots écrits pour les CM.", ANGLAIS],
     ["🎲 Jeux", "Pour réviser en s'amusant, au tableau ou en petits groupes.", JEUX],
     ["🔭 Découvrir", "Sciences et géographie, à explorer ensemble.", DECOUVRIR],
