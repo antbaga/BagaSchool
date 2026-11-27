@@ -19,7 +19,7 @@
 //     { t: "peers", list: [{ id, role }] }             appareils connectés
 //     { t: "wiped" } / { t: "error", msg }
 
-const COLLS = new Set(["edt", "programmations", "fiches", "evaluations", "eleves", "reglages", "journal", "appel", "modeles", "decks"]);
+const COLLS = new Set(["edt", "programmations", "fiches", "evaluations", "eleves", "reglages", "journal", "appel", "modeles", "decks", "devoirs", "cahier", "remplacements"]);
 const MAX_MSG = 1_900_000; // octets (valeur max d'une ligne SQLite d'un Durable Object : 2 Mo)
 const INACTIF = 400 * 864e5; // un espace inutilisé pendant ~13 mois est effacé
 const ID_RE = /^[A-Za-z0-9_-]{22}$/; // 16 octets en base64url

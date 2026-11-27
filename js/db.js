@@ -25,8 +25,8 @@ export const get = (k) => tx("readonly", (s) => s.get(k));
 export const set = (k, v) => tx("readwrite", (s) => s.put(v, k));
 export const clear = () => tx("readwrite", (s) => s.clear());
 
-export const COLLECTIONS = ["edt", "programmations", "fiches", "evaluations", "eleves", "reglages", "journal", "appel", "modeles", "decks"];
-export const OBJETS = ["reglages", "journal", "appel"]; // collections stockées comme objets (les autres sont des listes)
+export const COLLECTIONS = ["edt", "programmations", "fiches", "evaluations", "eleves", "reglages", "journal", "appel", "modeles", "decks", "devoirs", "cahier", "remplacements"];
+export const OBJETS = ["reglages", "journal", "appel", "devoirs", "remplacements"]; // collections stockées comme objets (les autres sont des listes)
 
 export async function loadAll() {
   const data = {};

@@ -199,7 +199,7 @@ function motsmeles(el, ctx) {
 // ---------- Monnaie ----------
 const PIECES = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]; // en centimes
 const euro = (c) => (c % 100 === 0 ? `${c / 100} €` : (c / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " €");
-const pieceHTML = (v, attrs = "") => v >= 500
+export const pieceHTML = (v, attrs = "") => v >= 500
   ? `<button class="billet b${v / 100}" ${attrs}><span>${v / 100} €</span></button>`
   : `<button class="piece ${v >= 100 ? "bi" : v >= 10 ? "or" : "cu"} p${v}" ${attrs}><span>${v >= 100 ? v / 100 + " €" : v + " c"}</span></button>`;
 const NIVEAUX_M = [
