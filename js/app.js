@@ -242,9 +242,11 @@ function semainesPeriode(annee, pi) {
 const progTabs = (p, vue) => `<div class="seg prog-tabs"><a href="#/programmations/${p.id}" class="btn ${vue === "annee" ? "on" : ""}">📋 Programmation <span class="hint">l'année</span></a><a href="#/programmations/${p.id}/progression" class="btn ${vue === "semaines" ? "on" : ""}">🗓️ Progression <span class="hint">semaine par semaine</span></a></div>`;
 const progHead = (p) => `<div class="toolbar no-print"><a href="#/programmations" class="ghost btn">← Programmations</a>
       <span class="grow"><strong>${esc(p.discipline)}</strong> · ${esc(p.niveau)} · ${esc(p.annee)}</span>
-      <button class="ghost" id="dupp">Dupliquer</button><button class="ghost" onclick="print()">Imprimer</button><button class="danger" id="delp">Supprimer</button></div>`;
+      <button class="ghost" id="dupp">Dupliquer</button><button class="ghost" id="printp">🖨️ Imprimer</button><button class="danger" id="delp">Supprimer</button></div>
+    <h2 class="print-only prog-print-t">${esc(p.discipline)} · ${esc(p.niveau)} · ${esc(p.annee)}</h2>`;
 function progActionsCommunes(p, e) {
   if (e.target.id === "dupp") { dupliquerProgrammation(p); return true; }
+  if (e.target.id === "printp") { imprimerAvec("prog"); return true; }
   if (e.target.id === "delp" && confirm("Supprimer cette programmation ?")) {
     state.programmations = state.programmations.filter((x) => x.id !== p.id); save("programmations"); location.hash = "#/programmations"; return true;
   }
@@ -422,90 +424,375 @@ function editSeq(p, pi, s, retour = () => viewProg(p.id)) {
 }
 
 // ---------- FICHES DE PRÉPARATION ----------
+// Une fiche = en-tête (objectif, compétences, matériel) puis le déroulement en phases.
+// Chaque phase : type (découverte, mise en commun…), durée, modalité, oral/écrit, déroulement,
+// et seulement si besoin : critères de réussite / de réalisation, différenciation, un outil de l'appli à ouvrir.
+// Ancien format (avant 0.30) : ph.phase = texte libre, critères et différenciation pour toute la séance.
+// normFiche() convertit à l'ouverture ; les champs « toute la séance » restent affichés tant qu'ils sont remplis.
+const PHASE_TYPES = [
+  { nom: "Rituel", fond: "#fff1b8", trait: "#d9a600" },
+  { nom: "Rappel / réactivation", fond: "#e3efff", trait: "#4a86d8" },
+  { nom: "Mise en situation", fond: "#ffe6d5", trait: "#e07a3c" },
+  { nom: "Découverte", fond: "#ffe0ec", trait: "#e0507f" },
+  { nom: "Recherche", fond: "#efe3ff", trait: "#8b5cd6" },
+  { nom: "Expérimentation", fond: "#dcf3e2", trait: "#3c9a55" },
+  { nom: "Mise en commun", fond: "#d9f2f2", trait: "#2a9696" },
+  { nom: "Institutionnalisation", fond: "#e4e2ff", trait: "#5b50d6" },
+  { nom: "Entraînement", fond: "#e3f3d6", trait: "#5a9a2c" },
+  { nom: "Réinvestissement", fond: "#fde3cf", trait: "#cc6a22" },
+  { nom: "Évaluation", fond: "#ffdede", trait: "#d04848" },
+  { nom: "Remédiation", fond: "#f3e6d8", trait: "#9a6a3c" },
+  { nom: "Bilan", fond: "#ececf3", trait: "#6a6a8a" },
+];
+const MODALITES = ["Collectif", "Individuel", "Binômes", "Groupes", "Ateliers"];
+const FORMES = ["Oral", "Écrit"];
+const TYPES_SEANCE = ["Découverte", "Recherche", "Investigation (sciences)", "Expérimentation", "Structuration", "Entraînement", "Réinvestissement", "Remédiation", "Évaluation"];
+const DISC_COUL = { "Français": "#f2678e", "Mathématiques": "#4f8fe8", "Questionner le monde": "#3aa86a", "Sciences et technologie": "#3aa86a", "Histoire-géographie": "#d9952c", "Langues vivantes": "#8a6cf0", "Arts plastiques": "#e061a8", "Éducation musicale": "#b06ae0", "EPS": "#ec8a2e", "EMC": "#2aa8a8" };
+const discCoul = (d) => DISC_COUL[d] ?? "#7a6cf0";
+// Suggestions de domaines (complétées par ceux du référentiel de compétences). Saisie libre.
+const DOMAINES_BASE = {
+  "Français": ["Langage oral", "Lecture", "Compréhension", "Écriture", "Vocabulaire", "Grammaire", "Orthographe", "Conjugaison", "Littérature"],
+  "Mathématiques": ["Nombres et calcul", "Calcul mental", "Résolution de problèmes", "Grandeurs et mesures", "Espace et géométrie", "Organisation et gestion de données"],
+};
+const CHAMPS_PHASE = [
+  ["criteresReussite", "✅", "Critères de réussite", "« J'ai réussi si… »"],
+  ["criteresRealisation", "🧭", "Critères de réalisation", "« Pour réussir, je dois… »"],
+  ["differenciation", "🧩", "Différenciation", "Pour les élèves qui ont besoin d'aide… Pour les élèves plus à l'aise…"],
+];
+const phaseType = (t) => PHASE_TYPES.find((x) => x.nom === t);
+const phaseNom = (ph) => [ph.type, ph.titre].filter(Boolean).join(" : ");
+const anneeDeDate = (d) => { const [y, m] = d.split("-").map(Number); return m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
+const ficheAnnee = (f) => f.annee || (f.date ? anneeDeDate(f.date) : anneeScolaire());
+// "10 min", "1 h", "1h30", "45" → minutes (0 si illisible)
+function minutesDe(t) {
+  const s = String(t ?? "").toLowerCase().replace(/\s/g, "");
+  const h = s.match(/^(\d+)h(\d+)?/); if (h) return +h[1] * 60 + (+h[2] || 0);
+  const m = s.match(/^(\d+)/); return m ? +m[1] : 0;
+}
+const totalPhases = (f) => f.phases.reduce((n, ph) => n + minutesDe(ph.duree), 0);
+function normFiche(f) {
+  f.phases ??= []; f.competences ??= [];
+  for (const ph of f.phases) {
+    if (ph.phase == null) continue;
+    const txt = String(ph.phase).trim(), n = sansAccents(txt);
+    const t = PHASE_TYPES.find((x) => sansAccents(x.nom) === n || sansAccents(x.nom.split(" /")[0]) === n);
+    // « Institutionnalisation (trace écrite) » → type + titre « trace écrite »
+    const t2 = t ? null : PHASE_TYPES.map((x) => [x, sansAccents(x.nom.split(" /")[0])]).find(([, k]) => n.startsWith(k) && /^\s*[(:–-]/.test(n.slice(k.length)));
+    if (t) ph.type ??= t.nom;
+    else if (t2) { ph.type ??= t2[0].nom; ph.titre ??= txt.slice(t2[1].length).replace(/^[\s(:–-]+|[)\s]+$/g, ""); }
+    else if (txt) ph.titre ??= txt;
+    delete ph.phase;
+  }
+  return f;
+}
+// Outil lié à une phase : "o:<id>" (Au tableau) ou "g:<id>" (À imprimer).
+function outilDe(ref) {
+  if (!ref) return null;
+  const g = ref.startsWith("g:"), id = ref.slice(2);
+  const o = (g ? GENERATEURS : OUTILS).find((x) => x.id === id);
+  return o ? { nom: o.nom, icone: o.icone, href: g ? `#/imprimer/${id}` : `#/outils/${id}` } : null;
+}
+let retourOutil = null; // { cible, hash } : l'outil ouvert depuis une fiche y ramène
+const retourDepuis = (cible, defaut) => (retourOutil?.cible === cible ? retourOutil.hash : defaut);
+const CAT_DISC = { "Français": "francais", "Mathématiques": "maths", "Langues vivantes": "anglais", "Questionner le monde": "decouvrir", "Sciences et technologie": "decouvrir", "Histoire-géographie": "decouvrir" };
+function choisirOutil(disc, onPick) {
+  const cat = CAT_DISC[disc];
+  const tous = [...OUTILS.map((o) => ({ ref: "o:" + o.id, o, sugg: cat && catOutil(o) === cat })), ...GENERATEURS.map((o) => ({ ref: "g:" + o.id, o, gen: true }))];
+  openModal(`<h2>🧰 Outil à ouvrir pendant la phase</h2>
+    <p class="hint">Pendant la séance, un bouton sur la fiche l'ouvre en un clic.</p>
+    <input type="search" id="oq" placeholder="Chercher : calcul, conjugaison, minuteur…">
+    <div class="model-list outil-pick" id="ol"></div>
+    <div class="actions"><button data-close class="ghost">Annuler</button></div>`, (m) => {
+    const ligne = (x) => `<button class="model outil-l" data-ref="${x.ref}"><b>${x.o.icone} ${esc(x.o.nom)}</b>${x.o.desc ? `<span class="hint">${esc(x.o.desc)}</span>` : ""}</button>`;
+    const draw = () => {
+      const q = sansAccents($("#oq", m).value.trim());
+      const l = tous.filter((x) => !q || sansAccents(`${x.o.nom} ${x.o.desc ?? ""}`).includes(q));
+      const groupes = q ? [["", l]] : [[`Suggérés en ${disc}`, l.filter((x) => x.sugg)], ["Au tableau", l.filter((x) => !x.sugg && !x.gen)], ["À imprimer", l.filter((x) => x.gen)]];
+      $("#ol", m).innerHTML = groupes.filter(([, g]) => g.length).map(([t, g]) => `${t ? `<h4 class="outil-gt">${esc(t)}</h4>` : ""}${g.map(ligne).join("")}`).join("") || `<p class="hint">Aucun outil ne correspond.</p>`;
+    };
+    $("#oq", m).oninput = draw; draw();
+    $("#ol", m).onclick = (e) => { const b = e.target.closest("[data-ref]"); if (b) { closeModal(true); onPick(b.dataset.ref); } };
+  });
+}
+
 function newFiche(init = {}) {
-  const f = { id: uid(), titre: "Nouvelle fiche", discipline: "", niveau: "", date: "", duree: "45 min", periode: periodeCourante(), sequence: "", numSeance: "", typeSeance: "", objectif: "", criteresReussite: "", criteresRealisation: "", competences: [], materiel: "",
-    phases: [{ duree: "10 min", phase: "Découverte", deroulement: "", modalite: "Collectif" }], differenciation: "", bilan: "", ...init };
+  const f = { id: uid(), titre: "Nouvelle fiche", discipline: "", domaine: "", niveau: "", date: "", duree: "45 min", periode: periodeCourante(), annee: anneeScolaire(), sequence: "", numSeance: "", typeSeance: "", objectif: "", competences: [], materiel: "",
+    phases: [{ type: "Découverte", titre: "", duree: "10 min", modalite: "Collectif", forme: "", deroulement: "" }], traceEcrite: "", bilan: "", ...init };
   state.fiches.unshift(f); save("fiches"); return f;
 }
+const reutiliserFiche = (f, titre = f.titre) => newFiche({ ...structuredClone(f), id: uid(), titre, date: "", annee: anneeScolaire(), bilan: "" });
+
+// Liste : mes fiches rangées par période, matière/domaine ou séquence, et l'onglet Modèles.
+const fichesFiltre = { q: "", annee: "", vue: "fiches" };
+function idsModeles() { let n = 0; for (const m of state.modeles) if (!m.id) { m.id = uid(); n++; } if (n) save("modeles"); }
+const phasesPuces = (phases) => `<span class="fpuces">${phases.map((ph) => { const T = phaseType(ph.type); return `<i style="--pt:${T?.trait ?? "#c9c2e0"}" title="${esc(phaseNom(ph) || "Phase")}"></i>`; }).join("")}</span>`;
 function viewFiches() {
+  idsModeles();
+  const V = fichesFiltre;
+  const annees = [...new Set(state.fiches.map(ficheAnnee))].sort().reverse();
+  if (V.annee && !annees.includes(V.annee)) V.annee = "";
   app.innerHTML = `
-    <div class="toolbar"><input type="search" id="q" placeholder="Rechercher une fiche…" class="grow"><button class="primary" id="add">+ Nouvelle fiche</button></div>
-    <div class="list" id="l"></div>`;
-  const draw = () => {
-    const q = $("#q").value.toLowerCase();
-    $("#l").innerHTML = state.fiches.filter((f) => !q || (f.titre + f.discipline).toLowerCase().includes(q)).map((f) => `
-      <a class="item" href="#/fiches/${f.id}"><strong>${esc(f.titre)}</strong><span class="hint">${esc(f.discipline)} ${esc(f.niveau)} ${f.date ? "· " + fmtDate(f.date) : ""}</span></a>`).join("")
-      || (q ? `<p class="hint">Aucune fiche ne correspond à « ${esc($("#q").value)} ».</p>` : vide("📝", "Pas encore de fiche. Crée-en une ici, ou depuis une séance d'une programmation."));
+    <div class="toolbar"><div class="seg" id="vues"><button data-vue="fiches" class="${V.vue === "fiches" ? "on" : ""}">📝 Mes fiches</button><button data-vue="modeles" class="${V.vue === "modeles" ? "on" : ""}">⭐ Modèles</button></div>
+      <span class="grow"></span><button class="primary" id="add">+ Nouvelle fiche</button></div>
+    <div id="fz"></div>`;
+  const tri = () => state.reglages.fichesTri ?? "periode";
+  const item = (f) => {
+    const an = ficheAnnee(f);
+    const meta = [f.discipline, f.domaine, f.niveau, f.sequence && `${f.sequence}${f.numSeance ? ` · séance ${f.numSeance}` : ""}`, f.date && fmtDate(f.date), an !== anneeScolaire() && an].filter(Boolean);
+    return `<a class="item fitem" href="#/fiches/${f.id}" style="--dc:${discCoul(f.discipline)}"><strong>${esc(f.titre)}</strong><span class="hint">${meta.map(esc).join(" · ")}</span>${phasesPuces(f.phases ?? [])}</a>`;
   };
-  $("#q").oninput = draw; draw();
-  $("#add").onclick = choisirModele;
+  const groupes = (liste) => {
+    const t = tri();
+    const par = new Map(), add = (k, f) => (par.get(k) ?? par.set(k, []).get(k)).push(f);
+    if (t === "periode") {
+      ["P1", "P2", "P3", "P4", "P5", ""].forEach((k) => par.set(k, []));
+      liste.forEach((f) => add(["P1", "P2", "P3", "P4", "P5"].includes(f.periode) ? f.periode : "", f));
+      return [...par].filter(([, l]) => l.length).map(([k, l]) => [k ? PERIODES[+k[1] - 1] : "Sans période", l.sort((a, b) => (a.date || "9").localeCompare(b.date || "9"))]);
+    }
+    if (t === "sequence") {
+      liste.forEach((f) => add(f.sequence?.trim() || "", f));
+      return [...par].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b, "fr")).map(([k, l]) => [k || "Hors séquence", l.sort((a, b) => (+a.numSeance || 99) - (+b.numSeance || 99))]);
+    }
+    liste.forEach((f) => add(f.discipline || "", f)); // matière, puis domaine
+    return [...par].sort(([a], [b]) => (DISCIPLINES.indexOf(a) + 1 || 99) - (DISCIPLINES.indexOf(b) + 1 || 99)).map(([k, l]) => {
+      const dom = new Map(); l.forEach((f) => { const d = f.domaine?.trim() || ""; (dom.get(d) ?? dom.set(d, []).get(d)).push(f); });
+      return [k || "Sans matière", [...dom].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b, "fr")), true];
+    });
+  };
+  const drawFiches = () => {
+    const q = sansAccents(V.q.trim());
+    const liste = state.fiches.filter((f) => (!V.annee || ficheAnnee(f) === V.annee) && (!q || sansAccents(`${f.titre} ${f.discipline} ${f.domaine ?? ""} ${f.sequence ?? ""} ${f.objectif ?? ""}`).includes(q)));
+    $("#l").innerHTML = !state.fiches.length ? vide("📝", "Pas encore de fiche. Crée-en une ici, ou depuis une séance d'une programmation.")
+      : !liste.length ? `<p class="hint">Aucune fiche ne correspond.</p>`
+      : groupes(liste).map(([titre, l, sous]) => `<h3 class="fgroupe">${esc(titre)}</h3>${sous
+        ? l.map(([d, ll]) => `${d || l.length > 1 ? `<h4 class="fsous">${esc(d || "Autres")}</h4>` : ""}<div class="list">${ll.map(item).join("")}</div>`).join("")
+        : `<div class="list">${l.map(item).join("")}</div>`}`).join("");
+  };
+  const drawModeles = () => {
+    $("#fz").innerHTML = `<p class="intro">Pars d'un modèle pour gagner du temps. Tes modèles se modifient comme une fiche. Ceux de BagaSchool se copient dans les tiens pour être adaptés.</p>
+      <h3 class="fgroupe">⭐ Mes modèles</h3>
+      ${state.modeles.length ? `<div class="list">${state.modeles.map((m) => `<div class="item fitem frow" style="--dc:${discCoul(m.discipline)}"><a href="#/fiches/${m.id}"><strong>${esc(m.titre)}</strong><span class="hint">${[m.discipline, m.domaine, m.niveau].filter(Boolean).map(esc).join(" · ") || "Modèle"}</span>${phasesPuces(m.phases ?? [])}</a><button class="ghost small" data-use="${m.id}">Utiliser</button></div>`).join("")}</div>`
+        : vide("⭐", "Pas encore de modèle à toi. Dans une fiche, « Enregistrer comme modèle » la range ici, prête à resservir l'année prochaine.")}
+      <h3 class="fgroupe">📚 Modèles BagaSchool</h3>
+      <div class="list">${MODELES_BASE.map((b, i) => `<div class="item fitem frow"><div><strong>${esc(b.nom)}</strong><span class="hint">${b.phases.map((p) => esc(phaseNom(p))).join(" → ")}</span></div><button class="ghost small" data-copy="${i}" title="L'ajouter à mes modèles pour l'adapter">Copier dans les miens</button><button class="ghost small" data-usebase="${i}">Utiliser</button></div>`).join("")}</div>`;
+  };
+  const draw = () => {
+    if (V.vue === "modeles") return drawModeles();
+    $("#fz").innerHTML = `<div class="toolbar ffiltres"><input type="search" id="q" placeholder="Rechercher une fiche…" class="grow" value="${esc(V.q)}">
+      <label class="inline">Ranger par <select id="tri">${[["periode", "période"], ["matiere", "matière et domaine"], ["sequence", "séquence"]].map(([v, l]) => `<option value="${v}" ${tri() === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      ${annees.length > 1 ? `<select id="an" aria-label="Année scolaire"><option value="">Toutes les années</option>${annees.map((a) => `<option ${a === V.annee ? "selected" : ""}>${a}</option>`).join("")}</select>` : ""}</div>
+      <div id="l"></div>`;
+    $("#q").oninput = (e) => { V.q = e.target.value; drawFiches(); };
+    $("#tri").onchange = (e) => { state.reglages.fichesTri = e.target.value; save("reglages"); drawFiches(); };
+    if ($("#an")) $("#an").onchange = (e) => { V.annee = e.target.value; drawFiches(); };
+    drawFiches();
+  };
+  draw();
+  app.onclick = (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.id === "add") return choisirModele();
+    if (t.dataset.vue) { V.vue = t.dataset.vue; $$("#vues button").forEach((b) => b.classList.toggle("on", b === t)); return draw(); }
+    if (t.dataset.use) { const m = state.modeles.find((x) => x.id === t.dataset.use); location.hash = `#/fiches/${depuisModele(m).id}`; }
+    if (t.dataset.usebase) location.hash = `#/fiches/${depuisBase(MODELES_BASE[+t.dataset.usebase]).id}`;
+    if (t.dataset.copy) { const b = MODELES_BASE[+t.dataset.copy]; const m = { id: uid(), ...champsBase(b) }; state.modeles.unshift(m); save("modeles"); location.hash = `#/fiches/${m.id}`; }
+  };
 }
-const MODALITES = ["Collectif", "Individuel", "Binômes", "Groupes", "Ateliers"];
-const TYPES_SEANCE = ["Découverte", "Recherche", "Investigation (sciences)", "Expérimentation", "Structuration", "Entraînement", "Réinvestissement", "Remédiation", "Évaluation"];
 function periodeCourante() {
   try { const c = calendrierCourant(); const t = isoLocal(new Date()); const p = c?.periodes.find((x) => t <= x.fin); return p ? `P${p.n}` : ""; } catch { return ""; }
 }
+function domainesPour(disc) {
+  return [...new Set([...(DOMAINES_BASE[disc] ?? []), ...ALL_COMP.filter((c) => c.discipline === disc).map((c) => c.domaine).filter(Boolean)])];
+}
 function viewFiche(id) {
-  const f = state.fiches.find((x) => x.id === id);
+  let f = state.fiches.find((x) => x.id === id), coll = "fiches";
+  if (!f) { f = state.modeles.find((x) => x.id === id); coll = "modeles"; }
   if (!f) return notFound();
-  setTitle("Fiche de préparation");
+  const modele = coll === "modeles";
+  normFiche(f); retourOutil = null;
+  setTitle(modele ? "Modèle de fiche" : "Fiche de préparation");
+  const sauver = () => save(coll);
+  const ouverts = new Set(); // champs facultatifs dépliés à la demande : "k:champ"
+  const phaseHTML = (ph, k) => {
+    const T = phaseType(ph.type), o = outilDe(ph.outil);
+    const vus = CHAMPS_PHASE.filter(([c]) => ph[c]?.trim() || ouverts.has(`${k}:${c}`));
+    const caches = CHAMPS_PHASE.filter((x) => !vus.includes(x));
+    const seg = (champ, liste) => `<div class="seg mini">${liste.map((v) => `<button type="button" data-set="${champ}" data-k="${k}" data-v="${v}" class="${ph[champ] === v ? "on" : ""}">${v}</button>`).join("")}</div>`;
+    return `<section class="fphase" style="--pc:${T?.fond ?? "#f6f4fb"};--pt:${T?.trait ?? "#c9c2e0"}">
+      <header class="fphase-h">
+        <span class="fphase-n">${k + 1}</span>
+        <select data-ph="${k}" data-f="type" aria-label="Type de phase">${opts(PHASE_TYPES.map((x) => x.nom), ph.type ?? "", "Type de phase…")}</select>
+        <input data-ph="${k}" data-f="titre" value="${esc(ph.titre ?? "")}" placeholder="Titre (facultatif)" class="fphase-titre" aria-label="Titre de la phase">
+        <input data-ph="${k}" data-f="duree" value="${esc(ph.duree ?? "")}" placeholder="10 min" class="fphase-duree" aria-label="Durée de la phase">
+        <span class="fphase-move"><button type="button" class="ghost small" data-up="${k}" ${k ? "" : "disabled"} aria-label="Monter la phase">↑</button><button type="button" class="ghost small" data-down="${k}" ${k < f.phases.length - 1 ? "" : "disabled"} aria-label="Descendre la phase">↓</button><button type="button" class="ghost small" data-rmph="${k}" aria-label="Supprimer la phase">×</button></span>
+      </header>
+      <div class="fphase-mod">${seg("modalite", MODALITES)}${seg("forme", FORMES)}</div>
+      <textarea data-ph="${k}" data-f="deroulement" rows="3" placeholder="Déroulement, consignes, rôle de l'enseignant·e…">${esc(ph.deroulement ?? "")}</textarea>
+      ${vus.map(([c, ico, lab, aide]) => `<label class="fphase-x fx-${c}">${ico} ${lab}<textarea data-ph="${k}" data-f="${c}" rows="2" placeholder="${aide}">${esc(ph[c] ?? "")}</textarea></label>`).join("")}
+      ${o ? `<div class="fphase-outil"><a class="btn primary small" href="${o.href}" data-retour>▶ Ouvrir ${o.icone} ${esc(o.nom)}</a><button type="button" class="ghost small" data-outil="${k}">Changer</button><button type="button" class="ghost small" data-rmoutil="${k}" aria-label="Retirer l'outil">×</button></div>` : ""}
+      <div class="fphase-add">${caches.map(([c, , lab]) => `<button type="button" class="ghost small" data-open="${k}:${c}">+ ${lab}</button>`).join("")}${o ? "" : `<button type="button" class="ghost small" data-outil="${k}">+ Outil à ouvrir</button>`}</div>
+    </section>`;
+  };
   const draw = () => {
+    const tot = totalPhases(f), an = ficheAnnee(f);
+    const ancien = ["criteresReussite", "criteresRealisation", "differenciation"].filter((c) => f[c]?.trim());
     app.innerHTML = `
-      <div class="toolbar no-print"><a href="#/fiches" class="ghost btn">← Fiches</a><span class="grow hint">Enregistrement automatique</span>
-        <button class="ghost" id="dup">Dupliquer</button><button class="ghost" id="mod">⭐ Enregistrer comme modèle</button><button class="ghost" onclick="print()">Imprimer / PDF</button><button class="danger" id="del">Supprimer</button></div>
-      <form class="sheet" id="f" autocomplete="off">
+      <div class="toolbar no-print"><a href="#/fiches" class="ghost btn">← ${modele ? "Modèles" : "Fiches"}</a><span class="grow hint">${modele ? "⭐ Modèle · " : ""}Enregistrement automatique</span>
+        ${modele ? `<button class="primary" id="use">Utiliser ce modèle</button>` : `<button class="ghost" id="dup">Dupliquer</button><button class="ghost" id="mod">⭐ Enregistrer comme modèle</button>`}
+        <button class="ghost" id="imp">🖨️ Imprimer / PDF</button><button class="danger" id="del">Supprimer</button></div>
+      ${!modele && an !== anneeScolaire() ? `<p class="notice no-print">Fiche de l'année ${esc(an)}. <button class="ghost small" id="reuse">♻️ La réutiliser cette année</button> <span class="hint">(copie sans la date ni le bilan)</span></p>` : ""}
+      <form class="sheet fiche no-print" id="f" autocomplete="off" style="--dc:${discCoul(f.discipline)}">
         <input class="title-input" name="titre" value="${esc(f.titre)}" aria-label="Titre de la séance" placeholder="Titre de la séance">
+        <div class="grid4">
+          <label>Discipline<select name="discipline">${opts(DISCIPLINES, f.discipline)}</select></label>
+          <label>Domaine<input name="domaine" list="doms" value="${esc(f.domaine ?? "")}" placeholder="ex. Calcul mental"></label>
+          <label>Niveau<input name="niveau" value="${esc(f.niveau)}" placeholder="ex. CM1"></label>
+          ${modele ? "" : `<label>Période<select name="periode">${opts(["P1", "P2", "P3", "P4", "P5"], f.periode ?? "")}</select></label>`}
+        </div>
+        <datalist id="doms">${domainesPour(f.discipline).map((d) => `<option value="${esc(d)}">`).join("")}</datalist>
         <div class="grid4">
           <label>Séquence<input name="sequence" value="${esc(f.sequence ?? "")}" placeholder="ex. Les fractions"></label>
           <label>Séance n°<input name="numSeance" value="${esc(f.numSeance ?? "")}" inputmode="numeric"></label>
-          <label>Période<select name="periode">${opts(["P1", "P2", "P3", "P4", "P5"], f.periode ?? "")}</select></label>
           <label>Type de séance<select name="typeSeance">${opts(TYPES_SEANCE, f.typeSeance ?? "")}</select></label>
-        </div>
-        <div class="grid4">
-          <label>Discipline<select name="discipline">${opts(DISCIPLINES, f.discipline)}</select></label>
-          <label>Niveau<input name="niveau" value="${esc(f.niveau)}"></label>
-          <label>Date<input type="date" name="date" value="${esc(f.date)}"></label>
+          ${modele ? "" : `<label>Date<input type="date" name="date" value="${esc(f.date)}"></label>`}
           <label>Durée<input name="duree" value="${esc(f.duree)}"></label>
         </div>
-        <label>Objectif de la séance<textarea name="objectif" rows="2">${esc(f.objectif)}</textarea></label>
-        <div class="grid2">
-          <label>Critères de réussite <span class="hint">(« J'ai réussi si… »)</span><textarea name="criteresReussite" rows="3" placeholder="ex. Mes 10 calculs sont justes.">${esc(f.criteresReussite ?? "")}</textarea></label>
-          <label>Critères de réalisation <span class="hint">(« Pour réussir, je dois… »)</span><textarea name="criteresRealisation" rows="3" placeholder="ex. Aligner les unités sous les unités. Commencer par la droite.">${esc(f.criteresRealisation ?? "")}</textarea></label>
-        </div>
-        <div class="label-row"><span>Compétences des programmes officiels</span><button type="button" class="ghost small no-print" id="addc">+ Insérer</button></div>
+        <label>🎯 Objectif de la séance<textarea name="objectif" rows="2" placeholder="Ce que les élèves vont apprendre">${esc(f.objectif)}</textarea></label>
+        <div class="label-row"><span>Compétences des programmes officiels</span><button type="button" class="ghost small" id="addc">+ Insérer</button></div>
         <div class="chips">${compChips(f.competences, true) || `<span class="hint">Aucune.</span>`}</div>
-        <label>Matériel<textarea name="materiel" rows="2">${esc(f.materiel)}</textarea></label>
-        <div class="label-row"><span>Déroulement</span></div>
-        <table class="phases"><thead><tr><th>Durée</th><th>Phase</th><th>Déroulement / consignes</th><th>Modalité</th><th class="no-print"></th></tr></thead>
-        <tbody>${f.phases.map((ph, k) => `<tr>
-          <td><input data-ph="${k}" data-f="duree" value="${esc(ph.duree)}"></td>
-          <td><input data-ph="${k}" data-f="phase" value="${esc(ph.phase)}"></td>
-          <td><textarea data-ph="${k}" data-f="deroulement" rows="3">${esc(ph.deroulement)}</textarea></td>
-          <td><select data-ph="${k}" data-f="modalite">${opts(MODALITES, ph.modalite, null)}</select></td>
-          <td class="no-print"><button type="button" class="ghost small" data-rmph="${k}" aria-label="Supprimer la phase">×</button></td></tr>`).join("")}</tbody></table>
-        <button type="button" class="ghost small no-print" id="addph">+ Phase</button>
-        <label>Différenciation<textarea name="differenciation" rows="2">${esc(f.differenciation)}</textarea></label>
-        <label>Bilan / remarques<textarea name="bilan" rows="2">${esc(f.bilan)}</textarea></label>
-      </form>`;
+        <label>🧺 Matériel<textarea name="materiel" rows="2" placeholder="Pour l'enseignant·e, pour les élèves">${esc(f.materiel)}</textarea></label>
+        <div class="label-row"><span>Déroulement${tot ? ` · <span id="tot">${minutesTxt(tot)}</span> au total` : ""}</span></div>
+        <div class="fphases">${f.phases.map(phaseHTML).join("")}</div>
+        <button type="button" class="ghost" id="addph">+ Ajouter une phase</button>
+        <label class="fx-trace">📒 Trace écrite<textarea name="traceEcrite" rows="3" placeholder="Ce que les élèves gardent dans le cahier : leçon, affiche, exemple…">${esc(f.traceEcrite ?? "")}</textarea></label>
+        ${ancien.length ? `<div class="label-row"><span>Pour toute la séance <span class="hint">(ancienne présentation : tu peux déplacer ces textes dans les phases)</span></span></div>
+          <div class="grid2">${ancien.map((c) => { const x = CHAMPS_PHASE.find(([k]) => k === c); return `<label>${x[1]} ${x[2]}<textarea name="${c}" rows="2">${esc(f[c])}</textarea></label>`; }).join("")}</div>` : ""}
+        <label>Bilan / remarques<textarea name="bilan" rows="2" placeholder="Après la séance : ce qui a marché, à reprendre…">${esc(f.bilan ?? "")}</textarea></label>
+      </form>
+      <div class="print-only" id="fpPrint"></div>`;
   };
   draw();
+  const majTotal = () => { const n = totalPhases(f), el = $("#tot"); if (el) el.textContent = minutesTxt(n); else if (n) draw(); };
   app.oninput = (e) => {
     const t = e.target;
-    if (t.dataset.ph) f.phases[+t.dataset.ph][t.dataset.f] = t.value;
+    if (t.dataset.ph) { f.phases[+t.dataset.ph][t.dataset.f] = t.value; if (t.dataset.f === "duree") majTotal(); }
     else if (t.name) f[t.name] = t.value;
-    save("fiches");
+    else return;
+    sauver();
   };
-  app.onchange = app.oninput;
-  app.onclick = (e) => {
+  app.onchange = (e) => {
     const t = e.target;
-    if (t.id === "addc") pickCompetences(f.competences, (ids) => { f.competences = ids; save("fiches"); draw(); });
-    else if (t.dataset.rmcomp) { f.competences = f.competences.filter((x) => x !== t.dataset.rmcomp); save("fiches"); draw(); }
-    else if (t.id === "addph") { f.phases.push({ duree: "", phase: "", deroulement: "", modalite: "Collectif" }); save("fiches"); draw(); }
-    else if (t.dataset.rmph) { f.phases.splice(+t.dataset.rmph, 1); save("fiches"); draw(); }
-    else if (t.id === "mod") { enregistrerModele(f); t.textContent = "✓ Modèle enregistré"; t.disabled = true; }
-    else if (t.id === "dup") { const c = newFiche({ ...structuredClone(f), id: uid(), titre: f.titre + " (copie)" }); location.hash = `#/fiches/${c.id}`; }
-    else if (t.id === "del" && confirm("Supprimer cette fiche ?")) { state.fiches = state.fiches.filter((x) => x.id !== id); save("fiches"); location.hash = "#/fiches"; }
+    if (t.dataset.f === "type" || t.name === "discipline") { app.oninput(e); draw(); }
   };
+  app.onclick = (e) => {
+    const t = e.target.closest("button, a"); if (!t) return;
+    const ph = (k) => f.phases[+k];
+    const bouge = (k, d) => { const [x] = f.phases.splice(k, 1); f.phases.splice(k + d, 0, x); sauver(); draw(); };
+    if (t.dataset.retour !== undefined) { retourOutil = { cible: t.getAttribute("href"), hash: location.hash }; return; }
+    if (t.dataset.set) { // modalité, oral/écrit : un clic choisit, un second clic retire
+      const p = ph(t.dataset.k), v = t.dataset.v;
+      p[t.dataset.set] = p[t.dataset.set] === v ? "" : v; sauver();
+      $$(`[data-set="${t.dataset.set}"][data-k="${t.dataset.k}"]`).forEach((b) => b.classList.toggle("on", p[t.dataset.set] === b.dataset.v));
+    }
+    else if (t.dataset.open) { ouverts.add(t.dataset.open); draw(); const [k, c] = t.dataset.open.split(":"); $(`[data-ph="${k}"][data-f="${c}"]`)?.focus(); }
+    else if (t.dataset.up) bouge(+t.dataset.up, -1);
+    else if (t.dataset.down) bouge(+t.dataset.down, 1);
+    else if (t.dataset.rmph) {
+      const p = ph(t.dataset.rmph);
+      if ((p.deroulement?.trim() || CHAMPS_PHASE.some(([c]) => p[c]?.trim())) && !confirm("Supprimer cette phase et son contenu ?")) return;
+      f.phases.splice(+t.dataset.rmph, 1); ouverts.clear(); sauver(); draw();
+    }
+    else if (t.id === "addph") { f.phases.push({ type: "", titre: "", duree: "10 min", modalite: "Collectif", forme: "", deroulement: "" }); sauver(); draw(); $(`.fphase:last-child select`)?.focus(); }
+    else if (t.dataset.outil) { const k = +t.dataset.outil; choisirOutil(f.discipline || "Français", (ref) => { f.phases[k].outil = ref; sauver(); draw(); }); }
+    else if (t.dataset.rmoutil) { delete ph(t.dataset.rmoutil).outil; sauver(); draw(); }
+    else if (t.id === "addc") pickCompetences(f.competences, (ids) => {
+      f.competences = ids;
+      const c = compById[ids[0]]; // première compétence : propose matière et domaine s'ils sont vides
+      if (c && !f.discipline && DISCIPLINES.includes(c.discipline)) f.discipline = c.discipline;
+      if (c && !f.domaine?.trim() && c.discipline === f.discipline) f.domaine = c.domaine ?? "";
+      sauver(); draw();
+    });
+    else if (t.dataset.rmcomp) { f.competences = f.competences.filter((x) => x !== t.dataset.rmcomp); sauver(); draw(); }
+    else if (t.id === "imp") imprimerAvec("fiche", (c) => { $("#fpPrint").innerHTML = ficheImprimable(f, c); });
+    else if (t.id === "mod") { enregistrerModele(f); t.textContent = "✓ Modèle enregistré"; t.disabled = true; }
+    else if (t.id === "dup") location.hash = `#/fiches/${reutiliserFiche(f, f.titre + " (copie)").id}`;
+    else if (t.id === "reuse") location.hash = `#/fiches/${reutiliserFiche(f).id}`;
+    else if (t.id === "use") location.hash = `#/fiches/${depuisModele(f).id}`;
+    else if (t.id === "del" && confirm(modele ? "Supprimer ce modèle ?" : "Supprimer cette fiche ?")) {
+      state[coll] = state[coll].filter((x) => x.id !== id); sauver();
+      if (modele) fichesFiltre.vue = "modeles";
+      location.hash = "#/fiches";
+    }
+  };
+}
+
+// Version imprimable : portrait = une carte par phase ; paysage = un tableau (une ligne par phase).
+function ficheImprimable(f, { o }) {
+  normFiche(f);
+  const multi = (t) => esc(String(t ?? "").trim()).replace(/\n/g, "<br>");
+  const comp = f.competences.map((id) => compById[id]?.texte).filter(Boolean);
+  const tot = totalPhases(f);
+  const infos = [
+    ["Discipline", [f.discipline, f.domaine].filter(Boolean).map(esc).join(" · ")],
+    ["Compétences", comp.length ? `<ul>${comp.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""],
+    ["Objectif", multi(f.objectif)],
+    ["Matériel", multi(f.materiel)],
+  ].filter(([, v]) => v);
+  const meta = [["⏱️ Durée", f.duree || (tot ? minutesTxt(tot) : "")], ["🧩 Phases", f.phases.length || ""], ["🎒 Niveau", f.niveau], ["📅 Date", f.date ? fmtDate(f.date) : ""], ["🗂️ Période", f.periode]].filter(([, v]) => v);
+  const tags = (ph) => [ph.duree && `⏱️ ${esc(ph.duree)}`, ph.modalite && `👥 ${esc(ph.modalite)}`, ph.forme && `${ph.forme === "Oral" ? "🗣️" : "✍️"} ${esc(ph.forme)}`].filter(Boolean).join("<span class=\"fp-dot\">·</span>");
+  const boites = (ph) => CHAMPS_PHASE.filter(([c]) => ph[c]?.trim()).map(([c, ico, lab]) => `<div class="fp-box fp-${c}"><b>${ico} ${lab}</b><div>${multi(ph[c])}</div></div>`).join("");
+  const outil = (ph) => { const x = outilDe(ph.outil); return x ? `<p class="fp-outil">🧰 Outil BagaSchool : ${x.icone} ${esc(x.nom)}</p>` : ""; };
+  const couleurs = (ph) => { const T = phaseType(ph.type); return `--pc:${T?.fond ?? "#f3f1f8"};--pt:${T?.trait ?? "#9a92b8"}`; };
+  const titrePh = (ph, k) => `<span class="fp-n">Phase ${k + 1}</span> ${esc(phaseNom(ph) || "")}`;
+  const phases = o === "paysage"
+    ? `<table class="fp-tab"><thead><tr><th>Phase</th><th>Déroulement</th><th>Critères</th><th>Différenciation</th></tr></thead><tbody>${f.phases.map((ph, k) => `<tr style="${couleurs(ph)}">
+        <td class="fp-tph"><b>${titrePh(ph, k)}</b><div class="fp-tags">${tags(ph)}</div></td>
+        <td>${multi(ph.deroulement)}${outil(ph)}</td>
+        <td>${ph.criteresReussite?.trim() ? `<b>✅ Réussite</b><br>${multi(ph.criteresReussite)}` : ""}${ph.criteresRealisation?.trim() ? `${ph.criteresReussite?.trim() ? "<br>" : ""}<b>🧭 Réalisation</b><br>${multi(ph.criteresRealisation)}` : ""}</td>
+        <td>${multi(ph.differenciation)}</td></tr>`).join("")}</tbody></table>`
+    : f.phases.map((ph, k) => `<section class="fp-ph" style="${couleurs(ph)}"><header><h3>${titrePh(ph, k)}</h3><span class="fp-tags">${tags(ph)}</span></header>
+        ${ph.deroulement?.trim() ? `<div class="fp-der">${multi(ph.deroulement)}</div>` : ""}${boites(ph)}${outil(ph)}</section>`).join("");
+  const ancien = CHAMPS_PHASE.filter(([c]) => f[c]?.trim()).map(([c, ico, lab]) => `<div class="fp-box fp-${c}"><b>${ico} ${lab} (toute la séance)</b><div>${multi(f[c])}</div></div>`).join("");
+  return `<article class="fp fp-${o}" style="--dc:${discCoul(f.discipline)}">
+    <header class="fp-head"><div class="fp-titre">${f.sequence ? `<p class="fp-seq">Séquence : ${esc(f.sequence)}${f.numSeance ? ` · séance ${esc(f.numSeance)}` : ""}${f.typeSeance ? ` · ${esc(f.typeSeance)}` : ""}</p>` : f.typeSeance ? `<p class="fp-seq">${esc(f.typeSeance)}</p>` : ""}<h1>${esc(f.titre)}</h1></div>
+      <dl class="fp-meta">${meta.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl></header>
+    ${infos.length ? `<table class="fp-infos"><tbody>${infos.map(([k, v]) => `<tr><th><span>${k}</span></th><td>${v}</td></tr>`).join("")}</tbody></table>` : ""}
+    <div class="fp-phases">${phases}</div>
+    ${ancien}
+    ${f.traceEcrite?.trim() ? `<section class="fp-trace"><h3>📒 Trace écrite</h3><div>${multi(f.traceEcrite)}</div></section>` : ""}
+    ${f.bilan?.trim() ? `<section class="fp-bilan"><h3>Bilan</h3><div>${multi(f.bilan)}</div></section>` : ""}
+  </article>`;
+}
+
+// ---------- IMPRESSION : sens de la page et style (fiche, cahier journal, programmation, progression) ----------
+// Le choix est mémorisé par type de document (reglages.impression). La page est réglée par une règle @page
+// ajoutée le temps de l'impression ; les classes imp-portrait/paysage et imp-couleur/sobre sur <body> pilotent le CSS.
+const IMP_DEF = { fiche: { o: "portrait", s: "couleur" }, journal: { o: "portrait", s: "couleur" }, prog: { o: "paysage", s: "couleur" } };
+function imprimerAvec(kind, prepare) {
+  const r = (state.reglages.impression ??= {});
+  const c = { ...IMP_DEF[kind], ...r[kind] };
+  const seg = (g, liste) => `<div class="seg imp-seg" data-g="${g}">${liste.map(([v, l]) => `<button type="button" data-v="${v}" class="${c[g] === v ? "on" : ""}">${l}</button>`).join("")}</div>`;
+  openModal(`<h2>🖨️ Imprimer</h2>
+    <div class="field"><span class="field-label">Sens de la page</span>${seg("o", [["portrait", `<i class="imp-page"></i>Portrait`], ["paysage", `<i class="imp-page large"></i>Paysage`]])}</div>
+    <div class="field"><span class="field-label">Style</span>${seg("s", [["couleur", "🎨 En couleurs"], ["sobre", "⚫ Sobre, moins d'encre"]])}</div>
+    <p class="hint">Pour un PDF, choisis « Enregistrer au format PDF » à la place de l'imprimante. Si les couleurs n'apparaissent pas, coche « Graphiques d'arrière-plan » dans les options d'impression.</p>
+    <div class="actions"><button data-close class="ghost">Annuler</button><button class="primary" id="go">🖨️ Imprimer</button></div>`, (m) => {
+    m.onclick = (e) => {
+      const b = e.target.closest("[data-v]");
+      if (b) { c[b.parentNode.dataset.g] = b.dataset.v; $$("button", b.parentNode).forEach((x) => x.classList.toggle("on", x === b)); }
+      if (e.target.closest("#go")) { r[kind] = { o: c.o, s: c.s }; save("reglages"); closeModal(true); lancerImpression(c, prepare); }
+    };
+  });
+}
+function lancerImpression(c, prepare) {
+  const st = document.createElement("style");
+  st.textContent = `@page{size:A4 ${c.o === "paysage" ? "landscape" : "portrait"};margin:9mm}`;
+  document.head.append(st);
+  const cls = ["imp", `imp-${c.o}`, `imp-${c.s}`];
+  document.body.classList.add(...cls);
+  const fin = prepare?.(c);
+  const nettoyer = () => { window.removeEventListener("afterprint", nettoyer); st.remove(); document.body.classList.remove(...cls); fin?.(); };
+  window.addEventListener("afterprint", nettoyer);
+  setTimeout(() => window.print(), 60); // laisse la modale se fermer avant l'aperçu
 }
 
 // ---------- ÉVALUATIONS ----------
@@ -879,6 +1166,7 @@ const toolTile = (o, desc = false, etoile = false) => {
   return `<div class="tile-wrap">${a}<button type="button" class="tile-star ${fav ? "on" : ""}" data-fav="${o.id}" aria-pressed="${fav}" aria-label="${fav ? "Retirer de mes outils" : "Ajouter à mes outils"}" title="${fav ? "Retirer de mes outils" : "Ajouter à mes outils"}">${fav ? "★" : "☆"}</button></div>`;
 };
 function viewOutils() {
+  retourOutil = null;
   const niv = () => localStorage.getItem(CLE_NIV_OUTILS) || "";
   if (filtreOutils.cat === null) filtreOutils.cat = favOutils().length ? "fav" : "tout";
   const pourNiveau = (o) => !niv() || !o.niveaux?.length || o.niveaux.includes(niv());
@@ -951,7 +1239,7 @@ function viewOutil(id) {
   app.innerHTML = `
     <section class="board" id="board" style="--tile:${o.couleur}">
       <header class="board-head">
-        <a href="#/outils" class="round-btn" aria-label="Retour aux outils">←</a>
+        ${(() => { const r = retourDepuis(`#/outils/${id}`, "#/outils"); return `<a href="${r}" class="round-btn" aria-label="${r === "#/outils" ? "Retour aux outils" : "Retour à la fiche"}">←</a>`; })()}
         <h2><span>${o.icone}</span> ${esc(o.nom)}</h2>
         <button class="round-btn" id="fs" aria-label="Plein écran" title="Plein écran">⛶</button>
       </header>
@@ -1008,7 +1296,7 @@ async function viewGenerateur(id) {
   app.innerHTML = `
     <div class="gen">
       <aside class="gen-form panel">
-        <div class="gen-title"><a href="#/imprimer" class="round-btn" aria-label="Retour">←</a><span class="tile-ico" style="--tile:${g.couleur}">${g.icone}</span><h2>${esc(g.nom)}</h2></div>
+        <div class="gen-title"><a href="${retourDepuis(`#/imprimer/${id}`, "#/imprimer")}" class="round-btn" aria-label="Retour">←</a><span class="tile-ico" style="--tile:${g.couleur}">${g.icone}</span><h2>${esc(g.nom)}</h2></div>
         <div id="fields"></div>
         <div class="gen-actions">
           ${g.aleatoire ? `<button class="big-btn soft" id="reroll">🔀 Nouvelle série</button>` : ""}
@@ -1389,8 +1677,8 @@ function viewJournal(dateISO) {
     if (t.id === "dup") dupliquerJournal(date);
     if (t.dataset.addsup !== undefined) choisirSupport(C(sid), dossierDe(sid), () => { persist(); redraw(); });
     if (t.dataset.rmsup) { const c = C(sid); c.supports = (c.supports ?? []).filter((x) => x.id !== t.dataset.rmsup); persist(); redraw(); }
-    if (t.id === "pday") { $("#weekPrint").innerHTML = ""; window.print(); }
-    if (t.id === "pweek") { $("#weekPrint").innerHTML = semaineHTML(date); document.body.classList.add("print-week-mode"); window.print(); setTimeout(() => document.body.classList.remove("print-week-mode"), 500); }
+    if (t.id === "pday") imprimerAvec("journal", () => { $("#weekPrint").innerHTML = ""; });
+    if (t.id === "pweek") imprimerAvec("journal", () => { $("#weekPrint").innerHTML = semaineHTML(date); document.body.classList.add("print-week-mode"); return () => document.body.classList.remove("print-week-mode"); });
   };
 }
 function semaineHTML(date) {
@@ -1400,7 +1688,7 @@ function semaineHTML(date) {
     const st = statutJour(x);
     return `<section class="pw-day"><h2>${capit(fmtLong(x))}</h2>${st && st.type !== "weekend" ? `<p><b>${esc(st.nom)}</b></p>` : `<table class="jtable"><tbody>${creneauxDuJour(x).map((s) => { const c = J[s.id] ?? {}; const f = state.fiches.find((y) => y.id === c.ficheId);
       const comp = (c.competences ?? []).map((id) => compById[id]?.texte).filter(Boolean);
-      return `<tr><td class="jt-time">${esc(s.debut)}–${esc(s.fin)}</td><td class="jt-disc"><b>${esc(s.discipline)}</b> ${esc(s.libelle ?? "")}</td><td>${f ? `<b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? " — " + esc(f.objectif) : ""}<br>` : ""}${c.objectif?.trim() ? `🎯 ${esc(c.objectif)}<br>` : ""}${comp.length ? `<span class="hint">${comp.map(esc).join(" · ")}</span><br>` : ""}${esc(c.notes ?? "")}${c.differenciation?.trim() ? `<br><i>Différenciation : ${esc(c.differenciation)}</i>` : ""}${c.supports?.length ? `<br>📎 ${c.supports.map((x) => esc(x.type === "lien" ? `${x.titre ? x.titre + " : " : ""}${x.url}` : x.nom)).join(" · ")}` : ""}</td></tr>`; }).join("")}</tbody></table>`}${state.journal[x]?.notes ? `<p>${esc(state.journal[x].notes)}</p>` : ""}</section>`;
+      return `<tr style="--c:${s.couleur ?? "#eee"}"><td class="jt-time">${esc(s.debut)}–${esc(s.fin)}</td><td class="jt-disc"><b>${esc(s.discipline)}</b> ${esc(s.libelle ?? "")}</td><td>${f ? `<b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? " — " + esc(f.objectif) : ""}<br>` : ""}${c.objectif?.trim() ? `🎯 ${esc(c.objectif)}<br>` : ""}${comp.length ? `<span class="hint">${comp.map(esc).join(" · ")}</span><br>` : ""}${esc(c.notes ?? "")}${c.differenciation?.trim() ? `<br><i>Différenciation : ${esc(c.differenciation)}</i>` : ""}${c.supports?.length ? `<br>📎 ${c.supports.map((x) => esc(x.type === "lien" ? `${x.titre ? x.titre + " : " : ""}${x.url}` : x.nom)).join(" · ")}` : ""}</td></tr>`; }).join("")}</tbody></table>`}${state.journal[x]?.notes ? `<p>${esc(state.journal[x].notes)}</p>` : ""}</section>`;
   }).join("");
 }
 
@@ -1604,39 +1892,61 @@ function viewFicheEleve(el, onglets) {
 }
 
 // ---------- MODÈLES DE FICHES ----------
+// Modèles BagaSchool (structures de séance) + modèles de l'utilisatrice (state.modeles, modifiables comme une fiche).
+const phM = (type, duree, modalite, forme = "", titre = "", plus = {}) => ({ type, titre, duree, modalite, forme, deroulement: "", ...plus });
 const MODELES_BASE = [
-  { nom: "Séance de découverte", type: "Découverte", phases: [["10 min", "Mise en situation", "Collectif"], ["15 min", "Recherche", "Groupes"], ["10 min", "Mise en commun", "Collectif"], ["10 min", "Institutionnalisation (trace écrite)", "Collectif"]] },
-  { nom: "Séance d'entraînement", type: "Entraînement", phases: [["5 min", "Rappel", "Collectif"], ["25 min", "Exercices", "Individuel"], ["10 min", "Correction", "Collectif"], ["5 min", "Bilan", "Collectif"]] },
-  { nom: "Séance d'évaluation", type: "Évaluation", phases: [["5 min", "Lecture des consignes", "Collectif"], ["35 min", "Évaluation", "Individuel"], ["5 min", "Ramassage", "Collectif"]] },
-  { nom: "Séance d'investigation (sciences)", type: "Investigation (sciences)", phases: [["5 min", "Situation de départ, question", "Collectif"], ["10 min", "Hypothèses (je pense que…)", "Groupes"], ["15 min", "Expérimentation / observation", "Groupes"], ["10 min", "Résultats et interprétation", "Collectif"], ["5 min", "Conclusion, trace écrite", "Collectif"]] },
-  { nom: "Séance d'expérimentation", type: "Expérimentation", phases: [["5 min", "Rappel de la question et du protocole", "Collectif"], ["20 min", "Expérience, relevé des observations", "Groupes"], ["10 min", "Mise en commun des résultats", "Collectif"], ["10 min", "Conclusion", "Collectif"]] },
-  { nom: "Séance de réinvestissement", type: "Réinvestissement", phases: [["5 min", "Rappel de la notion", "Collectif"], ["25 min", "Tâche complexe / problème", "Binômes"], ["10 min", "Mise en commun", "Collectif"]] },
-  { nom: "Ateliers tournants", phases: [["5 min", "Présentation des ateliers", "Collectif"], ["15 min", "Atelier 1", "Ateliers"], ["15 min", "Atelier 2", "Ateliers"], ["5 min", "Bilan", "Collectif"]] },
+  { nom: "Séance de découverte", type: "Découverte", phases: [phM("Mise en situation", "10 min", "Collectif", "Oral"), phM("Recherche", "15 min", "Groupes"), phM("Mise en commun", "10 min", "Collectif", "Oral"), phM("Institutionnalisation", "10 min", "Collectif", "Écrit", "Trace écrite")] },
+  { nom: "Séance d'entraînement", type: "Entraînement", phases: [phM("Rappel / réactivation", "5 min", "Collectif", "Oral"), phM("Entraînement", "25 min", "Individuel", "Écrit", "Exercices"), phM("Mise en commun", "10 min", "Collectif", "Oral", "Correction"), phM("Bilan", "5 min", "Collectif", "Oral")] },
+  { nom: "Séance d'évaluation", type: "Évaluation", phases: [phM("Rappel / réactivation", "5 min", "Collectif", "Oral", "Lecture des consignes"), phM("Évaluation", "35 min", "Individuel", "Écrit"), phM("Bilan", "5 min", "Collectif", "Oral")] },
+  { nom: "Démarche d'investigation (sciences)", type: "Investigation (sciences)", phases: [phM("Mise en situation", "5 min", "Collectif", "Oral", "Question de départ"), phM("Recherche", "10 min", "Groupes", "Écrit", "Hypothèses"), phM("Expérimentation", "15 min", "Groupes", "", "Expérience, observation"), phM("Mise en commun", "10 min", "Collectif", "Oral", "Résultats"), phM("Institutionnalisation", "5 min", "Collectif", "Écrit", "Conclusion")] },
+  { nom: "Séance de réinvestissement", type: "Réinvestissement", phases: [phM("Rappel / réactivation", "5 min", "Collectif", "Oral", "Rappel de la notion"), phM("Réinvestissement", "25 min", "Binômes", "Écrit", "Tâche complexe ou problème"), phM("Mise en commun", "10 min", "Collectif", "Oral")] },
+  { nom: "Calcul mental", type: "Entraînement", discipline: "Mathématiques", domaine: "Calcul mental", duree: "15 min", phases: [phM("Rituel", "5 min", "Collectif", "Oral", "Échauffement", { outil: "o:calcul" }), phM("Entraînement", "7 min", "Individuel", "Écrit", "Sur l'ardoise", { outil: "o:ardoise" }), phM("Bilan", "3 min", "Collectif", "Oral", "Comment as-tu calculé ?")] },
+  { nom: "Ateliers tournants", phases: [phM("Mise en situation", "5 min", "Collectif", "Oral", "Présentation des ateliers"), phM("Entraînement", "15 min", "Ateliers", "", "Atelier 1"), phM("Entraînement", "15 min", "Ateliers", "", "Atelier 2"), phM("Bilan", "5 min", "Collectif", "Oral")] },
 ];
+const champsBase = (b) => ({ titre: b.nom, typeSeance: b.type ?? "", discipline: b.discipline ?? "", domaine: b.domaine ?? "", ...(b.duree ? { duree: b.duree } : {}), phases: structuredClone(b.phases) });
+const depuisBase = (b) => newFiche(champsBase(b));
+const depuisModele = (m) => newFiche({ ...structuredClone(m), id: uid(), date: "", annee: anneeScolaire(), periode: periodeCourante(), bilan: "" });
 function choisirModele() {
+  idsModeles();
   const perso = state.modeles;
   openModal(`<h2>Nouvelle fiche</h2>
     <div class="model-list">
       <button class="model" data-m="vide"><b>📄 Fiche vierge</b></button>
-      ${perso.map((m, i) => `<div class="model-row"><button class="model" data-perso="${i}"><b>⭐ ${esc(m.titre)}</b><span class="hint">Mon modèle${m.discipline ? " · " + esc(m.discipline) : ""}</span></button><button class="ghost small" data-rmm="${i}" aria-label="Supprimer le modèle">×</button></div>`).join("")}
-      ${MODELES_BASE.map((m, i) => `<button class="model" data-base="${i}"><b>${esc(m.nom)}</b><span class="hint">${m.phases.map((p) => p[1]).join(" → ")}</span></button>`).join("")}
+      ${state.fiches.length ? `<button class="model" data-m="reprendre"><b>♻️ Reprendre une de mes fiches</b><span class="hint">Une séance déjà préparée, cette année ou une autre</span></button>` : ""}
+      ${perso.map((m) => `<button class="model" data-perso="${m.id}"><b>⭐ ${esc(m.titre)}</b><span class="hint">Mon modèle${m.discipline ? " · " + esc(m.discipline) : ""}</span></button>`).join("")}
+      ${MODELES_BASE.map((m, i) => `<button class="model" data-base="${i}"><b>${esc(m.nom)}</b><span class="hint">${m.phases.map((p) => esc(phaseNom(p))).join(" → ")}</span></button>`).join("")}
     </div>
-    <p class="hint">Astuce : dans une fiche, « Enregistrer comme modèle » l'ajoute ici.</p>
+    <p class="hint">Astuce : dans une fiche, « Enregistrer comme modèle » l'ajoute ici. L'onglet ⭐ Modèles permet de les modifier.</p>
     <div class="actions"><button data-close class="ghost">Annuler</button></div>`, (m) => {
     m.onclick = (e) => {
       const t = e.target.closest("button"); if (!t) return;
       let f;
-      if (t.dataset.m) f = newFiche();
-      if (t.dataset.base) { const b = MODELES_BASE[+t.dataset.base]; f = newFiche({ titre: b.nom, typeSeance: b.type ?? "", phases: b.phases.map(([duree, phase, modalite]) => ({ duree, phase, deroulement: "", modalite })) }); }
-      if (t.dataset.perso) f = newFiche({ ...structuredClone(state.modeles[+t.dataset.perso]), date: "" });
-      if (t.dataset.rmm) { state.modeles.splice(+t.dataset.rmm, 1); save("modeles"); return choisirModele(); }
+      if (t.dataset.m === "vide") f = newFiche();
+      if (t.dataset.m === "reprendre") return reprendreFiche();
+      if (t.dataset.base) f = depuisBase(MODELES_BASE[+t.dataset.base]);
+      if (t.dataset.perso) f = depuisModele(state.modeles.find((x) => x.id === t.dataset.perso));
       if (f) { closeModal(true); location.hash = `#/fiches/${f.id}`; }
     };
   });
 }
+function reprendreFiche() {
+  openModal(`<h2>♻️ Reprendre une fiche</h2>
+    <p class="hint">Une copie est créée pour cette année, sans la date ni le bilan. L'originale ne change pas.</p>
+    <input type="search" id="rq" placeholder="Rechercher : titre, matière, séquence…">
+    <div class="model-list" id="rl"></div>
+    <div class="actions"><button data-close class="ghost">Annuler</button></div>`, (m) => {
+    const draw = () => {
+      const q = sansAccents($("#rq", m).value.trim());
+      const l = state.fiches.filter((f) => !q || sansAccents(`${f.titre} ${f.discipline} ${f.domaine ?? ""} ${f.sequence ?? ""}`).includes(q)).slice(0, 60);
+      $("#rl", m).innerHTML = l.map((f) => `<button class="model" data-id="${f.id}"><b>${esc(f.titre)}</b><span class="hint">${[f.discipline, f.domaine, f.niveau, ficheAnnee(f)].filter(Boolean).map(esc).join(" · ")}</span></button>`).join("") || `<p class="hint">Aucune fiche ne correspond.</p>`;
+    };
+    $("#rq", m).oninput = draw; draw();
+    $("#rl", m).onclick = (e) => { const b = e.target.closest("[data-id]"); if (!b) return; closeModal(true); location.hash = `#/fiches/${reutiliserFiche(state.fiches.find((x) => x.id === b.dataset.id)).id}`; };
+  });
+}
 function enregistrerModele(f) {
-  const { id, date, ...rest } = structuredClone(f);
-  state.modeles.unshift(rest); save("modeles");
+  const { id, date, annee, periode, bilan, ...rest } = structuredClone(f);
+  state.modeles.unshift({ ...rest, id: uid() }); save("modeles");
 }
 function dupliquerProgrammation(p) {
   const y = +String(p.annee).slice(0, 4);

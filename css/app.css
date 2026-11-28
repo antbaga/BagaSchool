@@ -304,6 +304,33 @@ label>input,label>select,label>textarea{margin-top:4px;color:var(--ink)}
 table{border-collapse:collapse;width:100%}
 th,td{border:1px solid var(--line);padding:6px;vertical-align:top;text-align:left}
 th{background:#fbf8f4;font-size:14px}
+/* Fiche de prép (0.30) : bandeau de la discipline, phases en cartes colorées par type */
+.sheet.fiche{border-top:8px solid var(--dc,#7a6cf0)}
+.fphases{display:flex;flex-direction:column;gap:12px}
+.fphase{border-radius:16px;background:#fff;border:2px solid color-mix(in srgb,var(--pt) 30%,#fff);border-left:8px solid var(--pt);padding:0 12px 10px;overflow:hidden}
+.fphase-h{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 -12px 8px;padding:8px 10px 8px 12px;background:var(--pc)}
+.fphase-h select{width:auto;flex:0 1 210px;font-weight:800;background:#ffffffcc;border-color:transparent}
+.fphase-h input{background:#ffffffcc;border-color:transparent}
+.fphase-titre{flex:1 1 160px;width:auto}.fphase-duree{width:84px;flex:none;text-align:center}
+.fphase-n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--pt);color:#fff;font-weight:900;flex:none}
+.fphase-move{display:flex;gap:2px;margin-left:auto}.fphase-move .small{min-height:32px;padding:4px 9px}
+.fphase-mod{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.seg.mini{padding:3px}.seg.mini button{min-height:32px;padding:4px 10px;font-size:14px}
+.fphase-x{margin-top:8px}.fphase-x textarea{border-color:transparent}
+.fx-criteresReussite textarea{background:#eef9ee}.fx-criteresRealisation textarea{background:#eef4ff}.fx-differenciation textarea{background:#fff6e0}
+.fphase-outil{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.fphase-add{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.fphase-add .small{box-shadow:none;background:#f6f4fb;color:var(--muted)}
+#addph{margin-top:10px}
+.fx-trace textarea{background:#fffbea}
+.outil-gt{margin:10px 2px 2px;font-size:14px;color:var(--muted)}
+/* Liste des fiches */
+.ffiltres{margin-top:0}.ffiltres .inline select,.ffiltres>select{width:auto}
+.fgroupe{margin:20px 0 8px;font-size:18px}.fsous{margin:10px 4px 6px;font-size:15px;color:var(--muted)}
+.fitem{border-left:6px solid var(--dc,#e5e0f2)}
+.fitem.frow{flex-direction:row;align-items:center;gap:8px}.fitem.frow>a,.fitem.frow>div{flex:1;display:flex;flex-direction:column;gap:2px;color:inherit;text-decoration:none}
+.fpuces{display:flex;gap:3px;margin-top:4px}.fpuces i{width:16px;height:6px;border-radius:3px;background:var(--pt)}
+/* Choix d'impression */
+.imp-seg button{gap:8px}.imp-page{display:inline-block;width:14px;height:19px;border:2px solid currentColor;border-radius:3px}.imp-page.large{width:19px;height:14px}
 .phases td input,.phases td textarea,.phases td select{border-color:transparent;padding:6px}
 .phases td:nth-child(1){width:90px}.phases td:nth-child(2){width:140px}.phases td:nth-child(4){width:130px}
 @media (max-width:640px){
@@ -1301,3 +1328,62 @@ body.projection .ec-space{max-height:calc(100vh - 120px)}
 .rp-per-msg{margin:0;flex:1;min-width:200px;background:var(--primary-soft);border-radius:12px;padding:8px 12px}
 .rp-sel{outline:3px dashed var(--primary);outline-offset:-3px;background:var(--primary-soft)}
 .rp-bareme{max-width:420px;margin:8px 0}.rp-bareme td:last-child{text-align:right;white-space:nowrap}
+
+/* ----- Impression : fiche de prép (portrait = cartes, paysage = tableau), style couleur ou sobre ----- */
+@media print{
+  .fp{font-size:11.5px;color:#2d2840;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fp *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fp-head{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;padding:10px 14px;border-radius:12px;background:color-mix(in srgb,var(--dc) 14%,#fff);border-left:7px solid var(--dc);margin-bottom:8px}
+  .fp-head h1{font-size:21px;margin:0;line-height:1.15}
+  .fp-seq{margin:0 0 2px;font-weight:700;color:color-mix(in srgb,var(--dc) 75%,#000)}
+  .fp-meta{margin:0;display:grid;grid-template-columns:auto auto;gap:1px 8px;font-size:10.5px;flex:none}
+  .fp-meta div{display:contents}.fp-meta dt{font-weight:800}.fp-meta dd{margin:0}
+  .fp-infos{margin:0 0 8px;border:0}
+  .fp-infos th,.fp-infos td{border:0;padding:3px 4px;vertical-align:top}
+  .fp-infos th{width:105px;background:none}
+  .fp-infos th span{display:block;background:color-mix(in srgb,var(--dc) 22%,#fff);border-radius:6px;padding:2px 8px;font-size:11px}
+  .fp-infos ul{margin:0;padding-left:16px}
+  .fp-ph{break-inside:avoid;border:1.5px solid color-mix(in srgb,var(--pt) 40%,#fff);border-left:6px solid var(--pt);border-radius:10px;padding:0 10px 8px;margin-bottom:7px;overflow:hidden}
+  .fp-ph header{display:flex;justify-content:space-between;gap:8px;align-items:baseline;background:var(--pc);margin:0 -10px 6px;padding:5px 10px}
+  .fp-ph h3{margin:0;font-size:13.5px}
+  .fp-n{color:color-mix(in srgb,var(--pt) 80%,#000)}
+  .fp-tags{font-size:10.5px;font-weight:700;white-space:nowrap}.fp-dot{margin:0 4px;opacity:.5}
+  .fp-box{border-radius:8px;padding:5px 9px;margin-top:6px}
+  .fp-box b{display:block;font-size:11px}
+  .fp-criteresReussite{background:#eaf7ea}.fp-criteresRealisation{background:#eaf1ff}.fp-differenciation{background:#fff3d9}
+  .fp-outil{margin:5px 0 0;font-size:10.5px;font-weight:700}
+  .fp-trace,.fp-bilan{break-inside:avoid;border-radius:10px;padding:6px 10px;margin-top:8px;background:#fff8dc;border:1.5px dashed #e3c96a}
+  .fp-bilan{background:#f5f4f8;border-color:#cfcbe0}
+  .fp-trace h3,.fp-bilan h3{margin:0 0 3px;font-size:13px}
+  .fp-tab{border:0;border-collapse:separate;border-spacing:0 4px}
+  .fp-tab th{background:color-mix(in srgb,var(--dc) 18%,#fff);border:0;font-size:11px;padding:4px 6px}
+  .fp-tab td{border:0;border-top:1.5px solid color-mix(in srgb,var(--pt) 35%,#fff);padding:5px 6px;font-size:11px}
+  .fp-tab tr{break-inside:avoid}
+  .fp-tab .fp-tph{background:var(--pc);border-left:6px solid var(--pt);width:20%;border-radius:8px 0 0 8px}
+  .fp-tab .fp-tags{white-space:normal;margin-top:3px}
+  .fp-tab td:nth-child(2){width:40%}
+  /* Sobre : mêmes mises en page, sans aplats de couleur */
+  .imp-sobre .fp,.imp-sobre .fp *{--dc:#777!important;--pc:#fff!important;--pt:#888!important}
+  .imp-sobre .fp-head,.imp-sobre .fp-infos th span,.imp-sobre .fp-tab th,.imp-sobre .fp-box,.imp-sobre .fp-trace,.imp-sobre .fp-bilan{background:#fff!important}
+  .imp-sobre .fp-box{border:1px solid #bbb}
+  /* Cahier journal, programmation, progression : couleurs des matières et des périodes */
+  .imp-couleur .jtable,.imp-couleur .jtable *,.imp-couleur .period,.imp-couleur .period *,.imp-couleur .pweek,.imp-couleur .pweek *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .imp-couleur .jtable td.jt-time{border-left:6px solid var(--c,#eee)}
+  .imp-couleur .jtable td.jt-disc{background:color-mix(in srgb,var(--c,#eee) 55%,#fff)}
+  .imp-couleur .pw-day h2,.imp-couleur .journal h2{display:inline-block;background:#ece9ff;border-radius:8px;padding:2px 10px}
+  .imp-couleur .period:nth-child(5n+1) h3{background:#ffe0ec}.imp-couleur .period:nth-child(5n+2) h3{background:#e3efff}.imp-couleur .period:nth-child(5n+3) h3{background:#dcf3e2}.imp-couleur .period:nth-child(5n+4) h3{background:#fff1b8}.imp-couleur .period:nth-child(5n+5) h3{background:#efe3ff}
+  .imp-couleur .period h3{border-radius:8px;padding:4px 8px;margin:0 0 6px}
+  .imp-couleur .seq{background:#f6f4ff!important}
+  .imp-sobre .jtable td.jt-time{border-left:0}.imp-sobre .seq,.imp-sobre .pchip{background:#fff!important;border:1px solid #bbb}
+  .imp-sobre .period h3{background:none}
+  /* Paysage : la semaine du cahier journal en colonnes */
+  .imp-paysage.print-week-mode .print-week{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:3mm;font-size:10px}
+  .imp-paysage.print-week-mode .print-week .jtable td{display:block;border:0;padding:1px 3px}
+  .imp-paysage.print-week-mode .print-week .jtable tr{display:block;border-bottom:1px solid #ddd;padding:2px 0}
+  .imp-paysage .periods{grid-template-columns:repeat(5,1fr)}
+  .prog-print-t{margin:0 0 6px;font-size:18px}.imp-couleur .prog-print-t{color:#5b50d6}
+  .period [data-addseq]{display:none!important}
+  .pweek textarea:placeholder-shown{display:none}
+  .imp-paysage .prog-weeks{display:grid;grid-template-columns:1fr 1fr;gap:3mm}.imp-paysage .prog-weeks .pweek{margin:0}
+  .imp-portrait .periods{grid-template-columns:1fr 1fr}
+}
