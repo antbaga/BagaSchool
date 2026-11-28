@@ -36,3 +36,4 @@ body[data-view="voir"] main{margin:0 auto!important;max-width:860px;padding-bott
   .voir-edt>li{break-inside:avoid}
 }
 .pt-dispo{display:inline-block;background:#efe0f7;border-radius:8px;padding:0 6px;font-size:12px;font-weight:800;vertical-align:middle}
+.voir-comp{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:14px}
