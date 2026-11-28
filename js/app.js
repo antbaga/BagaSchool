@@ -28,7 +28,7 @@ import { viewPartager, viewVoir } from "./partage.js";
 import { grilleHoraire, fusionQLM, SOURCE_HORAIRES, LIEN_HORAIRES, TOTAL_HEBDO } from "./data/horaires.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.31";
+export const VERSION = "0.32";
 
 // ---------- état ----------
 let state = {};
@@ -1212,12 +1212,13 @@ const lundiDe = (date) => addDays(date, -((new Date(date + "T12:00").getDay() + 
 function jourRempli(J) {
   if (!J) return false;
   if (J.slots || J.notes?.trim()) return true;
-  return Object.values(J.creneaux ?? {}).some((c) => c.ficheId || c.fait || c.notes?.trim() || c.objectif?.trim() || c.differenciation?.trim() || c.competences?.length || c.supports?.length);
+  return Object.values(J.creneaux ?? {}).some((c) => c.ficheId || c.fait || c.statut || c.notes?.trim() || c.objectif?.trim() || c.differenciation?.trim() || c.competences?.length || c.supports?.length);
 }
 // Copie un jour du cahier journal vers une autre date (remplace son contenu). Les cases « Fait » repartent vides.
 function copierJour(src, dst) {
   const C = structuredClone(state.journal[src]);
-  for (const c of Object.values(C.creneaux ?? {})) delete c.fait;
+  for (const c of Object.values(C.creneaux ?? {})) { delete c.fait; delete c.statut; delete c.reporteVers; delete c.reporteDe; }
+  delete C.imprevu;
   // Les contenus sont rangés par créneau : vers un autre jour de la semaine, on emporte aussi les horaires.
   if (!C.slots && jourDe(src) !== jourDe(dst)) C.slots = structuredClone(creneauxDuJour(src));
   C.slots?.forEach((s) => { s.jour = jourDe(dst); });
@@ -1325,11 +1326,84 @@ function progressionSemaine(date) {
     p.periodes.forEach((seqs, pi) => {
       const { dates, liste } = semainesPeriode(p.annee, pi); if (!dates) return;
       const wi = liste.findIndex((w) => date >= w.lundi && date <= addDays(w.lundi, 6)); if (wi < 0) return;
-      seqs.forEach((s) => s.seances.forEach((se, k) => { if (se.semaine === wi) out.push({ p, pi, s, titre: se.titre || `Séance ${k + 1}` }); }));
+      seqs.forEach((s, si) => s.seances.forEach((se, k) => { if (se.semaine === wi) out.push({ p, pi, s, se, cle: `${p.id}:${pi}:${si}:${k}`, titre: se.titre || `Séance ${k + 1}` }); }));
       const note = p.semNotes?.[`${pi}:${wi}`]; if (note) out.push({ p, pi, note });
     });
   }
   return out;
+}
+// ---------- bilan des séances : fait / à reporter / modifié, et décalage au prochain cours ----------
+const STATUTS = [["fait", "✓", "Fait"], ["reporter", "↪", "À reporter"], ["modifie", "✏️", "Modifié"]];
+const CONTENU = ["ficheId", "notes", "objectif", "competences", "differenciation", "supports", "seance"];
+const contenuDe = (c) => Object.fromEntries(CONTENU.filter((k) => c?.[k] != null).map((k) => [k, structuredClone(c[k])]));
+const contenuVide = (c) => !c || !(c.ficheId || c.notes?.trim() || c.objectif?.trim() || c.differenciation?.trim() || c.competences?.length || c.supports?.length || c.seance);
+const memeCours = (a, b) => (a.discipline || "").trim().toLowerCase() === (b.discipline || "").trim().toLowerCase() && (a.niveau || "") === (b.niveau || "");
+// Prochains cours de la même matière (et du même niveau), jours de classe seulement, sur ~12 semaines.
+function prochainsCours(date, slot, max = 60) {
+  const jours = state.reglages.jours ?? ["Lundi", "Mardi", "Jeudi", "Vendredi"], out = [];
+  for (let i = 1; i <= 84 && out.length < max; i++) {
+    const d = addDays(date, i), st = statutJour(d);
+    if (!state.journal[d]?.slots && (!jours.includes(jourDe(d)) || (st && st.type !== "weekend"))) continue;
+    if (state.journal[d]?.imprevu?.journee) continue;
+    for (const s of creneauxDuJour(d)) if (memeCours(s, slot)) out.push({ date: d, sid: s.id });
+  }
+  return out;
+}
+// Décale le contenu d'une séance au prochain cours de la matière ; les séances suivantes glissent d'un cran
+// jusqu'au premier cours encore vide. Renvoie la date du cours qui reçoit la séance, ou null.
+function decalerSeance(date, slot) {
+  const src = state.journal[date]?.creneaux?.[slot.id];
+  if (contenuVide(src)) return null;
+  const occ = prochainsCours(date, slot);
+  const cr = (o) => ((state.journal[o.date] ??= { creneaux: {}, notes: "" }).creneaux[o.sid] ??= {});
+  const e = occ.findIndex((o) => contenuVide(state.journal[o.date]?.creneaux?.[o.sid]));
+  if (e < 0) return null;
+  for (let i = e; i > 0; i--) { const c = cr(occ[i]); for (const k of CONTENU) delete c[k]; Object.assign(c, contenuDe(cr(occ[i - 1]))); }
+  const c0 = cr(occ[0]); for (const k of CONTENU) delete c0[k]; Object.assign(c0, contenuDe(src)); c0.reporteDe = date;
+  src.statut = "reporter"; src.fait = false; src.reporteVers = occ[0].date;
+  return occ[0].date;
+}
+// ---------- mode imprévu : absence, sortie, école fermée ----------
+const IMPREVUS = { absent: ["🤒", "Je suis absent·e"], sortie: ["🚌", "Sortie ou événement"], ferme: ["⛈️", "École fermée (météo, grève…)"] };
+function modeImprevu(date, slots, apres) {
+  const J = (state.journal[date] ??= { creneaux: {}, notes: "" });
+  let type = "absent";
+  openModal(`
+    <h2>⚡ Imprévu</h2>
+    <div class="seg wrap" id="ipType">${Object.entries(IMPREVUS).map(([k, [ico, t]]) => `<button type="button" data-ip="${k}">${ico} ${t}</button>`).join("")}</div>
+    <label id="ipLibL">Quoi ?<input id="ipLib" placeholder="ex. Sortie au musée, spectacle, intervenant"></label>
+    <div class="field"><span class="field-label">Quand ?</span><div class="seg wrap" id="ipQuand"><button type="button" data-q="journee" class="on">Toute la journée</button><button type="button" data-q="matin">Matin</button><button type="button" data-q="aprem">Après-midi</button><button type="button" data-q="heures">Horaires</button></div></div>
+    <div class="row" id="ipH" hidden><label>De<input type="time" id="ipD" value="13:30"></label><label>À<input type="time" id="ipF" value="16:30"></label></div>
+    <label class="check"><input type="checkbox" id="ipDec"> Décaler les séances prévues au prochain cours de chaque matière</label>
+    <p class="hint" id="ipAide"></p>
+    <div class="actions"><button type="button" data-close class="ghost">Annuler</button><button type="button" class="primary" id="ipOk">Valider</button></div>`, (m) => {
+    let quand = "journee";
+    const plage = () => (quand === "matin" ? ["00:00", "12:00"] : quand === "aprem" ? ["12:00", "23:59"] : quand === "heures" ? [$("#ipD", m).value, $("#ipF", m).value] : ["00:00", "23:59"]);
+    const touches = () => { const [d, f] = plage(); return slots.filter((s) => s.debut < f && s.fin > d); };
+    const maj = () => {
+      $$("#ipType button", m).forEach((b) => b.classList.toggle("on", b.dataset.ip === type));
+      $$("#ipQuand button", m).forEach((b) => b.classList.toggle("on", b.dataset.q === quand));
+      $("#ipH", m).hidden = quand !== "heures"; $("#ipLibL", m).hidden = type !== "sortie";
+      const n = touches().filter((s) => !contenuVide(J.creneaux[s.id])).length;
+      $("#ipAide", m).innerHTML = (type === "absent" ? "Tu pourras préparer le lien pour ton ou ta remplaçant·e juste après. Coche « Décaler » seulement si personne ne fait la classe. " : "")
+        + `${touches().length} créneau(x) concerné(s), dont ${n} avec une séance prévue.`;
+    };
+    $("#ipType", m).onclick = (e) => { const b = e.target.closest("[data-ip]"); if (!b) return; type = b.dataset.ip; $("#ipDec", m).checked = type !== "absent"; maj(); };
+    $("#ipQuand", m).onclick = (e) => { const b = e.target.closest("[data-q]"); if (b) { quand = b.dataset.q; maj(); } };
+    m.oninput = (e) => { if (!$("#ipType", m)) { m.oninput = null; return; } if (e.target.type === "time") maj(); };
+    $("#ipOk", m).onclick = () => {
+      const [d, f] = plage();
+      J.imprevu = { type, libelle: $("#ipLib", m).value.trim(), journee: quand === "journee", debut: d, fin: f, quand };
+      const dates = [];
+      for (const s of touches()) {
+        const c = (J.creneaux[s.id] ??= {});
+        if ($("#ipDec", m).checked) { const x = decalerSeance(date, s); if (x) dates.push(x); else if (!contenuVide(c)) { c.statut = "reporter"; c.fait = false; } }
+      }
+      save("journal"); closeModal(true);
+      if (type === "absent") location.hash = `#/partager/${date}`; else apres();
+    };
+    maj();
+  });
 }
 function viewJournal(dateISO) {
   const date = dateISO || isoLocal(new Date());
@@ -1355,6 +1429,16 @@ function viewJournal(dateISO) {
       <div class="chips">${compChips(c.competences ?? [], true) || `<span class="hint no-print">Aucune.</span>`}</div>
       <label>Différenciation<textarea data-p="differenciation" rows="1" placeholder="Aides, groupes, adaptations…">${esc(c.differenciation ?? "")}</textarea></label></details>`;
   };
+  const prevues = progressionSemaine(date).filter((x) => x.se);
+  const utilisees = new Set(Object.values(state.journal).flatMap((j) => Object.values(j.creneaux ?? {}).map((c) => c.seance)).filter(Boolean));
+  const discProg = (x) => (x.p.discipline || "").toLowerCase();
+  const suggestionPour = (s) => { const d = (disciplineDe(s) || s.discipline || "").toLowerCase();
+    return prevues.find((x) => !utilisees.has(x.cle) && (discProg(x) === d || discProg(x) === (s.discipline || "").toLowerCase()) && (!s.niveau || !x.p.niveau || x.p.niveau === s.niveau)); };
+  const sugg = Object.fromEntries(slots.map((s) => [s.id, contenuVide(J.creneaux[s.id]) ? suggestionPour(s) : null]).filter(([, x]) => x));
+  const suggestionHTML = (s, c) => { const x = sugg[s.id]; if (!x) return "";
+    return `<div class="jt-sugg no-print">🗓️ Prévu : <b>${esc(x.s.titre || "Séquence")}</b> · ${esc(x.titre)} <button class="pill" data-utiliser="${s.id}">Utiliser</button></div>`; };
+  const ip = J.imprevu;
+  const imprevuTouche = (s) => ip && s.debut < ip.fin && s.fin > ip.debut;
   const cellule = (s, html) => (perso ? `<button class="jt-edit" data-slot="${s.id}" title="Modifier ce créneau pour ce jour">${html}</button>` : html);
   app.innerHTML = `
     <div class="toolbar no-print">
@@ -1363,28 +1447,35 @@ function viewJournal(dateISO) {
       <a class="round-btn ghost" href="#/journal/${addDays(date, 1)}" aria-label="Jour suivant">›</a>
       <a class="pill" href="#/journal/${isoLocal(new Date())}">Aujourd'hui</a>
       <span class="grow"></span>
-      <a class="btn ghost" href="#/partager/${date}">👥 Partager la journée</a><button class="ghost" id="dup">📋 Dupliquer</button><button class="ghost" id="pday">🖨️ Imprimer le jour</button><button class="ghost" id="pweek">🖨️ Imprimer la semaine</button>
+      <a class="btn ghost" href="#/partager/${date}">👥 Partager la journée</a><button class="ghost" id="imprevu">⚡ Imprévu</button><button class="ghost" id="dup">📋 Dupliquer</button><button class="ghost" id="pmenu">🖨️ Imprimer</button>
     </div>
     <div class="sheet journal">
       <h2 class="journal-date">${capit(fmtLong(date))}</h2>
       ${st && st.type !== "weekend" ? `<div class="banner-soft">🏖️ ${esc(st.nom)}</div>` : ""}
+      ${ip ? `<div class="banner-ip">${IMPREVUS[ip.type]?.[0] ?? "⚡"} <b>${esc(ip.type === "sortie" ? ip.libelle || "Sortie" : ip.type === "absent" ? "Absent·e" : "École fermée")}</b> · ${ip.journee ? "toute la journée" : ip.quand === "matin" ? "le matin" : ip.quand === "aprem" ? "l'après-midi" : `${esc(ip.debut)}–${esc(ip.fin)}`}
+        ${ip.type === "absent" ? `<a class="pill" href="#/partager/${date}">👥 Lien pour le remplaçant</a>` : ""}<button class="link no-print" id="ipRm">Retirer</button></div>` : ""}
       ${(() => { const L = progressionSemaine(date); if (!L.length) return "";
         return `<details class="jt-prog no-print"><summary>🗓️ Prévu cette semaine dans tes progressions (${L.filter((x) => !x.note).length})</summary><ul>${L.map((x) => `<li><a href="#/programmations/${x.p.id}/progression" data-progper="${x.p.id}:${x.pi}"><b>${esc(x.p.discipline)}</b></a> · ${x.note ? `<i>${esc(x.note)}</i>` : `${esc(x.s.titre)} — ${esc(x.titre)}`}</li>`).join("")}</ul></details>`; })()}
       <div class="journal-meta">${state.eleves.length ? `<a href="#/appel/${date}" class="chip-link">👧 ${app_ ? `${state.eleves.length - absents.length} présent(s), ${absents.length} absent(s)${absents.length ? " : " + absents.map((e) => esc(e.prenom)).join(", ") : ""}` : "Faire l'appel"}</a>` : ""}</div>
+      ${Object.keys(sugg).length > 1 ? `<p class="hint jt-source no-print">🗓️ ${Object.keys(sugg).length} séances de tes progressions sont prévues cette semaine pour ce jour. <button class="link" id="toutRemplir">Tout remplir</button></p>` : ""}
       ${slots.length || perso ? `<p class="hint jt-source no-print">${perso
         ? `✏️ Horaires adaptés pour ce jour seulement. Touche un horaire pour le modifier. <button class="link" id="reset">Reprendre l'emploi du temps</button>`
         : `Horaires repris de ton <a href="#/edt">emploi du temps</a>. <button class="link" id="adapt">Modifier pour ce jour</button>`}</p>` : ""}
-      ${slots.length ? `<table class="jtable"><thead><tr><th>Horaire</th><th>Discipline</th><th>Fiche / contenu</th><th class="no-print">Fait</th></tr></thead><tbody>
+      ${slots.length ? `<table class="jtable"><thead><tr><th>Horaire</th><th>Discipline</th><th>Fiche / contenu</th><th class="no-print">Bilan</th></tr></thead><tbody>
         ${slots.map((s) => { const c = J.creneaux[s.id] ?? {}; const f = state.fiches.find((x) => x.id === c.ficheId);
-          return `<tr data-s="${s.id}" style="--c:${s.couleur}" class="${c.fait ? "done" : ""}">
+          const statut = c.statut ?? (c.fait ? "fait" : ""), touche = imprevuTouche(s);
+          return `<tr data-s="${s.id}" style="--c:${s.couleur}" class="${statut === "fait" ? "done" : ""} ${statut ? "st-" + statut : ""} ${touche ? "ip-touche" : ""}">
             <td class="jt-time">${cellule(s, `${esc(s.debut)}<br><span class="hint">${esc(s.fin)}</span>`)}</td>
             <td class="jt-disc">${cellule(s, `<b>${esc(s.discipline)}</b>${badgeNiveau(s)}${s.libelle ? `<br><span class="hint">${esc(s.libelle)}</span>` : ""}`)}</td>
             <td><div class="row no-print"><select data-fiche="${s.id}">${ficheOpts(c.ficheId, s.discipline)}</select>${f ? `<a class="pill" href="#/fiches/${f.id}">Ouvrir</a>` : `<button class="pill" data-newfiche="${s.id}">+ Créer</button>`}</div>
               ${f ? `<div class="print-only"><b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? ` — ${esc(f.objectif)}` : ""}</div>` : ""}
               <textarea data-note="${s.id}" rows="2" placeholder="Contenu, remarques…">${esc(c.notes ?? "")}</textarea>
+              ${suggestionHTML(s, c)}
               ${supportsHTML(c)}
-              ${peda(c)}</td>
-            <td class="no-print jt-done"><input type="checkbox" data-fait="${s.id}" ${c.fait ? "checked" : ""} aria-label="Fait"></td></tr>`; }).join("")}
+              ${peda(c)}
+              ${statut === "reporter" ? `<div class="jt-report no-print">${c.reporteVers ? `↪ Reportée au <a href="#/journal/${c.reporteVers}">${fmtLong(c.reporteVers)}</a>` : contenuVide(c) ? "↪ À reporter" : `↪ À reporter <button class="pill" data-decaler="${s.id}">Décaler au prochain cours de ${esc(s.discipline)}</button>`}</div>` : ""}
+              ${c.reporteDe ? `<div class="hint jt-report">↩ Reportée du <a href="#/journal/${c.reporteDe}">${fmtLong(c.reporteDe)}</a></div>` : ""}</td>
+            <td class="no-print jt-done"><div class="jt-statut">${STATUTS.map(([k, ico, t]) => `<button type="button" data-st="${k}" class="${statut === k ? "on" : ""}" title="${t}" aria-label="${t}" aria-pressed="${statut === k}">${ico}</button>`).join("")}</div></td></tr>`; }).join("")}
         </tbody></table>` : `<div class="empty"><span>📅</span><p>${st?.type === "weekend" && !perso ? "C'est le week-end !" : `Aucun créneau ${perso ? "pour ce jour" : `le ${jour.toLowerCase()} dans ton emploi du temps`}.`}</p>${st?.type === "weekend" || perso ? "" : `<a class="primary btn" href="#/edt">Compléter l'emploi du temps</a>`}</div>`}
       ${perso || (!slots.length && st?.type !== "weekend") ? `<button class="ghost small no-print" id="addslot">+ Créneau pour ce jour seulement</button>` : ""}
       ${fichesDuJour.length ? `<p class="hint">Fiches datées de ce jour : ${fichesDuJour.map((f) => `<a href="#/fiches/${f.id}">${esc(f.titre)}</a>`).join(", ")}</p>` : ""}
@@ -1438,7 +1529,6 @@ function viewJournal(dateISO) {
       }
       persist(); redraw();
     }
-    if (t.dataset.fait) { C(t.dataset.fait).fait = t.checked; persist(); t.closest("tr").classList.toggle("done", t.checked); }
   };
   app.onclick = (e) => {
     const pp = e.target.closest("[data-progper]"); if (pp) { const [pid, pi] = pp.dataset.progper.split(":"); progPer[pid] = +pi; return; }
@@ -1463,8 +1553,22 @@ function viewJournal(dateISO) {
     if (t.dataset.slot) editSlot(J.slots.find((s) => s.id === t.dataset.slot), cibleJour);
     if (t.id === "addslot") editSlot({ jour }, cibleJour);
     if (t.id === "dup") dupliquerJournal(date);
+    if (t.id === "imprevu") modeImprevu(date, slots, redraw);
+    if (t.id === "ipRm") { delete J.imprevu; persist(); redraw(); }
+    if (t.dataset.st) { const c = C(sid), k = t.dataset.st; c.statut = c.statut === k || (!c.statut && c.fait && k === "fait") ? undefined : k; if (!c.statut) delete c.statut; c.fait = c.statut === "fait"; if (c.statut !== "reporter") delete c.reporteVers; persist(); redraw(); }
+    if (t.dataset.decaler) { const s = slots.find((x) => x.id === t.dataset.decaler), d = decalerSeance(date, s); if (!d) alert("Aucun cours libre de cette matière dans les 12 prochaines semaines."); persist(); redraw(); }
+    const utiliser = (sid2) => { const x = sugg[sid2]; if (!x) return; const c = C(sid2);
+      Object.assign(c, { seance: x.cle, notes: c.notes?.trim() ? c.notes : x.titre, objectif: c.objectif?.trim() ? c.objectif : x.se.objectif || "" });
+      if (!c.competences?.length && x.s.competences?.length) c.competences = [...x.s.competences];
+      if (!c.ficheId && x.se.ficheId && state.fiches.some((f) => f.id === x.se.ficheId)) c.ficheId = x.se.ficheId; };
+    if (t.dataset.utiliser) { utiliser(t.dataset.utiliser); persist(); redraw(); }
+    if (t.id === "toutRemplir") { Object.keys(sugg).forEach(utiliser); persist(); redraw(); }
     if (t.dataset.addsup !== undefined) choisirSupport(C(sid), dossierDe(sid), () => { persist(); redraw(); });
     if (t.dataset.rmsup) { const c = C(sid); c.supports = (c.supports ?? []).filter((x) => x.id !== t.dataset.rmsup); persist(); redraw(); }
+    if (t.id === "pmenu") return openModal(`<h2>Imprimer</h2><div class="row wrap"><button class="primary" id="pday">Ce jour</button><button class="ghost" id="pweek">Toute la semaine</button></div><div class="actions"><button data-close class="ghost">Annuler</button></div>`, (m) => {
+      $("#pday", m).onclick = () => { closeModal(true); $("#weekPrint").innerHTML = ""; window.print(); };
+      $("#pweek", m).onclick = () => { closeModal(true); $("#weekPrint").innerHTML = semaineHTML(date); document.body.classList.add("print-week-mode"); window.print(); setTimeout(() => document.body.classList.remove("print-week-mode"), 500); };
+    });
     if (t.id === "pday") { $("#weekPrint").innerHTML = ""; window.print(); }
     if (t.id === "pweek") { $("#weekPrint").innerHTML = semaineHTML(date); document.body.classList.add("print-week-mode"); window.print(); setTimeout(() => document.body.classList.remove("print-week-mode"), 500); }
   };
