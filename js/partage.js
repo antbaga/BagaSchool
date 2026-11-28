@@ -78,14 +78,18 @@ export function viewPartager(ctx, dateISO) {
   const J = (state.journal[date] ??= { creneaux: {}, notes: "" });
   const jour = JOURS_JS[new Date(date + "T12:00").getDay()];
   const slots = state.edt.filter((s) => s.jour === jour).sort((a, b) => a.debut.localeCompare(b.debut));
-  const coches = new Set(state.eleves.filter((e) => e.besoins?.trim()).map((e) => e.id)), ajoutes = new Set();
+  // Besoins : note propre au partage (el.besoins), sinon les aménagements de la fiche élève ; dispositifs PAP, PAI…
+  const dispo = (e) => e.fiche?.dispositifs ?? [];
+  const note = (e) => e.besoins ?? e.fiche?.amenagements ?? "";
+  const aBesoins = (e) => note(e).trim() || dispo(e).length;
+  const coches = new Set(state.eleves.filter(aBesoins).map((e) => e.id)), ajoutes = new Set();
 
   const rendreEleves = () => {
-    const liste = state.eleves.filter((e) => e.besoins?.trim() || ajoutes.has(e.id));
+    const liste = state.eleves.filter((e) => aBesoins(e) || ajoutes.has(e.id));
     const autres = state.eleves.filter((e) => !liste.includes(e));
     return `${liste.map((e) => `<div class="pt-eleve">
-        <label class="pt-check"><input type="checkbox" data-incl="${e.id}" ${coches.has(e.id) ? "checked" : ""}> <b>${esc(e.prenom)}</b></label>
-        <textarea data-besoin="${e.id}" rows="2" placeholder="ex. Placé devant, consignes reformulées à l'oral. PAI : ventoline dans le tiroir du bureau.">${esc(e.besoins)}</textarea>
+        <label class="pt-check"><input type="checkbox" data-incl="${e.id}" ${coches.has(e.id) ? "checked" : ""}> <b>${esc(e.prenom)}</b>${dispo(e).map((d) => ` <span class="pt-dispo">${esc(d)}</span>`).join("")}</label>
+        <textarea data-besoin="${e.id}" rows="2" placeholder="ex. Placé devant, consignes reformulées à l'oral. PAI : ventoline dans le tiroir du bureau.">${esc(note(e))}</textarea>
       </div>`).join("") || `<p class="hint">Aucun élève noté pour l'instant.</p>`}
       ${state.eleves.length ? (autres.length ? `<div class="row"><select id="ptAjout"><option value="">+ Ajouter un élève…</option>${autres.map((e) => `<option value="${e.id}">${esc(e.prenom)}</option>`).join("")}</select></div>` : "")
         : `<p class="hint">Ajoute d'abord tes élèves dans <a href="#/classe">Mes élèves</a> (prénoms seulement).</p>`}`;
@@ -114,7 +118,7 @@ export function viewPartager(ctx, dateISO) {
 
       <div id="ptBesoinsBox" ${P.inclure.besoins ? "" : "hidden"}>
         <h3>Élèves à besoins particuliers</h3>
-        <p class="hint">Prénoms seulement. Ce que tu écris ici reste sur cet appareil ; seuls les élèves cochés vont dans le lien.</p>
+        <p class="hint">Prénoms seulement. Repris de la fiche de chaque élève (dispositifs, aménagements) ; tu peux adapter le texte pour ce lien. Il reste sur cet appareil ; seuls les élèves cochés vont dans le lien.</p>
         <div id="ptEleves">${rendreEleves()}</div>
       </div>
 
@@ -166,7 +170,7 @@ export function viewPartager(ctx, dateISO) {
         };
       }) : [],
       devoirs: I.devoirs ? { pour: devoirsPour, liste: (state.devoirs[devoirsPour] ?? []).map((d) => ({ discipline: d.discipline || "", texte: d.texte })) } : null,
-      besoins: I.besoins ? state.eleves.filter((e) => coches.has(e.id) && e.besoins?.trim()).map((e) => ({ prenom: e.prenom, besoins: e.besoins.trim() })) : [],
+      besoins: I.besoins ? state.eleves.filter((e) => coches.has(e.id) && aBesoins(e)).map((e) => ({ prenom: e.prenom, dispositifs: dispo(e), besoins: note(e).trim() })) : [],
       eleves: I.classe ? state.eleves.map((e) => e.prenom) : [],
     };
   };
@@ -266,7 +270,7 @@ export async function viewVoir(ctx, code) {
       <div class="toolbar no-print"><button class="ghost" onclick="print()">🖨️ Imprimer</button>${fin ? `<span class="hint">Lien valable jusqu'au ${esc(fin)}</span>` : ""}</div>
       ${d.consignesJour ? `<section class="voir-bloc voir-jour"><h3>📌 Aujourd'hui</h3><p>${multi(d.consignesJour)}</p></section>` : ""}
       ${d.consignes ? `<section class="voir-bloc"><h3>📋 Consignes de la classe</h3><p>${multi(d.consignes)}</p></section>` : ""}
-      ${d.besoins?.length ? `<section class="voir-bloc voir-besoins"><h3>💛 Élèves à besoins particuliers</h3><ul>${d.besoins.map((b) => `<li><b>${esc(b.prenom)}</b> : ${multi(b.besoins)}</li>`).join("")}</ul></section>` : ""}
+      ${d.besoins?.length ? `<section class="voir-bloc voir-besoins"><h3>💛 Élèves à besoins particuliers</h3><ul>${d.besoins.map((b) => `<li><b>${esc(b.prenom)}</b>${(b.dispositifs || []).map((x) => ` <span class="pt-dispo">${esc(x)}</span>`).join("")}${b.besoins ? ` : ${multi(b.besoins)}` : ""}</li>`).join("")}</ul></section>` : ""}
       ${d.creneaux?.length ? `<section class="voir-bloc"><h3>🕘 Déroulé de la journée</h3><ol class="voir-edt">${d.creneaux.map((c) => `
         <li style="--c:${/^#[0-9a-f]{3,8}$/i.test(c.couleur) ? c.couleur : "#e5e5e5"}">
           <span class="voir-h">${esc(c.debut)}<br><span class="hint">${esc(c.fin)}</span></span>
