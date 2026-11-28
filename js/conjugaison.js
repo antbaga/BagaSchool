@@ -244,12 +244,36 @@ export function questionTemps(niv, id, t) {
 }
 
 // =====================================================================
+// JEU 4 : CONTRE LA MONTRE — conjuguer un maximum de formes en 30, 60 ou 90 secondes.
+// On touche la bonne forme (rapide) ou on l'écrit au clavier (les accents comptent).
+// =====================================================================
+const CLE_COURSE = "bagaschool-conj-course";
+export const DUREES_COURSE = [30, 60, 90];
+const ACCENTS = ["é", "è", "ê", "à", "ç", "î", "ï", "ô", "û", "'"];
+const propre = (s) => String(s ?? "").toLowerCase().replace(/[’‘`´]/g, "'").replace(/\s+/g, " ").trim();
+// Formes acceptées au clavier : « allé(e) » accepte allé, allée et allé(e) ; « allé(e)s » accepte allés, allées.
+export function formesAcceptees(id, t, pr) {
+  const f = forme(id, t, pr);
+  if (f.includes("(e)s")) return [f, f.replace("(e)s", "s"), f.replace("(e)s", "es")];
+  if (f.includes("(e)")) return [f, f.replace("(e)", ""), f.replace("(e)", "e")];
+  return [f];
+}
+// La saisie d'un élève : la forme seule, ou précédée du bon pronom (« je chante », « j'ai »). Les accents comptent.
+export function saisieJuste(saisie, id, t, pr) {
+  let s = propre(saisie);
+  const pre = pr === "je" ? ["je ", "j'", "j' "] : [pr + " "];
+  for (const p of pre) if (s.startsWith(p)) { s = s.slice(p.length).trim(); break; }
+  return !!s && formesAcceptees(id, t, pr).some((f) => propre(f) === s);
+}
+
+// =====================================================================
 // OUTIL 1 : CONJUGAISON EXPRESS
 // =====================================================================
 const JEUX = [
   { id: "forme", nom: "La bonne forme", icone: "🎯" },
   { id: "qui", nom: "Qui parle ?", icone: "🗣️" },
   { id: "temps", nom: "Le bon temps", icone: "⏳" },
+  { id: "course", nom: "Contre la montre", icone: "⏱️" },
 ];
 
 function express(el) {
@@ -317,6 +341,12 @@ function express(el) {
   const render = () => {
     const td = tempsDispo(), fd = famillesDu(niv);
     let tete = `<div class="tool-top wrap">${segNiveau(niv)}<div class="seg cj-jeux">${JEUX.map((j) => `<button data-jeu="${j.id}" class="${jeu === j.id ? "on" : ""}">${j.icone} ${j.nom}</button>`).join("")}</div></div>`;
+    if (jeu === "course") {
+      tete += `<div class="tool-top wrap cj-filtres">
+      ${td.length > 1 ? `<span class="cj-lab">Temps</span>${td.map((t) => `<button class="pill ${temps.has(t) ? "on" : ""}" data-t="${t}">${TEMPS[t]}</button>`).join("")}` : `<span class="cj-lab">Temps : ${TEMPS[td[0]]}</span>`}
+      ${fd.length > 1 ? `<span class="cj-lab">Verbes</span>${fd.map((g) => `<button class="pill ${familles.has(g) ? "on" : ""}" data-g="${g}">${FAMILLES[g]}</button>`).join("")}` : ""}</div>`;
+      return renderCourse(tete);
+    }
     if (jeu === "temps" && td.length < 2) {
       el.innerHTML = tete + `<div class="tool-center"><p class="cj-vide">⏳ Ce jeu compare plusieurs temps : il commence au CE2, quand on travaille le futur, l'imparfait et le passé composé.</p><button class="big-btn" data-niv="CE2">Passer au CE2</button></div>`;
       return;
@@ -354,6 +384,149 @@ function express(el) {
     if (jeu === "qui") { const p = pronom(q.pr, q.f); return `<b>${esc(maj(p))}</b>${p.endsWith("'") ? "" : " "}${esc(q.f)} ${esc(q.c)}.`; }
     return `${esc(q.rep)} ${q.sj.p === "je" ? "" : esc(q.sj.s) + " "}<b>${esc(q.bonne)}</b> ${esc(q.c)}.`;
   };
+  // ---------- Contre la montre ----------
+  const memoC = (() => { try { return JSON.parse(localStorage.getItem(CLE_COURSE)) || {}; } catch { return {}; } })();
+  let cDuree = DUREES_COURSE.includes(memoC.duree) ? memoC.duree : 60, cSaisie = memoC.saisie === "clavier" ? "clavier" : "toucher", cEquipes = 1;
+  let cPhase = "pret", cEq = 0, cScores = [0, 0], cNb = [0, 0], cErr = [], cQ = null, cFb = null, cFin = 0, cTic = null, cAttente = null, cRecord = 0, cAncien = 0, cDernier = "";
+  const cleRecord = () => `${niv}|${cDuree}|${cSaisie}`;
+  const recordDe = () => (memoC.records || {})[cleRecord()] || 0;
+  const sauverC = () => { memoC.duree = cDuree; memoC.saisie = cSaisie; try { localStorage.setItem(CLE_COURSE, JSON.stringify(memoC)); } catch {} };
+  const candCourse = () => { const c = []; tempsDu(niv).filter((t) => temps.has(t)).forEach((t) => verbesDu(niv, t, familles).forEach((id) => personnes(t).forEach((pr) => c.push({ id, t, pr })))); return c; };
+  const arreterCourse = () => { clearInterval(cTic); clearTimeout(cAttente); cTic = cAttente = null; };
+  const resetCourse = () => { arreterCourse(); cPhase = "pret"; cEq = 0; cScores = [0, 0]; cNb = [0, 0]; cErr = []; cQ = null; cFb = null; cRecord = 0; };
+  const reste = () => Math.max(0, (cFin - Date.now()) / 1000);
+  // Question suivante : pas deux fois de suite le même verbe au même temps (si on a le choix).
+  const questionCourse = () => {
+    const c = candCourse(); if (!c.length) { cQ = null; return; }
+    let x = c[hasard(c.length)];
+    for (let k = 0; k < 12 && x.id + "|" + x.t === cDernier && c.length > 8; k++) x = c[hasard(c.length)];
+    cDernier = x.id + "|" + x.t;
+    cQ = questionForme(x.id, x.t, x.pr, nb(), tempsDu(niv));
+  };
+  const majChrono = () => {
+    const n = el.querySelector(".cj-chrono"); if (!n) return;
+    const r = reste(), s = Math.ceil(r);
+    n.querySelector("b").textContent = s;
+    n.style.setProperty("--p", (r / cDuree).toFixed(4));
+    n.classList.toggle("urgent", s <= 10);
+  };
+  const lancer = () => {
+    arreterCourse(); cPhase = "joue"; cFb = null; cFin = Date.now() + cDuree * 1000; questionCourse();
+    cTic = setInterval(() => { majChrono(); if (reste() <= 0) finManche(); }, 200);
+    render(); el.querySelector(".cj-course")?.scrollIntoView({ block: "nearest" }); el.querySelector(".cj-saisie")?.focus({ preventScroll: true });
+  };
+  const finManche = () => {
+    arreterCourse();
+    const sc = cScores[cEq], ancien = recordDe();
+    if (sc > ancien) { memoC.records = { ...(memoC.records || {}), [cleRecord()]: sc }; cRecord = Math.max(cRecord, sc); cAncien = ancien; }
+    sauverC();
+    cPhase = cEquipes === 2 && cEq === 0 ? "entre" : "fin"; cFb = null;
+    render(); el.querySelector(".cj-course")?.scrollIntoView({ block: "start" });
+  };
+  const noter = (ok, choix) => { cNb[cEq]++; if (ok) cScores[cEq]++; else cErr.push({ q: cQ, choix, eq: cEq }); };
+  // Toucher : la bonne réponse s'allume, puis question suivante.
+  const toucherCourse = (o) => {
+    if (cPhase !== "joue" || cFb || !cQ) return;
+    const ok = o === cQ.bonne; noter(ok, o); cFb = { ok, choix: o };
+    render();
+    cAttente = setTimeout(() => { if (cPhase !== "joue") return; cFb = null; questionCourse(); render(); }, ok ? 380 : 1100);
+  };
+  // Clavier : on ne redessine pas le champ (le clavier du téléphone reste ouvert), seulement la question et le retour.
+  const carteCourse = (q) => `<span class="cj-tps t-${q.t}">${TEMPS[q.t]}</span><p class="cj-phrase"><b class="cj-pronom">${esc(cSaisie === "clavier" ? pronom(q.pr, forme(q.id, q.t, q.pr)) : q.pr)}</b> <span class="cj-trou">?</span> <span class="cj-inf">(${esc(VERBES[q.id].inf)})</span></p>`;
+  const retourCourse = () => !cFb ? "&nbsp;" : cFb.ok ? `<span class="good">✔ ${esc(cFb.bonne)}</span>` : `<span class="bad">✘ ${cFb.choix ? `<s>${esc(cFb.choix)}</s> ➜ ` : ""}${esc(cFb.bonne)}</span>`;
+  const scoreCourse = () => (cEquipes === 2 ? `Équipe ${cEq + 1} · ` : "") + `⭐ ${cScores[cEq]}`;
+  const ecrireCourse = (passe = false) => {
+    const inp = el.querySelector(".cj-saisie"); if (cPhase !== "joue" || !cQ || !inp) return;
+    const val = inp.value;
+    if (!passe && !val.trim()) return inp.focus();
+    const ok = !passe && saisieJuste(val, cQ.id, cQ.t, cQ.pr);
+    noter(ok, passe ? "" : val.trim());
+    cFb = { ok, choix: passe ? "" : val.trim(), bonne: avecSujet(cQ.pr, forme(cQ.id, cQ.t, cQ.pr)) };
+    questionCourse();
+    el.querySelector(".cj-c-carte").innerHTML = carteCourse(cQ);
+    el.querySelector(".cj-retour").innerHTML = retourCourse();
+    el.querySelector(".cj-c-score").textContent = scoreCourse();
+    inp.value = ""; inp.focus();
+  };
+  const accent = (a) => {
+    const inp = el.querySelector(".cj-saisie"); if (!inp) return;
+    const d = inp.selectionStart ?? inp.value.length, f = inp.selectionEnd ?? d;
+    inp.value = inp.value.slice(0, d) + a + inp.value.slice(f);
+    inp.focus(); inp.setSelectionRange(d + a.length, d + a.length);
+  };
+  const revoirCourse = () => {
+    const vus = new Set(), l = [];
+    for (const r of cErr) { const k = r.q.bonne + "|" + r.q.t; if (vus.has(k)) continue; vus.add(k);
+      l.push(`${cEquipes === 2 ? `<span class="cj-c-eq e${r.eq}">É${r.eq + 1}</span> ` : ""}${esc(VERBES[r.q.id].inf)}, ${TEMPS[r.q.t]} : <b>${esc(avecSujet(r.q.pr, forme(r.q.id, r.q.t, r.q.pr)))}</b>${r.choix ? ` <span class="cj-c-pas">(pas « ${esc(r.choix)} »)</span>` : ""}`); }
+    return l;
+  };
+  const renderCourse = (tete) => {
+    const reglages = `<div class="tool-top wrap cj-c-reglages">
+      <div class="seg" role="group" aria-label="Durée">${DUREES_COURSE.map((d) => `<button type="button" data-cduree="${d}" class="${d === cDuree ? "on" : ""}">${d} s</button>`).join("")}</div>
+      <div class="seg" role="group" aria-label="Façon de répondre"><button type="button" data-csaisie="toucher" class="${cSaisie === "toucher" ? "on" : ""}">👆 Toucher</button><button type="button" data-csaisie="clavier" class="${cSaisie === "clavier" ? "on" : ""}">⌨️ Écrire</button></div>
+      <div class="seg" role="group" aria-label="Joueurs"><button type="button" data-ceq="1" class="${cEquipes === 1 ? "on" : ""}">1 joueur</button><button type="button" data-ceq="2" class="${cEquipes === 2 ? "on" : ""}">2 équipes</button></div></div>`;
+    if (!candCourse().length) { el.innerHTML = tete + reglages + `<div class="tool-center"><p class="cj-vide">Choisis au moins un temps et une famille de verbes.</p></div>`; return; }
+    const rec = recordDe();
+    if (cPhase === "pret" || cPhase === "entre") {
+      const entre = cPhase === "entre";
+      el.innerHTML = tete + reglages + `<div class="tool-center rc-board cj-zone cj-course">
+        <div class="cj-c-pret">
+          <div class="cj-chrono gros" style="--p:1"><b>${cDuree}</b><small>secondes</small></div>
+          ${entre ? `<p class="cj-c-titre">Équipe 1 : <b>${cScores[0]}</b> ${cScores[0] > 1 ? "bonnes réponses" : "bonne réponse"}.</p><p class="cj-c-titre e1">À l'équipe 2 !</p>`
+            : `<p class="cj-c-titre">${cSaisie === "clavier" ? "Écris" : "Trouve"} un maximum de formes conjuguées en <b>${cDuree} secondes</b>${cEquipes === 2 ? " : l'équipe 1, puis l'équipe 2" : ""} !</p>`}
+          ${rec ? `<p class="cj-c-record">🏆 Record ${niv} (${cDuree} s, ${cSaisie === "clavier" ? "écrit" : "toucher"}) : <b>${rec}</b></p>` : ""}
+        </div>
+        <button type="button" class="big-btn cj-c-go" id="cGo">▶ ${entre ? "Équipe 2, partez !" : "Partez !"}</button>
+      </div>`;
+      return;
+    }
+    if (cPhase === "fin") {
+      const deux = cEquipes === 2, gagne = cScores[0] === cScores[1] ? -1 : cScores[0] > cScores[1] ? 0 : 1, l = revoirCourse();
+      const juste = cScores[0] + cScores[1], total = cNb[0] + cNb[1];
+      el.innerHTML = tete + reglages + `<div class="tool-center rc-board cj-zone cj-course">
+        ${deux ? `<div class="cj-c-duel"><div class="e0 ${gagne === 0 ? "gagne" : ""}"><span>Équipe 1</span><b class="cj-score">${cScores[0]}</b></div><div class="e1 ${gagne === 1 ? "gagne" : ""}"><span>Équipe 2</span><b class="cj-score">${cScores[1]}</b></div></div>
+          <div class="banner ok" ${cRecord ? "" : gagne >= 0 ? "data-fete" : ""}>${gagne < 0 ? "Égalité ! 🤝" : `L'équipe ${gagne + 1} gagne ! 🎉`}</div>`
+        : `<div class="cj-score">⭐ ${cScores[0]}</div><p class="cj-c-titre">${cScores[0] > 1 ? "bonnes réponses" : "bonne réponse"} en ${cDuree} secondes${total - juste ? ` · ${total - juste} erreur${total - juste > 1 ? "s" : ""}` : ""}</p>`}
+        ${cRecord ? `<div class="banner ok cj-c-nouveau" data-fete>🏆 Nouveau record : ${cRecord} !${cAncien ? ` (avant : ${cAncien})` : ""}</div>` : rec ? `<p class="cj-c-record">🏆 Record : <b>${rec}</b></p>` : ""}
+        ${l.length ? `<p class="cj-revoir-t">À revoir :</p><div class="cj-revoir cj-c-revoir">${l.map((x) => `<p>${x}</p>`).join("")}</div>` : total ? `<div class="banner ok">Aucune erreur ! 🎉</div>` : ""}
+        <div class="pills rc-keep"><button type="button" class="big-btn" id="cRejouer">↻ Rejouer</button></div>
+      </div>`;
+      return;
+    }
+    // Partie en cours : seulement le jeu (les réglages reviennent à la fin ou avec « Arrêter »)
+    const q = cQ, deux = cEquipes === 2;
+    el.innerHTML = `<div class="tool-center rc-board cj-zone cj-course joue">
+      <div class="cj-c-barre">
+        <div class="cj-chrono" style="--p:${(reste() / cDuree).toFixed(4)}"><b>${Math.ceil(reste())}</b></div>
+        <span class="cj-c-score ${deux ? `e${cEq}` : ""}">${scoreCourse()}</span>
+        <button type="button" class="pill cj-c-stop rc-keep" id="cStop" aria-label="Arrêter la partie">⏹ Arrêter</button>
+      </div>
+      <p class="cj-consigne">${cSaisie === "clavier" ? "Écris le verbe conjugué, puis Entrée." : "Touche la bonne forme, vite !"}</p>
+      <div class="cj-carte cj-c-carte">${carteCourse(q)}</div>
+      ${cSaisie === "toucher"
+        ? `<div class="cj-options n${q.options.length}">${q.options.map((o) => `<button type="button" class="cj-opt ${cFb ? (o === q.bonne ? "good" : o === cFb.choix ? "bad" : "pale") : ""}" data-o="${esc(o)}">${esc(o)}</button>`).join("")}</div>`
+        : `<div class="cj-c-ecrire"><input class="cj-saisie" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Le verbe conjugué" data-mv-ignore>
+            <button type="button" class="big-btn" id="cValide" data-garde>✔</button></div>
+          <div class="cj-accents" role="group" aria-label="Accents">${ACCENTS.map((a) => `<button type="button" data-acc="${a}" data-garde>${a}</button>`).join("")}<button type="button" class="cj-c-passe" id="cPasse" data-garde>Passer ➜</button></div>
+          <p class="cj-retour">${retourCourse()}</p>`}
+    </div>`;
+  };
+  const clicCourse = (b) => {
+    if (b.dataset.cduree) { cDuree = +b.dataset.cduree; sauverC(); resetCourse(); return render(); }
+    if (b.dataset.csaisie) { cSaisie = b.dataset.csaisie; sauverC(); resetCourse(); return render(); }
+    if (b.dataset.ceq) { cEquipes = +b.dataset.ceq; resetCourse(); return render(); }
+    if (b.id === "cGo") { if (cPhase === "entre") cEq = 1; return lancer(); }
+    if (b.id === "cRejouer") { resetCourse(); return lancer(); }
+    if (b.id === "cStop") { resetCourse(); return render(); }
+    if (b.dataset.o != null) return toucherCourse(b.dataset.o);
+    if (b.dataset.acc) return accent(b.dataset.acc);
+    if (b.id === "cValide") return ecrireCourse();
+    if (b.id === "cPasse") return ecrireCourse(true);
+  };
+  // Garder le champ actif quand on touche un accent ou « Valider » (le clavier du téléphone ne se ferme pas).
+  const garde = (e) => { if (e.target.closest("[data-garde]")) e.preventDefault(); };
+  const entree = (e) => { if (e.key === "Enter" && e.target.classList?.contains("cj-saisie")) { e.preventDefault(); ecrireCourse(); } };
+  el.addEventListener("pointerdown", garde); el.addEventListener("mousedown", garde); el.addEventListener("keydown", entree);
   const repondre = (o) => {
     if (rep) return;
     const q = Q(), ok = o === q.bonne;
@@ -361,11 +534,12 @@ function express(el) {
     render();
   };
   el.onclick = (e) => {
-    if (surNiveau(e, (n) => { niv = n; defaut(); if (jeu === "temps") temps = new Set(tempsBonTemps(niv)); nouvelleSerie(); render(); })) return;
+    if (surNiveau(e, (n) => { niv = n; defaut(); if (jeu === "temps") temps = new Set(tempsBonTemps(niv)); nouvelleSerie(); resetCourse(); render(); })) return;
     const b = e.target.closest("button"); if (!b) return;
-    if (b.dataset.jeu) { jeu = b.dataset.jeu; if (jeu === "temps") temps = new Set(tempsBonTemps(niv)); else defaut(); nouvelleSerie(); return render(); }
-    if (b.dataset.t) { temps.has(b.dataset.t) ? temps.delete(b.dataset.t) : temps.add(b.dataset.t); nouvelleSerie(); return render(); }
-    if (b.dataset.g) { familles.has(b.dataset.g) ? familles.delete(b.dataset.g) : familles.add(b.dataset.g); nouvelleSerie(); return render(); }
+    if (b.dataset.jeu) { jeu = b.dataset.jeu; resetCourse(); if (jeu === "temps") temps = new Set(tempsBonTemps(niv)); else defaut(); nouvelleSerie(); return render(); }
+    if (b.dataset.t) { temps.has(b.dataset.t) ? temps.delete(b.dataset.t) : temps.add(b.dataset.t); nouvelleSerie(); resetCourse(); return render(); }
+    if (b.dataset.g) { familles.has(b.dataset.g) ? familles.delete(b.dataset.g) : familles.add(b.dataset.g); nouvelleSerie(); resetCourse(); return render(); }
+    if (jeu === "course") return clicCourse(b);
     if (b.dataset.o != null) return repondre(b.dataset.o);
     if (b.id === "go") nouvelleSerie();
     if (b.id === "aide") aide = !aide;
@@ -373,7 +547,7 @@ function express(el) {
     render();
   };
   defaut(); nouvelleSerie(); render();
-  return () => { el.onclick = null; };
+  return () => { arreterCourse(); el.onclick = null; el.removeEventListener("pointerdown", garde); el.removeEventListener("mousedown", garde); el.removeEventListener("keydown", entree); };
 }
 
 // =====================================================================
@@ -519,6 +693,6 @@ function tableau(el) {
 }
 
 export const CONJUGAISON = [
-  { id: "conjugaison", nom: "Conjugaison express", icone: "🎯", couleur: "#cfe8ff", desc: "La bonne forme, Qui parle ?, Le bon temps : séries de 10 par niveau", mount: express },
+  { id: "conjugaison", nom: "Conjugaison express", icone: "🎯", couleur: "#cfe8ff", desc: "La bonne forme, Qui parle ?, Le bon temps, Contre la montre : par niveau", mount: express },
   { id: "conj-tableau", nom: "Tableau de conjugaison", icone: "📋", couleur: "#e4dcff", desc: "Compléter le tableau avec des étiquettes : formes ou terminaisons", mount: tableau },
 ];

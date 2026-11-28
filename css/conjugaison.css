@@ -88,3 +88,54 @@
 .board:fullscreen .cj-phrase,.projection .cj-phrase{font-size:clamp(34px,7vmin,80px)}
 .board:fullscreen .cj-tab,.projection .cj-tab{font-size:clamp(28px,5vmin,56px)}
 body.projection #tool .cj-filtres,body.projection #tool .cj-note{display:none!important}
+
+/* Contre la montre */
+.cj-course{gap:clamp(10px,2vmin,18px)}
+.cj-c-reglages{gap:6px 10px}
+.cj-c-pret{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.cj-c-titre{margin:0;font-size:clamp(19px,3.2vmin,32px);font-weight:800;max-width:900px}
+.cj-c-titre.e1{color:#1b5f9e;font-size:clamp(26px,5vmin,52px);font-weight:900}
+.cj-c-record{margin:0;font-size:clamp(16px,2.4vmin,24px);font-weight:800;color:#8a5a00;background:#fff3d6;border-radius:999px;padding:.25em 1em}
+.cj-c-go{font-size:clamp(22px,3.6vmin,36px);padding:.5em 1.6em;min-height:64px}
+.cj-chrono{--p:1;--c:var(--primary);position:relative;flex:none;display:grid;place-items:center;align-content:center;width:clamp(76px,13vmin,130px);aspect-ratio:1;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p) * 360deg),#ece9ff 0)}
+.cj-chrono::before{content:"";position:absolute;inset:11%;border-radius:50%;background:#fff}
+.cj-chrono b,.cj-chrono small{position:relative;line-height:1}
+.cj-chrono b{font-size:clamp(30px,6vmin,62px);font-weight:900;font-variant-numeric:tabular-nums}
+.cj-chrono small{font-size:clamp(11px,1.6vmin,15px);font-weight:800;color:var(--muted)}
+.cj-chrono.gros{width:clamp(130px,24vmin,230px)}
+.cj-chrono.gros b{font-size:clamp(48px,10vmin,100px)}
+.cj-chrono.urgent{--c:#ef6461}
+.cj-chrono.urgent b{color:#d0342c;animation:cj-clign .8s ease-in-out infinite}
+.cj-c-barre{display:flex;align-items:center;justify-content:center;gap:clamp(12px,3vmin,32px);width:min(900px,100%)}
+.cj-c-score{font-size:clamp(26px,5vmin,52px);font-weight:900;padding:.05em .5em;border-radius:18px;background:#fff3d6;white-space:nowrap}
+.cj-c-score.e0{background:#ffd0dc}.cj-c-score.e1{background:#cfe6ff}
+.cj-c-stop{margin-left:auto;font-weight:800;white-space:nowrap}
+.cj-opt.good{background:#9be0b3!important;box-shadow:0 5px 0 #4fae6e!important}
+.cj-opt.bad{background:#ff9fb0!important;box-shadow:0 5px 0 #d65a72!important}
+.cj-opt.pale{opacity:.4}
+.cj-c-ecrire{display:flex;gap:10px;width:min(760px,100%)}
+.cj-saisie{flex:1;min-width:0;font:inherit;font-size:clamp(26px,5vmin,52px);font-weight:900;color:var(--primary);padding:.15em .5em;border-radius:18px;border:4px solid #b9b0ef;background:#fff;text-align:center}
+.cj-saisie:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 5px #6a5acd30}
+.cj-c-ecrire .big-btn{font-size:clamp(24px,4vmin,40px);padding:0 .9em}
+.cj-accents{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:min(900px,100%)}
+.cj-accents button{min-width:clamp(46px,7vmin,64px);min-height:clamp(46px,7vmin,64px);font-size:clamp(22px,3.6vmin,34px);font-weight:900;border-radius:14px;background:#f4f1fb;box-shadow:0 3px 0 #ded8f0;padding:0 .3em}
+.cj-accents .cj-c-passe{font-size:clamp(15px,2.2vmin,20px);background:#fff3d6;box-shadow:0 3px 0 #ecd9a6;padding:0 .9em}
+.cj-retour{margin:0;min-height:1.4em;font-size:clamp(20px,3.4vmin,34px);font-weight:900}
+.cj-retour .good{color:#146c3a}.cj-retour .bad{color:#b3233a}
+.cj-retour s{opacity:.6;font-weight:700}
+.cj-c-duel{display:flex;gap:clamp(14px,4vmin,40px)}
+.cj-c-duel>div{display:flex;flex-direction:column;align-items:center;border-radius:24px;padding:.3em 1.2em;font-weight:900;font-size:clamp(18px,2.8vmin,28px)}
+.cj-c-duel .e0{background:#ffd0dc}.cj-c-duel .e1{background:#cfe6ff}
+.cj-c-duel .gagne{box-shadow:0 0 0 5px #f2c94c}
+.cj-c-revoir{max-height:38vh;overflow:auto;padding:4px 12px}
+.cj-c-pas{color:var(--muted);font-size:.8em}
+.cj-c-eq{font-size:.7em;font-weight:900;border-radius:8px;padding:0 .4em}
+.cj-c-eq.e0{background:#ffd0dc}.cj-c-eq.e1{background:#cfe6ff}
+@media (max-width:640px){
+  .cj-course.joue .cj-options{grid-template-columns:1fr 1fr}
+  .cj-course.joue .cj-opt{font-size:20px;min-height:60px}
+  .cj-c-stop{padding:6px 10px}
+  .cj-c-barre{gap:10px}
+  .cj-c-score{font-size:21px}
+}
+.board:fullscreen .cj-chrono:not(.gros),.projection .cj-chrono:not(.gros){width:clamp(90px,16vmin,170px)}
