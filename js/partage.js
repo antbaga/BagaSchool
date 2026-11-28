@@ -70,14 +70,14 @@ const PRESETS = {
 
 // ---------- écran de l'enseignant : #/partager/<date> ----------
 export function viewPartager(ctx, dateISO) {
-  const { app, state, save, esc, $, $$, fmtLong, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, fmtCourt, compte } = ctx;
+  const { app, state, save, esc, $, $$, fmtLong, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, fmtCourt, compte, creneauxDuJour } = ctx;
   const date = dateISO || isoLocal(new Date());
   const P = (state.reglages.partage ??= {});
   P.pour ??= "remplacant"; P.heures ??= 48;
   P.inclure = { ...PRESETS[P.pour], ...(P.inclure || {}) };
   const J = (state.journal[date] ??= { creneaux: {}, notes: "" });
   const jour = JOURS_JS[new Date(date + "T12:00").getDay()];
-  const slots = state.edt.filter((s) => s.jour === jour).sort((a, b) => a.debut.localeCompare(b.debut));
+  const slots = creneauxDuJour(date); // emploi du temps, ou horaires adaptés pour ce jour dans le cahier journal
   // Besoins : note propre au partage (el.besoins), sinon les aménagements de la fiche élève ; dispositifs PAP, PAI…
   const dispo = (e) => e.fiche?.dispositifs ?? [];
   const note = (e) => e.besoins ?? e.fiche?.amenagements ?? "";
