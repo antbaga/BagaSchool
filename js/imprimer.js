@@ -360,7 +360,7 @@ export const GENERATEURS = [
   {
     id: "etiquettes", nom: "Étiquettes prénoms", icone: "🏷️", couleur: "#c9ecd4", desc: "Pour les tables, casiers, porte-manteaux", aleatoire: false,
     params: [
-      { key: "source", label: "Prénoms", type: "seg", options: [["classe", "Ma classe"], ["liste", "Liste ci-dessous"]], def: "classe" },
+      { key: "source", label: "Prénoms", type: "seg", options: [["classe", "Mes élèves"], ["liste", "Liste ci-dessous"]], def: "classe" },
       { key: "liste", label: "Liste (un prénom par ligne)", type: "textarea", def: "" },
       { key: "theme", label: "Couleurs", type: "seg", options: [["arcenciel", "Arc-en-ciel"], ["doux", "Pastel"], ["sobre", "Sobre"]], def: "arcenciel" },
       { key: "deco", label: "Décoration", type: "select", options: [["", "Aucune"], ["⭐", "⭐ Étoiles"], ["🍎", "🍎 Pommes"], ["🌸", "🌸 Fleurs"], ["🦋", "🦋 Papillons"], ["🚀", "🚀 Fusées"], ["🌈", "🌈 Arcs-en-ciel"]], def: "⭐" },

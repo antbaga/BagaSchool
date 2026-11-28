@@ -23,6 +23,21 @@ h2,h3,h4{font-weight:800;line-height:1.2}
 .sidebar a.on{background:var(--panel);box-shadow:var(--shadow);color:var(--primary)}
 .sidebar a.on span{background:var(--primary-soft)}
 .nav-sep{font-size:12px;font-weight:800;color:var(--muted);margin:16px 12px 4px}
+/* Sous-pages de la section active : sous l'entrée du menu (PC) et en onglets en haut de page. */
+.sidebar .nav-sub{display:flex;flex-direction:column;margin:0 0 6px 28px;padding-left:10px;border-left:2px solid var(--line)}
+.sidebar .nav-sub a{padding:7px 10px;margin:1px 0;font-size:14px;color:var(--muted);border-radius:10px}
+.sidebar .nav-sub a.on{color:var(--primary);background:none;box-shadow:none}
+.subnav{display:none}
+.subnav[hidden]{display:none!important}
+.subnav .seg{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
+.subnav .seg a{white-space:nowrap;flex:none}
+/* Pages d'accueil de section (Préparer, Moi) : grandes cartes. */
+.big-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.big-card{background:var(--panel);box-shadow:var(--shadow);border-radius:22px;padding:18px;text-decoration:none;color:var(--ink);display:flex;gap:14px;align-items:center;border:0;font:inherit;text-align:left;cursor:pointer}
+.big-card:hover{transform:translateY(-2px)}
+.big-card .ic{font-size:30px;width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:var(--tile,#f4f1fb);flex:none}
+.big-card b{font-size:17px;display:block}.big-card .d{color:var(--muted);font-size:14px;font-weight:600}
+.big-card .n{margin-left:auto;font-weight:900;color:var(--primary);font-size:18px}
 .tabbar{display:none}
 .nav-backdrop{display:none}
 main{margin-left:var(--nav);padding:8px 24px 40px;max-width:1240px}
@@ -37,6 +52,7 @@ main{margin-left:var(--nav);padding:8px 24px 40px;max-width:1240px}
   .tabbar span{font-size:21px;line-height:1.2;display:grid;place-items:center;width:48px;height:30px;border-radius:15px}
   .tabbar .on{color:var(--primary)}.tabbar .on span{background:var(--primary-soft)}
   main{margin-left:0;padding:4px 14px calc(96px + env(safe-area-inset-bottom))}
+  .subnav{display:block;margin-left:0;padding:4px 14px 0}
   /* La bannière d'installation passe au-dessus de la barre d'onglets et s'efface quand le menu est ouvert. */
   .inst-ban{bottom:calc(78px + env(safe-area-inset-bottom))}
   body.nav-open .inst-ban{display:none}
@@ -323,7 +339,7 @@ p.comp{margin:6px 0 6px 8px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media print{
   body{padding:0;background:#fff;font-size:12px}
-  .topbar,.sidebar,.tabbar,.toolbar,.no-print,.modal-backdrop{display:none!important}
+  .topbar,.sidebar,.tabbar,.subnav,.toolbar,.no-print,.modal-backdrop{display:none!important}
   main{margin:0;padding:0;max-width:none}
   .sheet{box-shadow:none;padding:0}
   .print-only{display:block}
@@ -615,14 +631,14 @@ a.pill{text-decoration:none;color:inherit}
 .qr svg{width:100%;height:auto}
 .scan video{width:100%;max-height:60vh;border-radius:16px;background:#000;object-fit:cover}
 /* Projection : au tableau, l'outil sans ses boutons (ils sont sur le téléphone) */
-body.projection .topbar,body.projection .sidebar,body.projection .tabbar,body.projection .board-head{display:none!important}
+body.projection .topbar,body.projection .sidebar,body.projection .tabbar,body.projection .subnav,body.projection .board-head{display:none!important}
 body.projection main{margin:0!important;padding:12px!important;max-width:none!important}
 body.projection .board{min-height:calc(100vh - 24px)}
 body.projection #tool :is(button,select,input,textarea):not(.rc-board *):not(.rc-keep):not(.rc-keep *){display:none!important}
 body.projection #tool label:has(select,input,textarea):not(.rc-board *):not(.rc-keep *){display:none!important}
 body.projection #tool :is(.seg,.pills,.tables,.keypad,.bank,.mem-setup,.deck-list,.deck-edit,.mm-words):not(:has(.rc-keep)):not(.rc-keep){display:none!important}
 /* Télécommande (téléphone) */
-body.remote-mode .topbar,body.remote-mode .tabbar,body.remote-mode .sidebar{display:none!important}
+body.remote-mode .topbar,body.remote-mode .tabbar,body.remote-mode .sidebar,body.remote-mode .subnav{display:none!important}
 body.remote-mode main{margin:0!important;padding:10px 10px calc(10px + env(safe-area-inset-bottom))!important;padding-top:calc(10px + env(safe-area-inset-top))!important;max-width:none!important}
 .rc{display:flex;flex-direction:column;gap:10px;min-height:calc(100vh - 20px)}
 .rc-head{display:flex;align-items:center;gap:10px}.rc-head b{flex:1;font-size:18px}
@@ -1013,7 +1029,7 @@ label.check input{margin-top:4px;flex:none}
 @media (max-width:700px){.adm-t{display:block;overflow-x:auto}}
 
 /* ===== v0.8.1 : accueil des alpha-testeurs ===== */
-body[data-view=bienvenue] .tabbar,body[data-view=bienvenue] .sidebar{display:none!important}
+body[data-view=bienvenue] .tabbar,body[data-view=bienvenue] .sidebar,body[data-view=bienvenue] .subnav{display:none!important}
 body[data-view=bienvenue] main{margin-left:0!important}
 .bv{max-width:560px;margin:0 auto;padding:22px 22px 18px}
 .bv h2{margin:.2em 0 .3em;font-size:26px}

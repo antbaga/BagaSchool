@@ -131,7 +131,7 @@ function fluence(el, ctx) {
     const ids = new Set(eleves().map((e) => e.id));
     const recs = records().filter((r) => ids.has(r.eleveId));
     const sel = eleveId ? eleves().filter((e) => e.id === eleveId) : eleves();
-    if (!eleves().length) return `<p class="hint">Ajoute tes élèves dans <a href="#/classe">Ma classe</a> pour garder leurs résultats.</p>`;
+    if (!eleves().length) return `<p class="hint">Ajoute tes élèves dans <a href="#/classe">Mes élèves</a> pour garder leurs résultats.</p>`;
     return `<div class="flu-histo">
       <p class="hint">Résultats gardés sur cet appareil seulement (ils ne sont pas envoyés sur ton compte). Ils sont inclus dans l'export de sauvegarde.</p>
       <table class="flu-table"><thead><tr><th>Élève</th><th>Dernier</th><th>Évolution</th><th>Détail</th></tr></thead><tbody>
