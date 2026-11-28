@@ -27,7 +27,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.29";
+export const VERSION = "0.30";
 
 // ---------- état ----------
 let state = {};
@@ -1515,8 +1515,9 @@ function viewEleve(id, sub) {
   const el = state.eleves.find((x) => x.id === id);
   if (!el) return notFound();
   setTitle(el.prenom);
-  const onglets = `<div class="tabs grow"><a class="${sub !== "fiche" ? "on" : ""}" href="#/classe/${id}">📊 Résultats</a><a class="${sub === "fiche" ? "on" : ""}" href="#/classe/${id}/fiche">📝 Fiche élève</a></div>`;
+  const onglets = `<div class="tabs grow"><a class="${!sub ? "on" : ""}" href="#/classe/${id}">📊 Résultats</a><a class="${sub === "comportement" ? "on" : ""}" href="#/classe/${id}/comportement">🙂 Comportement</a><a class="${sub === "fiche" ? "on" : ""}" href="#/classe/${id}/fiche">📝 Fiche élève</a></div>`;
   if (sub === "fiche") return viewFicheEleve(el, onglets);
+  if (sub === "comportement") return viewComportementEleve(el, onglets);
   const evs = state.evaluations.filter((ev) => ev.items.length && ev.resultats[id] && Object.values(ev.resultats[id]).some(Boolean));
   const counts = vide4();
   for (const ev of evs) for (const v of Object.values(ev.resultats[id])) if (v) counts[v]++;
@@ -1768,7 +1769,7 @@ async function remplirCompte(box) {
   box.innerHTML = `<p>Connectée avec <b>${esc(u.email)}</b>. <span class="hint" id="syEtat">${texteEtatSync()}</span></p>
     <div class="row"><button class="primary" id="cQR">📱 Connecter un autre appareil (QR code)</button><button class="ghost" id="cScan">📷 Scanner un QR code</button><a class="btn ghost" href="#/telecommande">Télécommande</a></div>
     <div class="row"><button class="ghost" id="cMdp">Changer de mot de passe</button><button class="ghost" id="cOut">Se déconnecter</button>${admin ? `<a class="btn ghost" href="#/admin">🛠️ Administration</a>` : ""}</div>
-    <p class="hint">Synchronisé : emploi du temps, programmations, fiches, modèles, cahier journal, devoirs, cahier au tableau, flashcards, remplacements, réglages. Jamais envoyé : élèves, fiches élèves, évaluations, appel, APC.</p>
+    <p class="hint">Synchronisé : emploi du temps, programmations, fiches, modèles, cahier journal, devoirs, cahier au tableau, flashcards, remplacements, réglages. Jamais envoyé : élèves, fiches élèves, évaluations, appel, APC, comportement.</p>
     <details class="hint"><summary>Supprimer mon compte</summary><p>Supprime ton compte et toutes les données copiées sur le serveur. Les données de cet appareil restent ici.</p><button class="danger" id="cDel">Supprimer définitivement mon compte</button></details>`;
 }
 function texteEtatSync() {
@@ -2177,6 +2178,88 @@ function resultatsParCompetence(discipline) {
   });
   return [...comps.values()];
 }
+// ---------- CAHIER DE COMPORTEMENT ----------
+// Collection « comportement » : [{ id, date, el, signe: "+"|"-", cat, note }]. Données d'élèves : jamais synchronisées.
+const CATS_COMPORTEMENT = {
+  "+": ["Participation", "Entraide", "Effort", "Autonomie", "Respect des règles", "Travail soigné"],
+  "-": ["Bavardage", "Agitation", "Travail non fait", "Oubli de matériel", "Conflit", "Manque de respect"],
+};
+const compoDu = (date, el) => state.comportement.filter((c) => c.date === date && (!el || c.el === el));
+function noterComportement(el, signe, date, apres) {
+  const e = state.eleves.find((x) => x.id === el);
+  openModal(`<h2>${signe === "+" ? "👍" : "👎"} ${esc(e?.prenom ?? "")}</h2>
+    <label>Note (facultatif)<input id="cpNote" placeholder="${signe === "+" ? "ex. a aidé Tom en maths" : "ex. pendant la dictée"}"></label>
+    <p class="hint">Touche une catégorie pour enregistrer.</p>
+    <div class="cp-cats ${signe === "+" ? "pos" : "neg"}">${CATS_COMPORTEMENT[signe].map((c) => `<button type="button" data-cat="${esc(c)}">${esc(c)}</button>`).join("")}<button type="button" data-cat="">Autre</button></div>
+    <div class="actions"><button type="button" class="ghost" data-close>Annuler</button></div>`, (m) => {
+    m.querySelectorAll("[data-cat]").forEach((b) => b.onclick = () => {
+      state.comportement.push({ id: uid(), date, el, signe, cat: b.dataset.cat, note: $("#cpNote", m).value.trim() });
+      save("comportement"); closeModal(true); apres();
+    });
+  });
+}
+let vueCompo = "jour";
+function viewComportement(dateArg) {
+  const today = isoLocal(new Date());
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateArg || "") ? dateArg : today;
+  const go = (d) => { location.hash = `#/comportement/${d}`; };
+  if (!state.eleves.length) { app.innerHTML = vide("👧🧒", "Ajoute d'abord tes élèves.", `<a class="primary btn" href="#/classe">Mes élèves</a>`); return; }
+  const lundi = lundiDe(date), jours = [0, 1, 2, 3, 4].map((i) => addDays(lundi, i));
+  const chip = (c) => `<button class="cp-chip ${c.signe === "+" ? "pos" : "neg"}" data-rmc="${c.id}" title="${esc(c.note || "")} (toucher pour supprimer)">${c.signe === "+" ? "👍" : "👎"} ${esc(c.cat || "Autre")}${c.note ? " ✎" : ""}</button>`;
+  const compte = (l) => { const p = l.filter((c) => c.signe === "+").length, n = l.length - p; return `${p ? `<span class="cp-p">+${p}</span>` : ""}${n ? `<span class="cp-n">−${n}</span>` : ""}`; };
+  app.innerHTML = `
+    <p class="intro no-print">Note en un geste ce qui va bien et ce qui ne va pas. L'historique de chaque élève est dans sa page (onglet Comportement), avec un bilan à imprimer pour les parents. Tout reste sur cet appareil.</p>
+    <div class="toolbar no-print">
+      <div class="seg"><button data-vue="jour" class="${vueCompo === "jour" ? "on" : ""}">Jour</button><button data-vue="semaine" class="${vueCompo === "semaine" ? "on" : ""}">Semaine</button></div>
+      <span class="grow"></span>
+      <button class="ghost small" data-go="${addDays(date, vueCompo === "jour" ? -1 : -7)}" aria-label="Précédent">◀</button>
+      <b class="cp-date">${vueCompo === "jour" ? capit(fmtLong(date)) : `Semaine du ${fmtDate(lundi)}`}</b>
+      <button class="ghost small" data-go="${addDays(date, vueCompo === "jour" ? 1 : 7)}" aria-label="Suivant">▶</button>
+      ${date !== today ? `<button class="ghost small" data-go="${today}">Aujourd'hui</button>` : ""}
+    </div>
+    ${vueCompo === "jour" ? `<div class="cp-grille">${state.eleves.map((e) => { const l = compoDu(date, e.id); return `
+      <div class="cp-carte"><div class="cp-tete"><a href="#/classe/${e.id}/comportement">${esc(e.prenom)}</a><span>${compte(l)}</span></div>
+        <div class="cp-btns"><button class="cp-plus" data-note="${e.id}:+" aria-label="Positif">👍</button><button class="cp-moins" data-note="${e.id}:-" aria-label="À améliorer">👎</button></div>
+        ${l.length ? `<div class="cp-chips">${l.map(chip).join("")}</div>` : ""}</div>`; }).join("")}</div>`
+    : `<div class="suivi-wrap"><table class="suivi cp-sem"><thead><tr><th>Élève</th>${jours.map((j) => `<th><button class="ghost small" data-jour="${j}">${esc(capit(new Date(j + "T12:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" })))}</button></th>`).join("")}<th>Semaine</th></tr></thead>
+      <tbody>${state.eleves.map((e) => `<tr><th><a href="#/classe/${e.id}/comportement">${esc(e.prenom)}</a></th>${jours.map((j) => `<td>${compte(compoDu(j, e.id))}</td>`).join("")}<td class="suivi-tot">${compte(state.comportement.filter((c) => c.el === e.id && c.date >= lundi && c.date <= addDays(lundi, 6)))}</td></tr>`).join("")}</tbody></table></div>`}`;
+  app.onclick = (ev) => {
+    const t = ev.target.closest("button"); if (!t) return;
+    if (t.dataset.vue) { vueCompo = t.dataset.vue; viewComportement(date); }
+    else if (t.dataset.go) go(t.dataset.go);
+    else if (t.dataset.jour) { vueCompo = "jour"; go(t.dataset.jour); }
+    else if (t.dataset.note) { const [el, s] = t.dataset.note.split(":"); noterComportement(el, s, date, () => viewComportement(date)); }
+    else if (t.dataset.rmc) { const c = state.comportement.find((x) => x.id === t.dataset.rmc); if (c && confirm(`Supprimer « ${c.cat || "Autre"} »${c.note ? ` (${c.note})` : ""} ?`)) { state.comportement = state.comportement.filter((x) => x !== c); save("comportement"); viewComportement(date); } }
+  };
+}
+// Onglet Comportement de la page élève + bilan imprimable pour les parents
+let periodeCompo = "mois";
+function viewComportementEleve(el, onglets) {
+  const today = isoLocal(new Date());
+  const debut = { semaine: lundiDe(today), mois: today.slice(0, 8) + "01", annee: anneeScolaireDebut(today), tout: "" }[periodeCompo];
+  const l = state.comportement.filter((c) => c.el === el.id && (!debut || c.date >= debut)).sort((a, b) => b.date.localeCompare(a.date));
+  const parCat = (s) => { const o = {}; for (const c of l.filter((x) => x.signe === s)) o[c.cat || "Autre"] = (o[c.cat || "Autre"] ?? 0) + 1; return Object.entries(o).sort((a, b) => b[1] - a[1]); };
+  const pos = parCat("+"), neg = parCat("-"), np = l.filter((c) => c.signe === "+").length;
+  const libPeriode = { semaine: "cette semaine", mois: "ce mois-ci", annee: "depuis la rentrée", tout: "depuis le début" }[periodeCompo];
+  app.innerHTML = `
+    <div class="toolbar no-print"><a class="pill" href="#/classe">← Mes élèves</a>${onglets}<button class="ghost" onclick="print()">🖨️ Bilan pour les parents</button></div>
+    <div class="sheet cp-eleve">
+      <h2>${esc(el.prenom)} <span class="hint">· comportement ${libPeriode}</span></h2>
+      <div class="seg no-print">${[["semaine", "Semaine"], ["mois", "Mois"], ["annee", "Année scolaire"], ["tout", "Tout"]].map(([k, n]) => `<button data-per="${k}" class="${periodeCompo === k ? "on" : ""}">${n}</button>`).join("")}</div>
+      ${l.length ? `
+      <div class="stats"><div><b class="cp-p">${np}</b><span>point(s) positif(s)</span></div><div><b class="cp-n">${l.length - np}</b><span>point(s) à améliorer</span></div></div>
+      <div class="grid2"><div><h3>👍 Points positifs</h3>${pos.length ? `<ul class="cp-cat-l">${pos.map(([c, n]) => `<li>${esc(c)} <b>× ${n}</b></li>`).join("")}</ul>` : `<p class="hint">—</p>`}</div>
+        <div><h3>👎 À améliorer</h3>${neg.length ? `<ul class="cp-cat-l">${neg.map(([c, n]) => `<li>${esc(c)} <b>× ${n}</b></li>`).join("")}</ul>` : `<p class="hint">—</p>`}</div></div>
+      <label class="check no-print"><input type="checkbox" id="cpDet" ${viewComportementEleve.detail ? "checked" : ""}> Imprimer aussi le détail jour par jour</label>
+      <div class="${viewComportementEleve.detail ? "" : "no-print"}"><h3>Détail</h3><ul class="cp-hist">${l.map((c) => `<li><span class="hint">${fmtDate(c.date)}</span> ${c.signe === "+" ? "👍" : "👎"} <b>${esc(c.cat || "Autre")}</b>${c.note ? ` — ${esc(c.note)}` : ""}</li>`).join("")}</ul></div>`
+      : `<p class="hint">Rien de noté ${libPeriode}. On note depuis <a href="#/comportement">Mes élèves › Comportement</a>.</p>`}
+      <p class="print-only cp-signature">Signature des parents :</p>
+    </div>`;
+  app.onclick = (e) => { const t = e.target.closest("[data-per]"); if (t) { periodeCompo = t.dataset.per; viewComportementEleve(el, onglets); } };
+  app.onchange = (e) => { if (e.target.id === "cpDet") { viewComportementEleve.detail = e.target.checked; viewComportementEleve(el, onglets); } };
+}
+const anneeScolaireDebut = (d) => { const y = +d.slice(0, 4), m = +d.slice(5, 7); return `${m >= 9 ? y : y - 1}-09-01`; };
+
 // ---------- APC (activités pédagogiques complémentaires) ----------
 // Collection « apc » : contient des identifiants d'élèves, donc jamais synchronisée (comme eleves).
 // Supports : liens, ou fichiers rangés dans « Mes ressources » (dossier APC) et référencés par id.
@@ -2709,12 +2792,12 @@ const SECTIONS = [
   { id: "aujourdhui", ico: "🏠", nom: "Aujourd'hui", accueil: "accueil", pages: [["accueil", "Ma journée"], ["journal", "Cahier journal"], ["appel", "Appel"], ["devoirs", "Devoirs"]], aussi: ["partager"] },
   { id: "tableau", ico: "🧑‍🏫", nom: "Au tableau", accueil: "outils", pages: [["outils", "Outils"], ["ressources", "Mes documents"], ["telecommande", "Télécommande"]] },
   { id: "preparer", ico: "🗓️", nom: "Préparer", accueil: "preparer", pages: [["programmations", "Programmations"], ["edt", "Emploi du temps"], ["fiches", "Fiches de prép"], ["imprimer", "À imprimer"]] },
-  { id: "eleves", ico: "👧", nom: "Mes élèves", accueil: "classe", pages: [["classe", "Élèves"], ["evaluations", "Évaluations"], ["suivi", "Résultats"], ["apc", "APC"]] },
+  { id: "eleves", ico: "👧", nom: "Mes élèves", accueil: "classe", pages: [["classe", "Élèves"], ["evaluations", "Évaluations"], ["suivi", "Résultats"], ["comportement", "Comportement"], ["apc", "APC"]] },
   { id: "moi", ico: "👤", nom: "Moi", accueil: "moi", pages: [["remplacements", "Mes remplacements"], ["calendrier", "Calendrier scolaire"], ["competences", "Compétences"], ["reglages", "Réglages et compte"], ["aide", "Installer et projeter"]], aussi: ["connexion", "admin"] },
 ];
 const sectionDe = (page) => SECTIONS.find((s) => s.accueil === page || s.pages.some(([p]) => p === page) || s.aussi?.includes(page));
 // Pages dont l'identifiant est une date ou un filtre : on garde les onglets de section.
-const AVEC_ONGLETS = ["journal", "appel", "devoirs", "suivi"];
+const AVEC_ONGLETS = ["journal", "appel", "devoirs", "suivi", "comportement"];
 function majNavigation(page, id) {
   const sec = sectionDe(page);
   const lien = (s) => `<a href="#/${s.accueil}" class="${s === sec ? "on" : ""}"><span>${s.ico}</span>${esc(s.nom)}</a>`;
@@ -2752,7 +2835,7 @@ function viewMoi() {
 }
 
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "Au tableau", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Mes élèves", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel et cantine", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Résultats de la classe", preparer: "Préparer", moi: "Moi", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes documents", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
+const TITLES = { accueil: "Aujourd'hui", outils: "Au tableau", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Mes élèves", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel et cantine", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Résultats de la classe", comportement: "Comportement", preparer: "Préparer", moi: "Moi", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes documents", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
@@ -2783,7 +2866,7 @@ function route(doux = false) {
     telecommande: () => { toolCleanup = viewTelecommande(app, { outils: OUTILS, actif: syncActif() }); },
     lier: () => location.replace("#/connexion"),
     connexion: () => viewConnexion(id), inscription: () => viewInscription(id), bienvenue: () => viewBienvenue(id), admin: viewAdmin,
-    devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), apc: () => (id ? viewApc(id) : viewApcList()), aide: viewAide,
+    devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), apc: () => (id ? viewApc(id) : viewApcList()), comportement: () => viewComportement(id), aide: viewAide,
     journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements, partager: () => viewPartager(ctxPartage(), id), voir: () => viewVoir(ctxPartage(), location.hash.slice("#/voir/".length)), ressources: () => (id ? viewRessource(id) : viewRessources()),
   };
   document.body.dataset.view = name;
