@@ -25,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.20.1";
+export const VERSION = "0.21";
 
 // ---------- état ----------
 let state = {};
@@ -199,7 +199,7 @@ function alertInline(root, msg) {
 const PERIODES = ["Période 1", "Période 2", "Période 3", "Période 4", "Période 5"];
 function viewProgList() {
   app.innerHTML = `
-    <p class="intro">Une programmation par discipline et par niveau : les séquences réparties sur les 5 périodes. Dans chaque séquence, la progression liste les séances dans l'ordre.</p>
+    <p class="intro">Une programmation par discipline et par niveau : les séquences de chaque période sur l'année. Elle se transforme ensuite en progression, semaine par semaine, selon les vacances de ta zone.</p>
     <div class="toolbar"><button class="primary" id="add">+ Nouvelle programmation</button></div>
     <div class="cards">${state.programmations.map((p) => `
       <a class="card" href="#/programmations/${p.id}"><strong>${esc(p.discipline)}</strong><span>${esc(p.niveau)} · ${esc(p.annee)}</span>
@@ -221,32 +221,151 @@ function viewProgList() {
 }
 function anneeScolaire() { const d = new Date(); const y = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1; return `${y}-${y + 1}`; }
 
-function viewProg(id) {
+// Semaines de classe d'une période (lundi → vendredi, bornées par la période), selon la zone choisie.
+// Sans calendrier pour cette année ou sans zone : 7 semaines sans dates.
+function semainesPeriode(annee, pi) {
+  const c = calendrierPour(annee), per = c?.periodes[pi];
+  if (!per) return { dates: false, liste: Array.from({ length: 7 }, () => ({})) };
+  const off = [...c.feries, ...c.pontsOfficiels];
+  const liste = [];
+  for (let l = lundiDe(per.debut); l <= per.fin; l = addDays(l, 7)) {
+    const du = l < per.debut ? per.debut : l, ven = addDays(l, 4), au = ven > per.fin ? per.fin : ven;
+    if (du > au) continue;
+    liste.push({ lundi: l, du, au, off: off.filter((f) => f.date >= du && f.date <= au) });
+  }
+  return { dates: true, liste, per };
+}
+const progTabs = (p, vue) => `<div class="seg prog-tabs"><a href="#/programmations/${p.id}" class="btn ${vue === "annee" ? "on" : ""}">📋 Programmation <span class="hint">l'année</span></a><a href="#/programmations/${p.id}/progression" class="btn ${vue === "semaines" ? "on" : ""}">🗓️ Progression <span class="hint">semaine par semaine</span></a></div>`;
+const progHead = (p) => `<div class="toolbar no-print"><a href="#/programmations" class="ghost btn">← Programmations</a>
+      <span class="grow"><strong>${esc(p.discipline)}</strong> · ${esc(p.niveau)} · ${esc(p.annee)}</span>
+      <button class="ghost" id="dupp">Dupliquer</button><button class="ghost" onclick="print()">Imprimer</button><button class="danger" id="delp">Supprimer</button></div>`;
+function progActionsCommunes(p, e) {
+  if (e.target.id === "dupp") { dupliquerProgrammation(p); return true; }
+  if (e.target.id === "delp" && confirm("Supprimer cette programmation ?")) {
+    state.programmations = state.programmations.filter((x) => x.id !== p.id); save("programmations"); location.hash = "#/programmations"; return true;
+  }
+  return false;
+}
+
+function viewProg(id, sub) {
   const p = state.programmations.find((x) => x.id === id);
   if (!p) return notFound();
   setTitle(`${p.discipline} · ${p.niveau}`);
-  const cal = p.annee === anneeScolaire() ? calendrierCourant() : null;
-  app.innerHTML = `
-    <div class="toolbar"><a href="#/programmations" class="ghost btn">← Programmations</a>
-      <span class="grow"><strong>${esc(p.discipline)}</strong> · ${esc(p.niveau)} · ${esc(p.annee)}</span>
-      <button class="ghost" id="dupp">Dupliquer</button><button class="ghost" onclick="print()">Imprimer</button><button class="danger" id="delp">Supprimer</button></div>
+  if (sub === "progression") return viewProgression(p);
+  const cal = calendrierPour(p.annee);
+  const placees = (seqs) => seqs.flatMap((s) => s.seances).filter((se) => Number.isInteger(se.semaine)).length;
+  app.innerHTML = `${progHead(p)}${progTabs(p, "annee")}
+    <p class="hint no-print">Note ici les séquences de chaque période. Puis, dans l'onglet Progression, répartis-les semaine par semaine.</p>
     <div class="periods">${p.periodes.map((seqs, i) => `
-      <section class="period"><h3>${PERIODES[i]}${cal?.periodes[i] ? `<span class="period-dates">${fmtCourt(cal.periodes[i].debut)} → ${fmtCourt(cal.periodes[i].fin)} · ${cal.periodes[i].semaines} sem.</span>` : ""}</h3>
+      <section class="period"><h3>${PERIODES[i]}${cal?.periodes[i] ? `<span class="period-dates">${fmtCourt(cal.periodes[i].debut)} → ${fmtCourt(cal.periodes[i].fin)} · ${semainesPeriode(p.annee, i).liste.length} sem.</span>` : ""}</h3>
         ${seqs.map((s) => `<button class="seq" data-seq="${i}:${s.id}"><strong>${esc(s.titre)}</strong>
           <span class="hint">${s.seances.length} séance(s) · ${s.competences.length} compétence(s)</span></button>`).join("")}
-        <button class="ghost small" data-addseq="${i}">+ Séquence</button></section>`).join("")}</div>`;
+        <button class="ghost small" data-addseq="${i}">+ Séquence</button>
+        ${seqs.length ? `<a class="link small no-print" href="#/programmations/${p.id}/progression" data-per="${i}">🗓️ Répartir en semaines${placees(seqs) ? ` · ${placees(seqs)}/${seqs.flatMap((s) => s.seances).length} placée(s)` : ""}</a>` : ""}</section>`).join("")}</div>`;
   app.onclick = (e) => {
     const a = e.target.closest("[data-addseq]");
     if (a) { const s = { id: uid(), titre: "Nouvelle séquence", competences: [], seances: [] }; p.periodes[+a.dataset.addseq].push(s); save("programmations"); return editSeq(p, +a.dataset.addseq, s); }
     const q = e.target.closest("[data-seq]");
     if (q) { const [i, sid] = q.dataset.seq.split(":"); return editSeq(p, +i, p.periodes[i].find((s) => s.id === sid)); }
-    if (e.target.id === "dupp") return dupliquerProgrammation(p);
-    if (e.target.id === "delp" && confirm("Supprimer cette programmation ?")) {
-      state.programmations = state.programmations.filter((x) => x.id !== id); save("programmations"); location.hash = "#/programmations";
-    }
+    const per = e.target.closest("[data-per]");
+    if (per) progPer[p.id] = +per.dataset.per;
+    progActionsCommunes(p, e);
   };
 }
-function editSeq(p, pi, s) {
+
+// ---------- PROGRESSION : la programmation répartie semaine par semaine ----------
+// Chaque séance garde l'indice de sa semaine dans la période (se.semaine, absent = « à répartir »).
+// Les notes de semaine sont dans p.semNotes["période:semaine"].
+const progPer = {};   // période affichée, par programmation
+let progSel = null;   // élément choisi pour être placé : { seq } ou { se } (tap puis tap, sans glisser)
+const SEQ_COUL = ["#cfe3f5", "#f9d9c4", "#d6efd2", "#efe0f7", "#fbefb8", "#f5cfd8", "#d3ece9"];
+function viewProgression(p) {
+  const cal = calendrierPour(p.annee);
+  const today = isoLocal(new Date());
+  if (progPer[p.id] == null) { const k = cal?.periodes.findIndex((x) => today <= x.fin) ?? -1; progPer[p.id] = k >= 0 ? k : 0; }
+  const pi = progPer[p.id];
+  const seqs = p.periodes[pi];
+  const { dates, liste: semaines, per } = semainesPeriode(p.annee, pi);
+  const W = semaines.length;
+  const couleur = (s) => SEQ_COUL[seqs.indexOf(s) % SEQ_COUL.length];
+  const toutes = seqs.flatMap((s) => s.seances.map((se, k) => ({ s, se, k })));
+  toutes.forEach(({ se }) => { if (Number.isInteger(se.semaine) && se.semaine >= W) se.semaine = W - 1; });
+  const aRepartir = toutes.filter(({ se }) => !Number.isInteger(se.semaine));
+  const sel = (x) => (progSel?.se === x || progSel?.seq === x ? " sel" : "");
+  const chip = ({ s, se, k }) => `<span class="pchip${sel(se.id)}" draggable="true" data-se="${se.id}" style="--c:${couleur(s)}"><button class="pchip-t" data-pick="${se.id}" title="Choisir pour la placer"><b>${esc(s.titre)}</b> · ${esc(se.titre || `Séance ${k + 1}`)}</button><button class="pchip-x no-print" data-open="${se.id}" title="Modifier">✎</button></span>`;
+  const zoneManque = CALENDRIERS[p.annee] && !state.reglages.zone;
+  const nomSem = (w) => (dates ? `${fmtCourt(w.du)} → ${fmtCourt(w.au)}` : "");
+  app.innerHTML = `${progHead(p)}${progTabs(p, "semaines")}
+    ${zoneManque ? `<div class="banner-soft no-print">Choisis ta zone pour connaître les semaines de chaque période : <span class="seg">${["A", "B", "C"].map((z) => `<button data-zone="${z}">Zone ${z}</button>`).join("")}</span></div>`
+      : !dates ? `<p class="hint">Le calendrier ${esc(p.annee)} n'est pas dans l'application : 7 semaines par période, sans dates.</p>` : ""}
+    <div class="seg prog-pers no-print">${PERIODES.map((n, i) => `<button data-p="${i}" class="${i === pi ? "on" : ""}">${n.replace("Période ", "P")}<span class="hint"> ${semainesPeriode(p.annee, i).liste.length} sem.</span></button>`).join("")}</div>
+    <h2 class="prog-titre">${PERIODES[pi]}${per ? ` <span class="hint">${fmtCourt(per.debut)} → ${fmtCourt(per.fin)} · ${W} semaines · zone ${esc(state.reglages.zone)}</span>` : ""}</h2>
+    ${!seqs.length ? `<div class="empty"><span>📋</span><p>Aucune séquence prévue en ${PERIODES[pi].toLowerCase()} dans la programmation.</p><a class="primary btn" href="#/programmations/${p.id}">Compléter la programmation</a></div>` : `
+    <div class="prog-grid">
+      <aside class="prog-tray no-print" data-drop="tray">
+        <h3>À répartir <span class="hint">${aRepartir.length} séance(s)</span></h3>
+        <p class="hint">${progSel ? "Touche maintenant une semaine pour l'y placer." : "Glisse une séance sur une semaine, ou touche-la puis touche la semaine. Touche une séquence pour ajouter une séance dans une semaine."}</p>
+        ${seqs.map((s) => { const rest = aRepartir.filter((x) => x.s === s);
+          return `<div class="tray-seq" style="--c:${couleur(s)}"><button class="tray-seq-t${sel(s.id)}" data-pickseq="${s.id}" draggable="true" data-seqdrag="${s.id}" title="Choisir la séquence, puis touche une semaine pour y ajouter une séance">${esc(s.titre)} <span class="hint">${s.seances.length - rest.length}/${s.seances.length} placée(s)</span></button>
+            <div class="chips">${rest.map(chip).join("") || `<span class="hint">${s.seances.length ? "Tout est placé ✓" : "Pas encore de séance."}</span>`}</div></div>`; }).join("")}
+        <div class="row"><button class="ghost small" id="auto">⚡ Répartir automatiquement</button><button class="ghost small" id="vider">Tout remettre à répartir</button></div>
+      </aside>
+      <ol class="prog-weeks">${semaines.map((w, wi) => {
+        const ici = toutes.filter(({ se }) => se.semaine === wi);
+        const enCours = dates && today >= w.lundi && today <= addDays(w.lundi, 6);
+        return `<li class="pweek${enCours ? " now" : ""}${progSel ? " cible" : ""}" data-drop="${wi}">
+          <div class="pweek-h"><b>Semaine ${wi + 1}</b> <span class="hint">${nomSem(w)}</span>
+            ${w.off?.length ? `<span class="badge-off">${w.off.map((f) => `${esc(f.nom)} ${fmtCourt(f.date)}`).join(" · ")}</span>` : ""}
+            <span class="grow"></span>${dates ? `<a class="link small no-print" href="#/journal/${w.du}">📒 Cahier journal</a>` : ""}</div>
+          <div class="chips">${ici.map(chip).join("") || `<span class="hint">Rien de prévu.</span>`}</div>
+          <textarea data-wnote="${wi}" rows="1" placeholder="Développer la semaine : contenus, supports, évaluation…">${esc(p.semNotes?.[`${pi}:${wi}`] ?? "")}</textarea>
+        </li>`; }).join("")}</ol>
+    </div>`}`;
+  const persist = () => save("programmations");
+  const redraw = () => viewProgression(p);
+  const trouve = (id) => toutes.find((x) => x.se.id === id);
+  const placer = (cible) => {
+    if (!progSel) return;
+    if (progSel.se) { const x = trouve(progSel.se); if (x) { if (cible === "tray") delete x.se.semaine; else x.se.semaine = +cible; } progSel = null; }
+    else if (progSel.seq && cible !== "tray") { const s = seqs.find((x) => x.id === progSel.seq); if (s) s.seances.push({ id: uid(), titre: `Séance ${s.seances.length + 1}`, objectif: "", semaine: +cible }); }
+    persist(); redraw();
+  };
+  app.onclick = (e) => {
+    if (progActionsCommunes(p, e)) return;
+    const t = e.target;
+    const z = t.closest("[data-zone]"); if (z) { state.reglages.zone = z.dataset.zone; save("reglages"); return redraw(); }
+    const b = t.closest("[data-p]"); if (b) { progPer[p.id] = +b.dataset.p; progSel = null; return redraw(); }
+    const pk = t.closest("[data-pick]"); if (pk) { progSel = progSel?.se === pk.dataset.pick ? null : { se: pk.dataset.pick }; return redraw(); }
+    const ps = t.closest("[data-pickseq]"); if (ps) { progSel = progSel?.seq === ps.dataset.pickseq ? null : { seq: ps.dataset.pickseq }; return redraw(); }
+    const op = t.closest("[data-open]"); if (op) { const x = trouve(op.dataset.open); progSel = null; return editSeq(p, pi, x.s, redraw); }
+    if (t.id === "auto") {
+      if (toutes.length > aRepartir.length && !confirm("Répartir toutes les séances de la période dans l'ordre ? La répartition actuelle sera remplacée.")) return;
+      toutes.forEach(({ se }, k) => { se.semaine = Math.min(W - 1, Math.floor((k * W) / toutes.length)); });
+      progSel = null; persist(); return redraw();
+    }
+    if (t.id === "vider" && confirm("Remettre toutes les séances de la période à répartir ?")) { toutes.forEach(({ se }) => delete se.semaine); persist(); return redraw(); }
+    if (progSel && !t.closest("a, textarea, button")) { const d = t.closest("[data-drop]"); if (d) placer(d.dataset.drop); }
+  };
+  app.oninput = (e) => {
+    const w = e.target.dataset.wnote; if (w == null) return;
+    p.semNotes ??= {}; const k = `${pi}:${w}`;
+    if (e.target.value.trim()) p.semNotes[k] = e.target.value; else delete p.semNotes[k];
+    persist();
+  };
+  // Glisser-déposer (ordinateur, TBI)
+  app.ondragstart = (e) => {
+    const c = e.target.closest?.("[data-se], [data-seqdrag]"); if (!c) return;
+    progSel = c.dataset.se ? { se: c.dataset.se } : { seq: c.dataset.seqdrag };
+    e.dataTransfer.setData("text/plain", "progression"); e.dataTransfer.effectAllowed = "move";
+  };
+  app.ondragover = (e) => { const d = e.target.closest?.("[data-drop]"); if (d && progSel) { e.preventDefault(); d.classList.add("survol"); } };
+  app.ondragleave = (e) => { const d = e.target.closest?.("[data-drop]"); if (d && !d.contains(e.relatedTarget)) d.classList.remove("survol"); };
+  app.ondrop = (e) => { const d = e.target.closest?.("[data-drop]"); if (!d || !progSel) return; e.preventDefault(); placer(d.dataset.drop); };
+  app.ondragend = () => { if (progSel) { progSel = null; redraw(); } }; // lâché hors d'une semaine
+}
+function editSeq(p, pi, s, retour = () => viewProg(p.id)) {
+  const W = semainesPeriode(p.annee, pi).liste.length;
+  const semOpts = (v) => `<option value="">À répartir</option>` + Array.from({ length: W }, (_, w) => `<option value="${w}" ${v === w ? "selected" : ""}>Semaine ${w + 1}</option>`).join("");
   const draw = (m) => {
     m.innerHTML = `
       <h2>Séquence · ${PERIODES[pi]}</h2>
@@ -254,9 +373,10 @@ function editSeq(p, pi, s) {
       <label>Compétences visées</label>
       <div class="chips">${compChips(s.competences, true)}</div>
       <button class="ghost small" id="addc">+ Insérer depuis les programmes</button>
-      <h3>Progression (séances)</h3>
+      <h3>Séances</h3>
       <ol class="seances">${s.seances.map((se, k) => `
         <li><div class="row"><input data-se="${k}" data-f="titre" value="${esc(se.titre)}" placeholder="Titre de la séance">
+          <select data-sem="${k}" title="Semaine dans la progression" style="width:auto">${semOpts(se.semaine)}</select>
           <button class="ghost small" data-up="${k}" ${k === 0 ? "disabled" : ""} aria-label="Monter">↑</button>
           <button class="ghost small" data-fiche="${k}" title="Créer la fiche de préparation">${se.ficheId ? "Ouvrir la fiche" : "Créer la fiche"}</button>
           <button class="ghost small" data-rmse="${k}" aria-label="Supprimer">×</button></div>
@@ -272,9 +392,14 @@ function editSeq(p, pi, s) {
       if (e.target.dataset.se) s.seances[+e.target.dataset.se][e.target.dataset.f] = e.target.value;
       persist();
     };
+    m.onchange = (e) => {
+      const k = e.target.dataset.sem; if (k == null) return;
+      const se = s.seances[+k]; if (e.target.value === "") delete se.semaine; else se.semaine = +e.target.value;
+      persist();
+    };
     m.onclick = (e) => {
       const t = e.target;
-      if (t.id === "addc") return pickCompetences(s.competences, (ids) => { s.competences = ids; persist(); editSeq(p, pi, s); });
+      if (t.id === "addc") return pickCompetences(s.competences, (ids) => { s.competences = ids; persist(); editSeq(p, pi, s, retour); });
       if (t.dataset.rmcomp) { s.competences = s.competences.filter((x) => x !== t.dataset.rmcomp); persist(); return draw(m); }
       if (t.id === "addse") { s.seances.push({ id: uid(), titre: `Séance ${s.seances.length + 1}`, objectif: "" }); persist(); return draw(m); }
       if (t.dataset.rmse) { s.seances.splice(+t.dataset.rmse, 1); persist(); return draw(m); }
@@ -289,7 +414,7 @@ function editSeq(p, pi, s) {
       }
       if (t.id === "dels" && confirm("Supprimer cette séquence ?")) { p.periodes[pi] = p.periodes[pi].filter((x) => x !== s); persist(); closeModal(); }
     };
-  }, () => viewProg(p.id));
+  }, retour);
 }
 
 // ---------- FICHES DE PRÉPARATION ----------
@@ -852,18 +977,20 @@ const addDays = (s, n) => { const d = new Date(s + "T12:00"); d.setDate(d.getDat
 const fmtLong = (s) => new Date(s + "T12:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const fmtCourt = (s) => new Date(s + "T12:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 const capit = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-function calendrierCourant() {
-  const cal = CALENDRIERS[anneeScolaire()];
+function calendrierCourant() { return calendrierPour(anneeScolaire()); }
+function calendrierPour(annee) {
+  const cal = CALENDRIERS[annee];
   const zone = state.reglages.zone;
   if (!cal || !zone) return null;
   const vac = cal.vacances.map((v) => ({ nom: v.nom, debut: v[zone][0], reprise: v[zone][1] }));
-  const y1 = +anneeScolaire().slice(0, 4);
+  const y1 = +annee.slice(0, 4);
   const feries = [...joursFeries(y1), ...joursFeries(y1 + 1)];
   // Périodes : de la rentrée (ou d'une reprise) jusqu'au dernier jour avant les vacances suivantes
   const bornes = [cal.rentree, ...vac.map((v) => v.reprise)];
   const fins = [...vac.map((v) => addDays(v.debut, -1)), addDays(cal.ete, -1)];
   const periodes = bornes.map((d, i) => {
-    const semaines = Math.round((new Date(fins[i] + "T12:00") - new Date(d + "T12:00")) / (7 * 864e5));
+    // Semaines de classe commencées (une rentrée un mardi compte pour une semaine), comme la progression
+    const semaines = Math.floor(Math.round((new Date(fins[i] + "T12:00") - new Date(lundiDe(d) + "T12:00")) / 864e5) / 7) + 1;
     return { n: i + 1, debut: d, fin: fins[i], semaines };
   });
   return { ...cal, zone, vac, feries, periodes };
@@ -1033,6 +1160,19 @@ function choisirSupport(c, dossier, apres) {
     }).catch(() => {});
   });
 }
+// Séances placées dans la semaine de cette date, toutes programmations de l'année confondues.
+function progressionSemaine(date) {
+  const out = [];
+  for (const p of state.programmations) {
+    p.periodes.forEach((seqs, pi) => {
+      const { dates, liste } = semainesPeriode(p.annee, pi); if (!dates) return;
+      const wi = liste.findIndex((w) => date >= w.lundi && date <= addDays(w.lundi, 6)); if (wi < 0) return;
+      seqs.forEach((s) => s.seances.forEach((se, k) => { if (se.semaine === wi) out.push({ p, pi, s, titre: se.titre || `Séance ${k + 1}` }); }));
+      const note = p.semNotes?.[`${pi}:${wi}`]; if (note) out.push({ p, pi, note });
+    });
+  }
+  return out;
+}
 function viewJournal(dateISO) {
   const date = dateISO || isoLocal(new Date());
   urlsJournal.forEach((u) => URL.revokeObjectURL(u)); urlsJournal = [];
@@ -1070,6 +1210,8 @@ function viewJournal(dateISO) {
     <div class="sheet journal">
       <h2 class="journal-date">${capit(fmtLong(date))}</h2>
       ${st && st.type !== "weekend" ? `<div class="banner-soft">🏖️ ${esc(st.nom)}</div>` : ""}
+      ${(() => { const L = progressionSemaine(date); if (!L.length) return "";
+        return `<details class="jt-prog no-print"><summary>🗓️ Prévu cette semaine dans tes progressions (${L.filter((x) => !x.note).length})</summary><ul>${L.map((x) => `<li><a href="#/programmations/${x.p.id}/progression" data-progper="${x.p.id}:${x.pi}"><b>${esc(x.p.discipline)}</b></a> · ${x.note ? `<i>${esc(x.note)}</i>` : `${esc(x.s.titre)} — ${esc(x.titre)}`}</li>`).join("")}</ul></details>`; })()}
       <div class="journal-meta">${state.eleves.length ? `<a href="#/appel/${date}" class="chip-link">👧 ${app_ ? `${state.eleves.length - absents.length} présent(s), ${absents.length} absent(s)${absents.length ? " : " + absents.map((e) => esc(e.prenom)).join(", ") : ""}` : "Faire l'appel"}</a>` : ""}</div>
       ${slots.length || perso ? `<p class="hint jt-source no-print">${perso
         ? `✏️ Horaires adaptés pour ce jour seulement. Touche un horaire pour le modifier. <button class="link" id="reset">Reprendre l'emploi du temps</button>`
@@ -1141,6 +1283,7 @@ function viewJournal(dateISO) {
     if (t.dataset.fait) { C(t.dataset.fait).fait = t.checked; persist(); t.closest("tr").classList.toggle("done", t.checked); }
   };
   app.onclick = (e) => {
+    const pp = e.target.closest("[data-progper]"); if (pp) { const [pid, pi] = pp.dataset.progper.split(":"); progPer[pid] = +pi; return; }
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.dvadd || t.dataset.dvrm) return;
     const sid = t.closest("tr")?.dataset.s;
@@ -1418,12 +1561,13 @@ function dupliquerProgrammation(p) {
   openModal(`<h2>Dupliquer la programmation</h2><form id="f">
     <label>Année scolaire<input name="annee" value="${isNaN(y) ? anneeScolaire() : `${y + 1}-${y + 2}`}" required></label>
     <label>Niveau(x)<input name="niveau" value="${esc(p.niveau)}" required></label>
-    <p class="hint">Les séquences, séances et compétences sont copiées. Les liens vers les fiches ne le sont pas.</p>
+    <p class="hint">Les séquences, séances et compétences sont copiées. Les liens vers les fiches et la répartition en semaines ne le sont pas.</p>
     <div class="actions"><button type="button" data-close class="ghost">Annuler</button><button class="primary">Dupliquer</button></div></form>`, (m) => {
     $("#f", m).onsubmit = (e) => {
       e.preventDefault(); const d = formData(e.target);
       const c = structuredClone(p); c.id = uid(); c.annee = d.annee; c.niveau = d.niveau;
-      c.periodes.forEach((seqs) => seqs.forEach((s) => { s.id = uid(); s.seances.forEach((se) => { se.id = uid(); delete se.ficheId; }); }));
+      delete c.semNotes; // les semaines changent d'une année à l'autre
+      c.periodes.forEach((seqs) => seqs.forEach((s) => { s.id = uid(); s.seances.forEach((se) => { se.id = uid(); delete se.ficheId; delete se.semaine; }); }));
       state.programmations.push(c); save("programmations"); closeModal(true); location.hash = `#/programmations/${c.id}`;
     };
   });
@@ -2430,7 +2574,7 @@ function route(doux = false) {
   const y = window.scrollY;
   try { toolCleanup?.(); } catch {}
   toolCleanup = null;
-  app.onclick = app.oninput = app.onchange = app.ondragover = app.ondragleave = app.ondrop = null;
+  app.onclick = app.oninput = app.onchange = app.ondragstart = app.ondragend = app.ondragover = app.ondragleave = app.ondrop = null;
   const [, name = "accueil", id, sub] = location.hash.split("/");
   if (id === "new" && name === "fiches") { location.replace(`#/fiches/${newFiche().id}`); return; }
   if (id === "modele" && name === "fiches") { location.replace("#/fiches"); setTimeout(choisirModele, 0); return; }
@@ -2445,7 +2589,7 @@ function route(doux = false) {
     outils: () => (id ? viewOutil(id) : viewOutils()),
     imprimer: () => (id ? viewGenerateur(id) : viewImprimer()),
     edt: viewEdt,
-    programmations: () => (id ? viewProg(id) : viewProgList()),
+    programmations: () => (id ? viewProg(id, sub) : viewProgList()),
     fiches: () => (id ? viewFiche(id) : viewFiches()),
     evaluations: () => (id ? viewEval(id) : viewEvals()),
     classe: () => (id ? viewEleve(id, sub) : viewClasse()), competences: viewCompetences, reglages: viewReglages,
