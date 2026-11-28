@@ -26,7 +26,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.24.1";
+export const VERSION = "0.25";
 
 // ---------- état ----------
 let state = {};
@@ -710,6 +710,9 @@ async function viewReglages() {
   const persisted = await navigator.storage?.persisted?.().catch(() => false);
   app.innerHTML = `
     <div class="sheet">
+      <h2>Ma classe</h2>
+      <p>${(() => { const r = state.reglages; return [r.niveaux?.length ? r.niveaux.join(", ") : "Niveau non précisé", (r.jours ?? []).map((j) => j.slice(0, 3).toLowerCase()).join(" ") || "", r.zone ? `zone ${r.zone}` : "zone non choisie", r.remplacant ? "remplaçant·e" : ""].filter(Boolean).map(esc).join(" · "); })()}</p>
+      <div class="row"><button class="ghost" id="pfEdit">Modifier</button><a href="#/calendrier" class="link">Voir le calendrier scolaire</a></div>
       <h2>Sauvegarde</h2>
       <p>Tes données sont enregistrées <strong>sur cet appareil</strong>, dans ce navigateur.${compte.configure() ? " Avec un compte, tes préparations sont aussi copiées sur le serveur et synchronisées ; les élèves, les évaluations et l'appel restent uniquement ici." : ""}
       Pour ne rien perdre, exporte régulièrement un fichier de sauvegarde.</p>
@@ -728,8 +731,6 @@ async function viewReglages() {
       <p class="hint">Sur le premier appareil : « Exporter » (ou « Envoyer »). Sur l'autre : « Importer » et choisis le fichier. L'import remplace tout ce qu'il y a sur l'appareil qui reçoit.</p>
       <h2>Mon compte</h2>
       <div id="compteBox"><p class="hint">…</p></div>
-      <h2>Calendrier</h2>
-      <p>Zone scolaire : <span class="seg">${["A", "B", "C"].map((z) => `<button data-zone="${z}" class="${state.reglages.zone === z ? "on" : ""}">${z}</button>`).join("")}</span> <a href="#/calendrier" class="link">Voir le calendrier</a></p>
       <h2>Données d'exemple</h2>
       <div class="row"><button class="ghost" id="demo">Charger un exemple</button><button class="danger" id="wipe">Tout effacer</button></div>
       <p class="hint">BagaSchool version ${VERSION}</p>
@@ -742,7 +743,7 @@ async function viewReglages() {
   };
   app.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
-    if (t.dataset.zone) { state.reglages.zone = t.dataset.zone; await save("reglages"); viewReglages(); }
+    if (t.id === "pfEdit") return ouvrirProfil();
     if (await actionCompte(t)) return;
     if (t.id === "bpick" && await choisirFichierBackup()) viewReglages();
     if (t.id === "bres") { await reprendreBackup(); viewReglages(); }
@@ -798,8 +799,7 @@ function viewAccueil() {
   const dateTxt = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
   app.innerHTML = `
     ${rappelSauvegarde()}
-    ${!(matchMedia("(display-mode: standalone)").matches || navigator.standalone) && !state.reglages._aideVue ? `<a class="aide-card" href="#/aide">📲 <b>Première fois ?</b> Installer BagaSchool sur ton ordinateur et ton téléphone, et projeter au tableau.</a>` : ""}
-    <div id="accCompte"></div>
+    ${carteDemarrage() || `<div id="accCompte"></div>`}
     <section class="hello"><h2>Bonjour ! 👋</h2><p>Nous sommes ${esc(dateTxt)}.${(() => { const st = statutJour(localISO(now)); if (st && st.type !== "weekend") return ` ${esc(st.nom)} 🏖️`; const v = prochainesVacances(localISO(now)); return v ? ` Vacances ${v.nom} dans ${v.jours} jour${v.jours > 1 ? "s" : ""}.` : ""; })()}</p></section>
     <div class="home-grid">
       <section class="panel">
@@ -808,7 +808,7 @@ function viewAccueil() {
           const cls = s.fin <= hm ? "past" : s.debut <= hm ? "now" : "";
           return `<li class="${cls}" style="--c:${s.couleur}"><span class="today-time">${esc(s.debut)}</span><span class="today-what"><b>${esc(s.discipline)}</b>${s.libelle ? ` · ${esc(s.libelle)}` : ""}</span>${cls === "now" ? `<span class="badge">en cours</span>` : ""}</li>`;
         }).join("")}</ol>` : `<div class="empty"><span>🌤️</span><p>${state.edt.length ? `Pas de cours prévu ce ${jour.toLowerCase()}.` : "Ton emploi du temps est vide."}</p>${state.edt.length ? "" : `<a class="primary btn" href="#/edt">Remplir mon emploi du temps</a>`}</div>`}
-        <div class="quick" style="margin-top:12px"><a class="quick-btn" href="#/journal"><span>📒</span>Cahier journal</a><a class="quick-btn" href="#/partager/${localISO(now)}"><span>👥</span>Partager ma journée</a>${state.eleves.length ? `<a class="quick-btn" href="#/appel"><span>🙋</span>${state.appel[localISO(now)] ? "Appel fait ✓" : "Faire l'appel"}</a>` : ""}</div>
+        <div class="quick" style="margin-top:12px"><a class="quick-btn" href="#/journal"><span>📒</span>Cahier journal</a><a class="quick-btn" href="#/partager/${localISO(now)}"><span>👥</span>Partager ma journée</a>${state.eleves.length ? `<a class="quick-btn" href="#/appel"><span>🙋</span>${state.appel[localISO(now)] ? "Appel fait ✓" : "Faire l'appel"}</a>` : ""}${state.reglages.remplacant ? `<a class="quick-btn" href="#/remplacements"><span>🚗</span>Mes remplacements</a>` : ""}</div>
         ${fiches.length ? `<h4>Fiches prévues aujourd'hui</h4>${fiches.map((f) => `<a class="item" href="#/fiches/${f.id}">📝 ${esc(f.titre)}</a>`).join("")}` : ""}
       </section>
       <section class="panel">
@@ -826,6 +826,7 @@ function viewAccueil() {
         ${recent.length ? `<h4>Dernières fiches</h4>${recent.map((f) => `<a class="item" href="#/fiches/${f.id}">${esc(f.titre)}<span class="hint">${esc(f.discipline)}</span></a>`).join("")}` : ""}
       </section>
     </div>`;
+  brancherDemarrage();
   carteCompte();
 }
 // Rappel discret pour se connecter (ex. app installée sur iPhone, qui ne partage pas la connexion de Safari).
@@ -833,6 +834,7 @@ async function carteCompte() {
   if (!compte.configure() || localStorage.getItem("bagaschool-carte-compte")) return;
   const s = await compte.session().catch(() => null);
   const box = $("#accCompte"); if (s || !box) return;
+  if (box.closest(".demarrage")) { box.innerHTML = `<a href="#/connexion">🔑 J'ai déjà un compte</a>`; return; }
   box.innerHTML = `<div class="aide-card acc-compte">🔑 <span><b>Tu as un compte ?</b> Connecte-toi pour retrouver tes préparations sur cet appareil.</span>
     <a class="btn primary" href="#/connexion">Me connecter</a><button class="inst-x" aria-label="Masquer" id="accX">✕</button></div>`;
   $("#accX").onclick = () => { localStorage.setItem("bagaschool-carte-compte", "1"); box.innerHTML = ""; };
@@ -938,6 +940,7 @@ function viewOutil(id) {
   const o = OUTILS.find((x) => x.id === id);
   if (!o) return notFound();
   setTitle(o.nom);
+  if (!state.reglages._outilEssaye) { state.reglages._outilEssaye = true; save("reglages"); }
   app.innerHTML = `
     <section class="board" id="board" style="--tile:${o.couleur}">
       <header class="board-head">
@@ -1902,12 +1905,13 @@ async function viewBienvenue(codePre) {
     salut: () => `<div class="bv-hero">🍎</div><h2>Bienvenue dans BagaSchool !</h2>
       <p class="bv-lead">Tu fais partie des tout premiers profs à tester l'app. Merci 💜</p>
       <ul class="bv-liste">
-        <li><span>🗓️</span><div><b>Préparer</b> : emploi du temps, fiches, programmations, cahier journal.</div></li>
-        <li><span>🧑‍🏫</span><div><b>Au tableau</b> : des outils à projeter au tableau (minuteur, tirage au sort, calcul…).</div></li>
-        <li><span>🖨️</span><div><b>À imprimer</b> : des fiches d'exercices prêtes en un clic.</div></li>
+        <li><span>🏠</span><div><b>Aujourd'hui</b> : ta journée, le cahier journal, l'appel, les devoirs.</div></li>
+        <li><span>🧑‍🏫</span><div><b>Au tableau</b> : des outils à projeter (minuteur, rituels, calcul posé, jeux…).</div></li>
+        <li><span>🗓️</span><div><b>Préparer</b> : programmations, emploi du temps, fiches, exercices à imprimer.</div></li>
+        <li><span>👧</span><div><b>Mes élèves</b> : évaluations, résultats, APC. Ces données restent sur tes appareils.</div></li>
         <li><span>📱</span><div><b>Ordinateur et téléphone</b> : tes préparations te suivent, et le téléphone sert de télécommande.</div></li>
       </ul>
-      <p class="hint">C'est une version de test : il peut rester des bugs. Le bouton <b>💬 Donner mon avis</b> du menu est là pour tout nous dire.</p>
+      <p class="hint">C'est une version de test : il peut rester des bugs. Le bouton <b>💬 Donner mon avis</b> (dans Moi) est là pour tout nous dire.</p>
       ${nav("C'est parti", false)}`,
     compte: () => {
       if (!compte.configure()) return `<h2>Ton compte</h2><p>Les comptes ne sont pas disponibles sur cette version. Tout fonctionne sur cet appareil.</p>${nav()}`;
@@ -1935,13 +1939,9 @@ async function viewBienvenue(codePre) {
       </form>
       <p class="hint"><a href="#" data-bv="inscr">Je n'ai pas encore de compte</a></p>`,
     classe: () => {
-      const jours = state.reglages.jours ?? ["Lundi", "Mardi", "Jeudi", "Vendredi"];
-      return `<h2>Ta semaine</h2>
-        <p class="bv-lead">Deux réglages pour que l'app colle à ton école. Tu pourras les changer dans Réglages.</p>
-        <h4>Jours de classe</h4>
-        <div class="days-pick">${JOURS.map((d) => `<label><input type="checkbox" value="${d}" ${jours.includes(d) ? "checked" : ""}> ${d}</label>`).join("")}</div>
-        <h4>Zone de vacances</h4>
-        <div class="seg" id="bvZone">${["A", "B", "C"].map((z) => `<button type="button" data-zone="${z}" class="${state.reglages.zone === z ? "on" : ""}">Zone ${z}</button>`).join("")}</div>
+      return `<h2>Ta classe</h2>
+        <p class="bv-lead">Quelques réglages pour que l'app colle à ta classe. Tu pourras les changer dans Moi › Réglages.</p>
+        ${champsProfil()}
         ${!compteExistant && !state.edt.length && !state.fiches.length ? `<label class="check bv-ex"><input type="checkbox" id="bvDemo"> Ajouter des exemples pour découvrir (emploi du temps, fiches, élèves fictifs). Tu pourras tout effacer.</label>` : ""}
         ${nav()}`;
     },
@@ -1959,7 +1959,7 @@ async function viewBienvenue(codePre) {
         <a href="#/imprimer" data-bv="go"><span>🖨️</span><b>Imprimer une fiche</b><small>Calcul, lecture, écriture…</small></a>
         <a href="#/aide" data-bv="go"><span>📽️</span><b>Projeter au tableau</b><small>Brancher le vidéoprojecteur, pas à pas.</small></a>
       </div>
-      <p class="hint">Une idée, un bug, un outil qui manque ? Menu ☰ > <b>💬 Donner mon avis</b>.</p>
+      <p class="hint">Une idée, un bug, un outil qui manque ? <b>Moi › 💬 Donner mon avis</b>.</p>
       <div class="bv-nav"><button class="ghost" data-bv="prec">Retour</button><button class="primary big" data-bv="fin">Commencer</button></div>`,
   };
 
@@ -1985,9 +1985,7 @@ async function viewBienvenue(codePre) {
   };
   const garderClasse = async () => {
     if (etapes[i] !== "classe") return;
-    const j = JOURS.filter((d) => app.querySelector(`.days-pick input[value="${d}"]`)?.checked);
-    if (j.length) state.reglages.jours = j;
-    const z = app.querySelector("#bvZone .on")?.dataset.zone; if (z) state.reglages.zone = z;
+    lireProfil(app);
     await save("reglages");
     if (app.querySelector("#bvDemo")?.checked) await loadDemo();
   };
@@ -2636,6 +2634,63 @@ async function viewRessource(id) {
 
 // ---------- partager ma journée (js/partage.js) ----------
 const ctxPartage = () => ({ app, state, save, esc, $, $$, fmtLong, fmtCourt, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, compte, qrcode, creneauxDuJour, compById });
+
+// ---------- profil de classe (niveaux, jours, zone, remplaçant·e) ----------
+// Utilisé par la carte « Pour bien démarrer » de l'accueil et par le parcours d'invitation.
+const NIVEAUX_CLASSE = ["CP", "CE1", "CE2", "CM1", "CM2"];
+function champsProfil() {
+  const r = state.reglages, jours = r.jours ?? ["Lundi", "Mardi", "Jeudi", "Vendredi"], niv = r.niveaux ?? [];
+  return `<h4>Mon niveau de classe</h4>
+    <div class="days-pick niv-pick">${NIVEAUX_CLASSE.map((n) => `<label><input type="checkbox" value="${n}" ${niv.includes(n) ? "checked" : ""}> ${n}</label>`).join("")}</div>
+    <h4>Jours de classe</h4>
+    <div class="days-pick jours-pick">${JOURS.map((d) => `<label><input type="checkbox" value="${d}" ${jours.includes(d) ? "checked" : ""}> ${d}</label>`).join("")}</div>
+    <h4>Zone de vacances</h4>
+    <div class="seg" id="bvZone">${["A", "B", "C"].map((z) => `<button type="button" data-zone="${z}" class="${r.zone === z ? "on" : ""}">Zone ${z}</button>`).join("")}</div>
+    <label class="check" style="margin-top:12px"><input type="checkbox" id="pfRemp" ${r.remplacant ? "checked" : ""}> Je suis remplaçant·e (affiche « Mes remplacements » sur l'accueil)</label>`;
+}
+function lireProfil(root) {
+  const r = state.reglages, coches = (sel) => [...root.querySelectorAll(`${sel} input:checked`)].map((i) => i.value);
+  const j = coches(".jours-pick"); if (j.length) r.jours = j;
+  r.niveaux = coches(".niv-pick");
+  const z = root.querySelector("#bvZone .on")?.dataset.zone; if (z) r.zone = z;
+  r.remplacant = !!root.querySelector("#pfRemp")?.checked;
+  // Une seule classe : les outils et les jeux s'ouvrent à ce niveau.
+  if (r.niveaux.length === 1 && !localStorage.getItem(CLE_NIV_OUTILS)) { localStorage.setItem(CLE_NIV_OUTILS, r.niveaux[0]); choisirNiveau(r.niveaux[0]); }
+}
+function ouvrirProfil() {
+  openModal(`<h2>Ma classe</h2><p class="hint">Tu pourras tout changer plus tard dans Moi › Réglages.</p>${champsProfil()}
+    <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="ghost" data-close>Annuler</button><button class="primary" id="pfOk">Enregistrer</button></div>`, (m) => {
+    m.onclick = async (e) => {
+      const z = e.target.closest("[data-zone]");
+      if (z) { m.querySelectorAll("#bvZone button").forEach((b) => b.classList.toggle("on", b === z)); return; }
+      if (e.target.closest("[data-close]")) return closeModal();
+      if (e.target.closest("#pfOk")) { lireProfil(m); await save("reglages"); closeModal(true); route(); }
+    };
+  });
+}
+// Carte « Pour bien démarrer » : remplace les bandeaux du premier lancement, disparaît une fois tout fait ou masquée.
+function carteDemarrage() {
+  const r = state.reglages;
+  if (r._demarrageMasque) return "";
+  const etapes = [
+    [!!(r.niveaux?.length && r.zone), "Ma classe", "niveau, jours, zone", `<button type="button" class="dm-go" id="dmProfil">`],
+    [state.edt.length > 0, "Mon emploi du temps", "pour voir ta journée ici", `<a class="dm-go" href="#/edt">`],
+    [state.eleves.length > 0, "Mes élèves", "les prénoms suffisent", `<a class="dm-go" href="#/classe">`],
+    [!!r._outilEssaye, "Un outil au tableau", "le minuteur, par exemple", `<a class="dm-go" href="#/outils">`],
+  ];
+  const faites = etapes.filter(([ok]) => ok).length;
+  if (faites === etapes.length) return "";
+  const installee = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  return `<section class="demarrage">
+    <div class="dm-tete"><h3>Pour bien démarrer <span class="hint">${faites}/${etapes.length}</span></h3><button type="button" class="link" id="dmX">Masquer</button></div>
+    <ol>${etapes.map(([ok, t, d, ouvre], k) => `<li class="${ok ? "fait" : ""}">${ouvre}<b class="dm-n">${ok ? "✓" : k + 1}</b><span>${t}<small>${d}</small></span>${ouvre.startsWith("<a") ? "</a>" : "</button>"}</li>`).join("")}</ol>
+    <p class="dm-pied">${installee ? "" : `<a href="#/aide">📲 Installer l'app et projeter au tableau</a>`}<span id="accCompte"></span></p>
+  </section>`;
+}
+function brancherDemarrage() {
+  $("#dmProfil")?.addEventListener("click", ouvrirProfil);
+  $("#dmX")?.addEventListener("click", () => { state.reglages._demarrageMasque = true; save("reglages"); route(true); });
+}
 
 // ---------- navigation : 5 sections ----------
 // Chaque page appartient à une section. Le menu (PC) et la barre du bas (téléphone) n'affichent que les sections ;
