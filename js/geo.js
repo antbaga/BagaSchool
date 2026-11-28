@@ -447,21 +447,23 @@ const GEN = {
   ouverte: () => ({ pts: [[0, 0.6], [0.5, -0.4], [1, 0.5], [1.6, -0.5], [2, 0.3]].map(([x, y]) => [x + rnd(-0.1, 0.1), y + rnd(-0.15, 0.15)]), poly: false, ouvert: true }),
   courbe: () => ({ pts: [[0, 1], [0, 0], [1.2, 0], [1.2, 1], ...arc(0.6, 1, 0.6, 0, 180, 24).slice(1, -1)], poly: false }),
 };
-function proprietes(P) {
-  const n = P.length; let A = 0;
+// tol : tolérances (relative pour les longueurs, en degrés pour les angles). Les figures tirées au hasard sont exactes ;
+// la figure manipulée à la main (figures()) utilise des tolérances plus larges.
+function proprietes(P, tol = { rel: 1e-6, deg: 0.5 }) {
+  const n = P.length, sinT = tol.deg > 0.5 ? Math.sin(tol.deg * RAD) : tol.rel; let A = 0;
   for (let i = 0; i < n; i++) { const [x1, y1] = P[i], [x2, y2] = P[(i + 1) % n]; A += x1 * y2 - x2 * y1; }
   const sg = Math.sign(A) || 1, L = [], ang = [], droits = [], paralleles = [], groupes = [];
   const u = (i) => { const a = P[i], b = P[(i + 1) % n]; return [b[0] - a[0], b[1] - a[1]]; };
   for (let i = 0; i < n; i++) { const [dx, dy] = u(i); L.push(Math.hypot(dx, dy)); }
   for (let i = 0; i < n; i++) {
     const d1 = u((i - 1 + n) % n), d2 = u(i), turn = Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
-    const a = 180 - sg * turn / RAD; ang.push(a); if (Math.abs(a - 90) < 0.5) droits.push(i);
+    const a = 180 - sg * turn / RAD; ang.push(a); if (Math.abs(a - 90) < tol.deg) droits.push(i);
   }
   const g = new Array(n).fill(-1); let ng = 0;
-  for (let i = 0; i < n; i++) { if (g[i] >= 0) continue; const mem = [i]; for (let j = i + 1; j < n; j++) if (g[j] < 0 && Math.abs(L[i] - L[j]) < 1e-6 * Math.max(L[i], L[j])) mem.push(j); if (mem.length > 1) { mem.forEach((k) => (g[k] = ng)); groupes.push(mem); ng++; } }
-  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; const a = u(i), b = u(j); if (Math.abs(a[0] * b[1] - a[1] * b[0]) / (L[i] * L[j]) < 1e-6) paralleles.push([i, j]); }
-  const pr = { n, L, ang, droits, groupes, groupe: g, paralleles, convexe: ang.every((a) => a < 180) };
-  if (n === 4) { const d1 = [P[2][0] - P[0][0], P[2][1] - P[0][1]], d2 = [P[3][0] - P[1][0], P[3][1] - P[1][1]], l1 = Math.hypot(...d1), l2 = Math.hypot(...d2); pr.diag = { egales: Math.abs(l1 - l2) < 1e-6 * l1, perp: Math.abs(d1[0] * d2[0] + d1[1] * d2[1]) / (l1 * l2) < 1e-6, milieu: Math.hypot(P[0][0] + P[2][0] - P[1][0] - P[3][0], P[0][1] + P[2][1] - P[1][1] - P[3][1]) < 1e-6 * l1 }; }
+  for (let i = 0; i < n; i++) { if (g[i] >= 0) continue; const mem = [i]; for (let j = i + 1; j < n; j++) if (g[j] < 0 && Math.abs(L[i] - L[j]) < tol.rel * Math.max(L[i], L[j])) mem.push(j); if (mem.length > 1) { mem.forEach((k) => (g[k] = ng)); groupes.push(mem); ng++; } }
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; const a = u(i), b = u(j); if (Math.abs(a[0] * b[1] - a[1] * b[0]) / (L[i] * L[j]) < sinT) paralleles.push([i, j]); }
+  const pr = { n, L, ang, droits, groupes, groupe: g, paralleles, convexe: ang.every((a) => a < 180), aire: Math.abs(A) / 2 };
+  if (n === 4) { const d1 = [P[2][0] - P[0][0], P[2][1] - P[0][1]], d2 = [P[3][0] - P[1][0], P[3][1] - P[1][1]], l1 = Math.hypot(...d1), l2 = Math.hypot(...d2); pr.diag = { egales: Math.abs(l1 - l2) < tol.rel * l1, perp: Math.abs(d1[0] * d2[0] + d1[1] * d2[1]) / (l1 * l2) < sinT, milieu: Math.hypot(P[0][0] + P[2][0] - P[1][0] - P[3][0], P[0][1] + P[2][1] - P[1][1] - P[3][1]) < tol.rel * l1 }; }
   return pr;
 }
 // Refuse les « presque » : côtés presque égaux, angles presque droits, côtés presque parallèles, angles trop fermés.
@@ -627,6 +629,287 @@ function formes(el) {
 }
 
 // =====================================================================
+// 2 bis. FIGURES À MANIPULER
+// Un polygone au tableau : on déplace ses sommets, on le fait glisser, tourner, on l'agrandit ou on le retourne.
+// Son nom et ses propriétés (côtés, angles, parallèles, diagonales, axes de symétrie) se mettent à jour en direct.
+// Unité = 1 carreau. Avec l'aimant, les sommets se posent sur les nœuds du quadrillage : les égalités sont alors exactes.
+// Sans l'aimant, les tolérances TOL_MANIP s'appliquent (côtés égaux à 1,5 % près, angles à 1° près).
+// =====================================================================
+const FG = { C: 16, R: 10, G: 50 }; // colonnes, lignes, unités du viewBox par carreau
+const TOL_MANIP = { rel: 0.015, deg: 1 };
+const LETTRES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const regAutour = (n, r, cx, cy) => regulier(n, r).map(([x, y]) => [cx + x, cy + y]);
+const DEPARTS = [
+  ["carre", "Carré", () => [[6, 3], [10, 3], [10, 7], [6, 7]]],
+  ["rectangle", "Rectangle", () => [[5, 3], [11, 3], [11, 7], [5, 7]]],
+  ["losange", "Losange", () => [[8, 1], [10, 5], [8, 9], [6, 5]]],
+  ["parallelogramme", "Parallélogramme", () => [[4, 7], [10, 7], [12, 3], [6, 3]]],
+  ["trapeze", "Trapèze", () => [[4, 7], [12, 7], [10, 3], [6, 3]]],
+  ["quadri", "Quadrilatère quelconque", () => [[5, 7], [10, 8], [11, 4], [7, 2]]],
+  ["triQ", "Triangle", () => [[5, 7], [11, 8], [8, 2]]],
+  ["triRect", "Triangle rectangle", () => [[5, 8], [11, 8], [5, 3]]],
+  ["triIso", "Triangle isocèle", () => [[5, 8], [11, 8], [8, 2]]],
+  ["triEqui", "Triangle équilatéral", () => regAutour(3, 3.4, 8, 5.8)],
+  ["pentaReg", "Pentagone régulier", () => regAutour(5, 3.3, 8, 5.3)],
+  ["hexaReg", "Hexagone régulier", () => regAutour(6, 3.3, 8, 5)],
+];
+const VOC_PLUS = { CM1: ["parallélogramme", "triangle rectangle isocèle"], CM2: ["parallélogramme", "triangle rectangle isocèle", "octogone"] };
+const centre = (P) => P.reduce((s, p) => [s[0] + p[0] / P.length, s[1] + p[1] / P.length], [0, 0]);
+const dist2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const virg = (x) => String(Math.round(x * 10) / 10).replace(".", ",");
+
+// Deux côtés non voisins qui se coupent : la ligne n'est plus un polygone (simple).
+function croise(P) {
+  const n = P.length, o = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) {
+    if (i === 0 && j === n - 1) continue;
+    const a = P[i], b = P[(i + 1) % n], c = P[j], d = P[(j + 1) % n];
+    if (o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0) return true;
+  }
+  return false;
+}
+// Type de la figure (clés de CHAINES) d'après ses propriétés.
+function typeFigure(pr) {
+  const { n, droits, groupes, paralleles } = pr, tousEgaux = groupes.length === 1 && groupes[0].length === n;
+  if (n === 3) { const iso = groupes.length > 0, d = droits.length > 0; return tousEgaux ? "triEqui" : d && iso ? "triRectIso" : d ? "triRect" : iso ? "triIso" : "triQ"; }
+  if (n === 4) {
+    if (!pr.convexe) return "quadri";
+    if (paralleles.length === 2) return droits.length && tousEgaux ? "carre" : droits.length ? "rectangle" : tousEgaux ? "losange" : "parallelogramme";
+    return paralleles.length === 1 ? "trapeze" : "quadri";
+  }
+  const reg = tousEgaux && pr.convexe && pr.ang.every((a) => Math.abs(a - pr.ang[0]) < 2 * TOL_MANIP.deg);
+  return { 5: reg ? "pentaReg" : "pentagone", 6: reg ? "hexaReg" : "hexagone", 8: reg ? "octoReg" : "octogone" }[n] || null;
+}
+// Nom donné à la figure avec le vocabulaire du niveau.
+function nomFigure(pr, niv) {
+  const t = typeFigure(pr), voc = [...NOMME[niv].vocab, ...(VOC_PLUS[niv] || [])];
+  let nom = t && CHAINES[t].find((v) => voc.includes(v));
+  if (nom && /Reg$/.test(t) && des(niv, "CM1")) nom += " régulier";
+  if (nom) return `C'est un ${nom}.`;
+  return des(niv, "CE2") ? `C'est un polygone à ${pr.n} côtés.` : `C'est une forme à ${pr.n} côtés.`;
+}
+// Axes de symétrie d'un polygone : droites passant par le centre (moyenne des sommets) et par un sommet ou le milieu d'un côté.
+// Un axe convient si le symétrique de chaque sommet est un sommet et si les côtés restent des côtés.
+function axesSym(P, tolAbs) {
+  const n = P.length, c = centre(P), axes = [], cands = [];
+  for (let i = 0; i < n; i++) { const q = P[(i + 1) % n]; cands.push(P[i], [(P[i][0] + q[0]) / 2, (P[i][1] + q[1]) / 2]); }
+  for (const q of cands) {
+    const dx = q[0] - c[0], dy = q[1] - c[1], l = Math.hypot(dx, dy); if (l < 1e-9) continue;
+    const u = [dx / l, dy / l];
+    if (axes.some((a) => Math.abs(a[0] * u[1] - a[1] * u[0]) < 1e-3)) continue;
+    const refl = (p) => { const vx = p[0] - c[0], vy = p[1] - c[1], k = vx * u[0] + vy * u[1]; return [c[0] + 2 * k * u[0] - vx, c[1] + 2 * k * u[1] - vy]; };
+    const map = P.map((p) => { const r = refl(p); return P.findIndex((s) => dist2(s, r) < tolAbs); });
+    if (map.some((k) => k < 0) || new Set(map).size !== n) continue;
+    if (map.every((k, i) => { const k2 = map[(i + 1) % n]; return (k2 - k + n) % n === 1 || (k - k2 + n) % n === 1; })) axes.push(u);
+  }
+  return { c, axes };
+}
+// Analyse complète de la figure manipulée.
+function analyser(P) {
+  const n = P.length;
+  if (P.some((p, i) => dist2(p, P[(i + 1) % n]) < 0.05)) return { plat: true };
+  if (croise(P)) return { croise: true };
+  const pr = proprietes(P, TOL_MANIP), moyL = pr.L.reduce((s, x) => s + x, 0) / n;
+  return { pr, sym: axesSym(P, TOL_MANIP.rel * 1.5 * moyL) };
+}
+
+function figures(el) {
+  const { C, R, G } = FG;
+  let niv = niveauJeux(), dep = "rectangle", P = DEPARTS[1][2](), hist = [], aimant = true, grille = "carreaux", sel = -1, axeX = 8, act = null;
+  const voir = { longueurs: false, angles: false, codage: true, paralleles: false, diagonales: false, axes: false, miroir: false, mesures: false };
+  const BOUTONS_VOIR = [["codage", "✔️ Codage"], ["longueurs", "📏 Longueurs"], ["angles", "∠ Angles"], ["paralleles", "∥ Parallèles"], ["diagonales", "⤡ Diagonales"], ["axes", "🦋 Axes de symétrie"], ["miroir", "🪞 Symétrique"], ["mesures", "📐 Périmètre et aire"]];
+  const dispoVoir = () => BOUTONS_VOIR.filter(([k]) => k !== "mesures" || des(niv, "CM1"));
+  const snap = (v) => (aimant ? Math.round(v) : v);
+  const X = (v) => f1(v * G);
+  const pt = (e) => { const [x, y] = svgPt(el.querySelector("#fg-svg"), e); return [x / G, y / G]; };
+  const garder = () => { hist.push(P.map((p) => [...p])); if (hist.length > 60) hist.shift(); };
+  const dedans = (Q) => Q.every(([x, y]) => x >= -1e-9 && x <= C + 1e-9 && y >= -1e-9 && y <= R + 1e-9);
+  // Ramène la figure dans le tableau (après une rotation ou un agrandissement). Renvoie null si elle est trop grande.
+  const recadrer = (Q) => {
+    const xs = Q.map((p) => p[0]), ys = Q.map((p) => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    if (x1 - x0 > C || y1 - y0 > R) return null;
+    let dx = x0 < 0 ? -x0 : x1 > C ? C - x1 : 0, dy = y0 < 0 ? -y0 : y1 > R ? R - y1 : 0;
+    if (aimant) { dx = dx > 0 ? Math.ceil(dx) : Math.floor(dx); dy = dy > 0 ? Math.ceil(dy) : Math.floor(dy); }
+    const out = Q.map(([x, y]) => [x + dx, y + dy]);
+    return dedans(out) ? out : Q.map(([x, y]) => [x + (x0 < 0 ? -x0 : x1 > C ? C - x1 : 0), y + (y0 < 0 ? -y0 : y1 > R ? R - y1 : 0)]);
+  };
+  // Centre de rotation / d'agrandissement : arrondi au demi-carreau avec l'aimant (un quart de tour garde alors les nœuds).
+  const pivot = () => { const c = centre(P); return aimant ? [Math.round(c[0] * 2) / 2, Math.round(c[1] * 2) / 2] : c; };
+  const tourne = (Q, c, a) => { const co = Math.cos(a), si = Math.sin(a); return Q.map(([x, y]) => { const vx = x - c[0], vy = y - c[1], nx = c[0] + vx * co - vy * si, ny = c[1] + vx * si + vy * co; return [Math.abs(nx - Math.round(nx)) < 1e-9 ? Math.round(nx) : nx, Math.abs(ny - Math.round(ny)) < 1e-9 ? Math.round(ny) : ny]; }); };
+
+  const fondSVG = () => {
+    let g = `<rect x="0" y="0" width="${C * G}" height="${R * G}" class="fg-fond"/>`;
+    if (grille === "points") { for (let x = 0; x <= C; x++) for (let y = 0; y <= R; y++) g += `<circle cx="${x * G}" cy="${y * G}" r="3" class="geo-pt"/>`; }
+    else if (grille === "carreaux") { for (let x = 0; x <= C; x++) g += `<line x1="${x * G}" y1="0" x2="${x * G}" y2="${R * G}" class="geo-gl"/>`; for (let y = 0; y <= R; y++) g += `<line x1="0" y1="${y * G}" x2="${C * G}" y2="${y * G}" class="geo-gl"/>`; }
+    return g;
+  };
+  const pts = (Q) => Q.map((p) => `${X(p[0])},${X(p[1])}`).join(" ");
+  const figSVG = (an) => {
+    const n = P.length, c = centre(P), ok = an.pr;
+    let g = "";
+    if (voir.miroir) {
+      const M = P.map(([x, y]) => [2 * axeX - x, y]), cm = centre(M);
+      g += `<line x1="${X(axeX)}" y1="0" x2="${X(axeX)}" y2="${R * G}" class="fg-axe-m"/><polygon points="${pts(M)}" class="fg-poly-m"/>`;
+      M.forEach((p, i) => { const d = dist2(p, cm) || 1; g += `<text x="${X(p[0] + (p[0] - cm[0]) / d * 0.5)}" y="${X(p[1] + (p[1] - cm[1]) / d * 0.5)}" class="fg-lettre m">${LETTRES[i]}'</text>`; });
+      g += `<g data-axe="1" class="fg-poignee-axe"><circle cx="${X(axeX)}" cy="${X(R - 0.55)}" r="26" class="fg-hit"/><circle cx="${X(axeX)}" cy="${X(R - 0.55)}" r="17" class="fg-axe-pt"/><text x="${X(axeX)}" y="${X(R - 0.55)}" class="fg-axe-t">⇔</text></g>`;
+    }
+    if (ok && voir.axes) { const ext = Math.max(...P.map((p) => dist2(p, an.sym.c))) + 0.8; an.sym.axes.forEach(([ux, uy]) => { const [cx, cy] = an.sym.c; g += `<line x1="${X(cx - ux * ext)}" y1="${X(cy - uy * ext)}" x2="${X(cx + ux * ext)}" y2="${X(cy + uy * ext)}" class="fg-axe"/>`; }); }
+    if (voir.diagonales && n > 3) for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; g += `<line x1="${X(P[i][0])}" y1="${X(P[i][1])}" x2="${X(P[j][0])}" y2="${X(P[j][1])}" class="fg-diag"/>`; }
+    g += `<polygon points="${pts(P)}" class="fg-poly ${ok ? "" : "ko"}" data-corps="1"/>`;
+    if (ok) {
+      const pr = an.pr, cotes = (i) => [P[i], P[(i + 1) % n]];
+      if (voir.paralleles) pr.paralleles.forEach(([i, j], k) => { const col = ["#e0556a", "#2f7de1", "#1f8a4c", "#d18a00"][k % 4]; for (const s of [i, j]) { const [a, b] = cotes(s); g += `<line x1="${X(a[0])}" y1="${X(a[1])}" x2="${X(b[0])}" y2="${X(b[1])}" class="fg-par" stroke="${col}"/>`; } });
+      if (voir.codage || voir.angles) for (const i of pr.droits) {
+        const V = P[i], A = P[(i - 1 + n) % n], B = P[(i + 1) % n], la = dist2(A, V), lb = dist2(B, V), s = Math.min(0.42, 0.3 * Math.min(la, lb));
+        const u = [(A[0] - V[0]) / la * s, (A[1] - V[1]) / la * s], w = [(B[0] - V[0]) / lb * s, (B[1] - V[1]) / lb * s];
+        g += `<path d="M${X(V[0] + u[0])} ${X(V[1] + u[1])} L${X(V[0] + u[0] + w[0])} ${X(V[1] + u[1] + w[1])} L${X(V[0] + w[0])} ${X(V[1] + w[1])}" class="fg-droit"/>`;
+      }
+      if (voir.codage) for (let i = 0; i < n; i++) {
+        const gi = pr.groupe[i]; if (gi < 0) continue;
+        const [a, b] = cotes(i), L = pr.L[i], ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        for (let t = 0; t <= gi; t++) { const o = (t - gi / 2) * 0.16; g += `<line x1="${X(mx + o * ux - 0.17 * uy)}" y1="${X(my + o * uy + 0.17 * ux)}" x2="${X(mx + o * ux + 0.17 * uy)}" y2="${X(my + o * uy - 0.17 * ux)}" class="fg-tick"/>`; }
+      }
+      if (voir.angles) P.forEach((V, i) => {
+        const A = P[(i - 1 + n) % n], B = P[(i + 1) % n], a = pr.ang[i], ta = Math.atan2(A[1] - V[1], A[0] - V[0]), tb = Math.atan2(B[1] - V[1], B[0] - V[0]);
+        let d = Math.atan2(Math.sin(tb - ta), Math.cos(tb - ta)); if (a > 180) d -= Math.sign(d) * 2 * Math.PI;
+        const r = Math.min(0.62, 0.35 * Math.min(dist2(A, V), dist2(B, V))), bis = ta + d / 2, rl = r + 0.42;
+        if (!pr.droits.includes(i)) g += `<polyline points="${Array.from({ length: 17 }, (_, k) => `${X(V[0] + r * Math.cos(ta + d * k / 16))},${X(V[1] + r * Math.sin(ta + d * k / 16))}`).join(" ")}" class="fg-arc"/>`;
+        g += `<text x="${X(V[0] + rl * Math.cos(bis))}" y="${X(V[1] + rl * Math.sin(bis))}" class="fg-ang">${Math.round(pr.droits.includes(i) ? 90 : a)}°</text>`;
+      });
+      if (voir.longueurs) for (let i = 0; i < n; i++) {
+        const [a, b] = cotes(i), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, L = pr.L[i];
+        let nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L; if (nx * (mx - c[0]) + ny * (my - c[1]) < 0) { nx = -nx; ny = -ny; }
+        g += `<text x="${X(mx + nx * 0.42)}" y="${X(my + ny * 0.42)}" class="fg-long">${virg(L)}</text>`;
+      }
+    }
+    // poignée de rotation, au-dessus de la figure
+    const ext = Math.max(...P.map((p) => dist2(p, c))), hy = Math.max(0.5, c[1] - ext - 0.75), rot = act?.k === "tourne" ? act.deg : null;
+    g += `<line x1="${X(c[0])}" y1="${X(Math.min(...P.map((p) => p[1])))}" x2="${X(c[0])}" y2="${X(hy)}" class="fg-tige"/><g data-tourne="1" class="fg-poignee"><circle cx="${X(c[0])}" cy="${X(hy)}" r="28" class="fg-hit"/><circle cx="${X(c[0])}" cy="${X(hy)}" r="17" class="fg-rot"/><text x="${X(c[0])}" y="${X(hy)}" class="fg-rot-t">↻</text></g>`;
+    if (rot != null) g += `<text x="${X(c[0]) + 30}" y="${X(hy)}" class="fg-rot-deg">${rot > 0 ? "+" : ""}${rot}°</text>`;
+    P.forEach((p, i) => {
+      const d = dist2(p, c) || 1;
+      g += `<g data-v="${i}" class="fg-sommet ${i === sel ? "sel" : ""}"><circle cx="${X(p[0])}" cy="${X(p[1])}" r="30" class="fg-hit"/><circle cx="${X(p[0])}" cy="${X(p[1])}" r="11" class="fg-pt"/></g>
+        <text x="${X(p[0] + (p[0] - c[0]) / d * 0.55)}" y="${X(p[1] + (p[1] - c[1]) / d * 0.55)}" class="fg-lettre">${LETTRES[i]}</text>`;
+    });
+    return g;
+  };
+  const nomCote = (i) => LETTRES[i] + LETTRES[(i + 1) % P.length];
+  const infoHTML = (an) => {
+    if (an.plat) return `<p class="fg-nom ko">Deux sommets sont l'un sur l'autre.</p><p class="muted">Écarte-les ou retire un sommet.</p>`;
+    if (an.croise) return `<p class="fg-nom ko">Des côtés se croisent : ce n'est plus un polygone.</p><p class="muted">Déplace un sommet pour démêler la figure.</p>`;
+    const pr = an.pr, n = pr.n, li = [`${n} côtés et ${n} sommets`];
+    if (des(niv, "CE1")) li.push(pr.droits.length ? `${pr.droits.length === 1 ? "1 angle droit" : `${pr.droits.length} angles droits`} : ${pr.droits.map((i) => LETTRES[i]).join(", ")}` : "aucun angle droit");
+    pr.groupes.forEach((g) => li.push(g.length === n ? `tous les côtés ont la même longueur` : `côtés de même longueur : ${g.map(nomCote).join(" = ")}`));
+    if (des(niv, "CM1") || voir.paralleles) li.push(pr.paralleles.length ? pr.paralleles.map(([i, j]) => `[${nomCote(i)}] et [${nomCote(j)}] sont parallèles`).join(" ; ") : "aucun côté parallèle à un autre");
+    if (pr.diag && (des(niv, "CM1") || voir.diagonales)) { const d = []; if (pr.diag.egales) d.push("de même longueur"); if (pr.diag.perp) d.push("perpendiculaires"); if (pr.diag.milieu) d.push("qui se coupent en leur milieu"); li.push(d.length ? `diagonales ${d.join(", ")}` : "diagonales sans propriété particulière"); }
+    if (des(niv, "CE2") || voir.axes || voir.miroir) { const k = an.sym.axes.length; li.push(k ? `${k} axe${k > 1 ? "s" : ""} de symétrie` : "pas d'axe de symétrie"); }
+    if (!pr.convexe && des(niv, "CM1")) li.push("un angle « rentrant » : polygone non convexe");
+    if (voir.mesures) { const per = pr.L.reduce((s, x) => s + x, 0), exact = P.every(([x, y]) => Number.isInteger(x) && Number.isInteger(y)); li.push(`périmètre ${exact && pr.L.every(Number.isInteger) ? "" : "≈ "}${virg(per)} carreaux`, `aire ${exact ? "" : "≈ "}${virg(pr.aire)} carreaux`); }
+    return `<p class="fg-nom">${nomFigure(pr, niv)}</p><ul class="fg-props">${li.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  };
+  const maj = () => {
+    const an = analyser(P), f = el.querySelector("#fg-fig"), i = el.querySelector("#fg-info");
+    if (f) f.innerHTML = figSVG(an); if (i) i.innerHTML = infoHTML(an);
+  };
+  const render = () => {
+    const an = analyser(P);
+    el.innerHTML = `<div class="tool-top">${segNiveau(niv)}</div>
+      <div class="fg rc-board">
+        <svg class="fg-svg" id="fg-svg" viewBox="${-G * 0.3} ${-G * 0.3} ${C * G + G * 0.6} ${R * G + G * 0.6}" role="img" aria-label="Figure à manipuler"><g>${fondSVG()}</g><g id="fg-fig">${figSVG(an)}</g></svg>
+        <div class="fg-panneau">
+          <div class="fg-ligne"><select id="fg-dep" aria-label="Figure de départ">${DEPARTS.map(([k, v]) => `<option value="${k}" ${k === dep ? "selected" : ""}>${v}</option>`).join("")}</select><button class="geo-tb" id="fg-reset" title="Recommencer avec cette figure">🔄</button></div>
+          <div id="fg-info" class="fg-info" aria-live="polite">${infoHTML(an)}</div>
+          <div class="fg-ligne">${dispoVoir().map(([k, v]) => `<button class="geo-tb fg-voir ${voir[k] ? "on" : ""}" data-voir="${k}">${v}</button>`).join("")}</div>
+          <div class="fg-ligne fg-actions">
+            <button class="geo-tb" data-fg="g" title="Tourner de 15° vers la gauche" aria-label="Tourner vers la gauche">↺</button><button class="geo-tb" data-fg="d" title="Tourner de 15° vers la droite" aria-label="Tourner vers la droite">↻</button>
+            <button class="geo-tb" data-fg="plus" title="Agrandir" aria-label="Agrandir">➕🔍</button><button class="geo-tb" data-fg="moins" title="Réduire" aria-label="Réduire">➖🔍</button>
+            <button class="geo-tb" data-fg="miroir" title="Retourner la figure" aria-label="Retourner">⇋</button>
+            <button class="geo-tb" data-fg="ajout" title="Ajouter un sommet">+ sommet</button><button class="geo-tb" data-fg="retrait" title="Retirer un sommet" ${P.length <= 3 ? "disabled" : ""}>− sommet</button>
+            <button class="geo-tb" data-fg="annuler" ${hist.length ? "" : "disabled"}>↶ Annuler</button>
+          </div>
+          <div class="fg-ligne"><button class="geo-tb ${aimant ? "on" : ""}" data-fg="aimant" title="Les sommets se posent sur les nœuds du quadrillage">🧲 Aimant</button>
+            <select id="fg-grille" aria-label="Fond"><option value="carreaux" ${grille === "carreaux" ? "selected" : ""}>Carreaux</option><option value="points" ${grille === "points" ? "selected" : ""}>Points</option><option value="blanc" ${grille === "blanc" ? "selected" : ""}>Blanc</option></select></div>
+          <p class="muted fg-aide">Fais glisser un sommet, la figure entière, ou la pastille ↻ pour la faire tourner.${voir.mesures ? " Longueurs en carreaux." : ""}</p>
+        </div>
+      </div>`;
+  };
+  const majBoutons = () => { const a = el.querySelector('[data-fg="annuler"]'); if (a) a.disabled = !hist.length; const r = el.querySelector('[data-fg="retrait"]'); if (r) r.disabled = P.length <= 3; };
+
+  el.onpointerdown = (e) => {
+    const svg = el.querySelector("#fg-svg"); if (!svg || !svg.contains(e.target)) return;
+    const v = e.target.closest("[data-v]"), tr = e.target.closest("[data-tourne]"), ax = e.target.closest("[data-axe]"), co = e.target.closest("[data-corps]");
+    if (!v && !tr && !ax && !co) return;
+    e.preventDefault(); try { svg.setPointerCapture(e.pointerId); } catch {}
+    const p = pt(e), P0 = P.map((q) => [...q]);
+    if (ax) act = { k: "axe" };
+    else { garder(); majBoutons(); }
+    if (v) { const i = +v.dataset.v; sel = i; act = { k: "sommet", i, off: [P[i][0] - p[0], P[i][1] - p[1]], P0 }; }
+    else if (tr) { const c = pivot(); act = { k: "tourne", c, a0: Math.atan2(p[1] - c[1], p[0] - c[0]), P0, deg: 0 }; }
+    else if (co) act = { k: "glisse", p0: p, P0 };
+    maj();
+  };
+  el.onpointermove = (e) => {
+    if (!act) return;
+    e.preventDefault();
+    const p = pt(e);
+    if (act.k === "sommet") { P[act.i] = [Math.max(0, Math.min(C, snap(p[0] + act.off[0]))), Math.max(0, Math.min(R, snap(p[1] + act.off[1])))]; }
+    else if (act.k === "glisse") {
+      const xs = act.P0.map((q) => q[0]), ys = act.P0.map((q) => q[1]);
+      let dx = snap(p[0] - act.p0[0]), dy = snap(p[1] - act.p0[1]);
+      dx = Math.max(-Math.min(...xs), Math.min(C - Math.max(...xs), dx)); dy = Math.max(-Math.min(...ys), Math.min(R - Math.max(...ys), dy));
+      if (aimant) { dx = dx < 0 ? Math.ceil(dx) : Math.floor(dx); dy = dy < 0 ? Math.ceil(dy) : Math.floor(dy); }
+      P = act.P0.map(([x, y]) => [x + dx, y + dy]);
+    }
+    else if (act.k === "tourne") {
+      let d = Math.atan2(p[1] - act.c[1], p[0] - act.c[0]) - act.a0; d = Math.atan2(Math.sin(d), Math.cos(d));
+      const deg = aimant ? Math.round(d / RAD / 15) * 15 : Math.round(d / RAD);
+      const Q = tourne(act.P0, act.c, deg * RAD); if (dedans(Q)) { P = Q; act.deg = deg; }
+    }
+    else if (act.k === "axe") axeX = Math.max(0.5, Math.min(C - 0.5, aimant ? Math.round(p[0] * 2) / 2 : p[0]));
+    maj();
+  };
+  el.onpointerup = el.onpointercancel = () => { if (!act) return; act = null; maj(); };
+  el.onclick = (e) => {
+    if (surNiveau(e, (n) => { niv = n; if (voir.mesures && !des(niv, "CM1")) voir.mesures = false; render(); })) return;
+    const t = e.target.closest("button"); if (!t || t.disabled) return;
+    const d = t.dataset;
+    if (d.voir) {
+      voir[d.voir] = !voir[d.voir];
+      if (d.voir === "miroir" && voir.miroir) { // place l'axe à droite de la figure, ou décale la figure à gauche
+        const xs = P.map((p) => p[0]), x1 = Math.max(...xs), w = x1 - Math.min(...xs);
+        if (x1 + 1 <= C / 2 + 1) axeX = Math.ceil(x1) + 1; else if (w <= C / 2 - 1) { garder(); const dx = Math.floor(C / 2 - 1 - x1); P = P.map(([x, y]) => [x + dx, y]); axeX = C / 2; } else axeX = C / 2;
+      }
+    }
+    else if (t.id === "fg-reset") { garder(); P = DEPARTS.find((x) => x[0] === dep)[2](); sel = -1; }
+    else if (d.fg === "aimant") aimant = !aimant;
+    else if (d.fg === "annuler") { if (hist.length) P = hist.pop(); sel = -1; }
+    else if (d.fg === "g" || d.fg === "d") { const Q = recadrer(tourne(P, pivot(), (d.fg === "g" ? -15 : 15) * RAD)); if (Q) { garder(); P = Q; } }
+    else if (d.fg === "plus" || d.fg === "moins") {
+      const k = d.fg === "plus" ? 1.25 : 0.8, c = pivot(), Q = P.map(([x, y]) => [c[0] + (x - c[0]) * k, c[1] + (y - c[1]) * k]);
+      const pr = proprietes(Q), R2 = recadrer(Q);
+      if (R2 && Math.min(...pr.L) >= 0.5) { garder(); P = R2; }
+    }
+    else if (d.fg === "miroir") { const cx = pivot()[0]; garder(); P = P.map(([x, y]) => [2 * cx - x, y]).reverse(); sel = -1; }
+    else if (d.fg === "ajout") {
+      const n = P.length; let i = sel; if (i < 0) { let m = -1; for (let k = 0; k < n; k++) { const l = dist2(P[k], P[(k + 1) % n]); if (l > m) { m = l; i = k; } } }
+      const a = P[i], b = P[(i + 1) % n], c = centre(P), L = dist2(a, b), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      let nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L; if (nx * (mx - c[0]) + ny * (my - c[1]) < 0) { nx = -nx; ny = -ny; }
+      const q = [Math.max(0, Math.min(C, snap(mx + nx))), Math.max(0, Math.min(R, snap(my + ny)))];
+      garder(); P.splice(i + 1, 0, q); sel = i + 1;
+    }
+    else if (d.fg === "retrait" && P.length > 3) { garder(); P.splice(sel >= 0 ? sel : P.length - 1, 1); sel = -1; }
+    else return;
+    render();
+  };
+  el.onchange = (e) => {
+    if (e.target.id === "fg-dep") { dep = e.target.value; garder(); P = DEPARTS.find((x) => x[0] === dep)[2](); sel = -1; render(); }
+    else if (e.target.id === "fg-grille") { grille = e.target.value; render(); }
+  };
+  render();
+  return () => { act = null; };
+}
+
+// =====================================================================
 // 3. LES SOLIDES
 // Modèles 3D (y vers le haut). Les nombres de faces, arêtes et sommets sont calculés à partir du modèle.
 // =====================================================================
@@ -648,7 +931,17 @@ const SOLIDES = [
 const COMPTER = { CP: ["faces"], CE1: ["faces", "aretes", "sommets"], CE2: ["faces", "aretes", "sommets"], CM1: ["faces", "aretes", "sommets"], CM2: ["faces", "aretes", "sommets"] };
 const QUIZ_SOL = { CP: ["nom", "nom", "roule", "faces"], CE1: ["nom", "roule", "faces", "sommets", "aretes"], CE2: ["nom", "nom", "faces", "sommets", "aretes"], CM1: ["nom", "faces", "sommets", "aretes", "poly"], CM2: ["nom", "faces", "sommets", "aretes", "poly"] };
 // Patrons : solides proposés au pliage, par niveau (patron du cube au CE2 ; reconnaître celui du pavé au CM2).
-const PATRONS_NIV = { CE2: ["cube"], CM1: ["cube", "prisme3"], CM2: ["cube", "pave", "prisme3", "pyr4", "tetra"] };
+// Avant le CE2, plier et déplier le cube et le pavé sert de manipulation (comme une boîte en carton).
+// Depuis « Explorer », le bouton Déplier ouvre le patron du solide affiché, quel que soit le niveau.
+const PATRONS_NIV = {
+  CP: ["cube", "pave"], CE1: ["cube", "pave", "pyr4"], CE2: ["cube", "pave", "pyr4", "cylindre"],
+  CM1: ["cube", "pave", "pyr4", "prisme3", "prisme6", "tetra", "cylindre", "cone"],
+  CM2: ["cube", "pave", "prisme3", "prisme5", "prisme6", "pyr4", "tetra", "pyr6", "cylindre", "cone"],
+};
+const NOTE_PATRON = {
+  cylindre: "La surface courbe du cylindre se déroule : elle devient un rectangle. Les deux bases sont des disques.",
+  cone: "La surface courbe du cône se déroule : elle devient une portion de disque. La base est un disque.",
+};
 const NOMS_COMPTE = { faces: "faces", aretes: "arêtes", sommets: "sommets" };
 
 function boite(a, b, c) {
@@ -737,7 +1030,46 @@ function attacher(faces, pi, k, local, ang) {
 }
 const rectL = (l, h) => [[0, 0], [l, 0], [l, h], [0, h]];
 const triL = (l, h) => [[0, 0], [l, 0], [l / 2, h]];
+// Patron obtenu en « dépliant » un modèle 3D le long d'un arbre de faces (par[i] = face parente de la face i, -1 pour la racine).
+// La racine est posée à plat, face extérieure vers le bas (z < 0) ; chaque face fille est rabattue dans le plan autour
+// de l'arête qu'elle partage avec sa mère. L'angle de pliage est l'angle entre les normales extérieures des deux faces.
+// fines[k] : l'arête k de la face est une charnière entre deux morceaux d'une surface courbe (dessinée sans trait).
+function deplier(m, par) {
+  const n = m.F.length, out = [], ou = new Array(n).fill(-1), pos = new Array(n), racine = par.indexOf(-1), file = [racine];
+  {
+    const f = m.F[racine], P = f.map((i) => m.V[i]), ex = norme(sous(P[1], P[0])), ey = croix(m.N[racine].map((x) => -x), ex);
+    pos[racine] = new Map(f.map((i, k) => { const d = sous(P[k], P[0]); return [i, [dot(d, ex), dot(d, ey)]]; }));
+    ou[racine] = 0; out.push({ pts: f.map((i) => pos[racine].get(i)), parent: -1, ids: f, lisse: m.lisse.has(racine) });
+  }
+  while (file.length) {
+    const p = file.shift(), cp = centre(out[ou[p]].pts);
+    for (let c = 0; c < n; c++) {
+      if (par[c] !== p) continue;
+      const fc = m.F[c], [a, b] = fc.filter((i) => m.F[p].includes(i)), A2 = pos[p].get(a), B2 = pos[p].get(b), Va = m.V[a], e = norme(sous(m.V[b], Va));
+      const Lg = dist2(A2, B2), u = [(B2[0] - A2[0]) / Lg, (B2[1] - A2[1]) / Lg];
+      let v = [-u[1], u[0]]; if (v[0] * (cp[0] - A2[0]) + v[1] * (cp[1] - A2[1]) > 0) v = [-v[0], -v[1]];
+      pos[c] = new Map(fc.map((i) => { const d = sous(m.V[i], Va), al = dot(d, e), h = Math.hypot(...sous(d, e.map((x) => x * al))); return [i, [A2[0] + al * u[0] + h * v[0], A2[1] + al * u[1] + h * v[1]]]; }));
+      ou[c] = out.length;
+      out.push({ pts: fc.map((i) => pos[c].get(i)), parent: ou[p], charniere: [A2, B2], ang: Math.acos(Math.max(-1, Math.min(1, dot(m.N[p], m.N[c])))) / RAD, ids: fc, lisse: m.lisse.has(c), arete: [a, b] });
+      file.push(c);
+    }
+  }
+  // charnières à l'intérieur d'une surface courbe : pas de trait
+  out.forEach((f) => (f.fines = f.ids.map(() => false)));
+  out.forEach((f) => {
+    if (f.parent < 0 || !f.lisse || !out[f.parent].lisse) return;
+    for (const g of [f, out[f.parent]]) g.ids.forEach((i, k) => { const j = g.ids[(k + 1) % g.ids.length]; if (f.arete.includes(i) && f.arete.includes(j)) g.fines[k] = true; });
+  });
+  return out;
+}
+// Arbres de dépliage : faces latérales en bande (à partir du milieu), bases accrochées à la face du milieu.
+const arbrePrisme = (n) => { const r = 2 + Math.floor((n - 1) / 2), par = [r, r]; for (let k = 2; k < n + 2; k++) par.push(k === r ? -1 : k > r ? k - 1 : k + 1); return par; };
+// Pyramide : faces triangulaires autour de la base ; cône : triangles en éventail (la surface courbe déroulée), base accrochée au milieu.
+const arbrePyramide = (n, eventail = false) => { if (!eventail) return [-1, ...Array(n).fill(0)]; const r = 1 + Math.floor(n / 2), par = [r]; for (let k = 1; k <= n; k++) par.push(k === r ? -1 : k > r ? k - 1 : k + 1); return par; };
 const PATRONS = {
+  prisme5: () => deplier(modele3D("prisme5"), arbrePrisme(5)), prisme6: () => deplier(modele3D("prisme6"), arbrePrisme(6)),
+  pyr6: () => deplier(modele3D("pyr6"), arbrePyramide(6)), cylindre: () => deplier(modele3D("cylindre"), arbrePrisme(48)),
+  cone: () => deplier(modele3D("cone"), arbrePyramide(48, true)),
   cube: () => { const F = [{ pts: rectL(1, 1), parent: -1 }]; for (let k = 0; k < 4; k++) attacher(F, 0, k, rectL(1, 1), 90); attacher(F, 3, 2, rectL(1, 1), 90); return F; },
   pave: () => { const a = 2, b = 1.2, c = 0.8, F = [{ pts: rectL(a, b), parent: -1 }]; attacher(F, 0, 0, rectL(a, c), 90); attacher(F, 0, 1, rectL(b, c), 90); const dos = attacher(F, 0, 2, rectL(a, c), 90); attacher(F, 0, 3, rectL(b, c), 90); attacher(F, dos, 2, rectL(a, b), 90); return F; },
   pyr4: () => { const h = 1.6, s = Math.hypot(h, 1), ang = 180 - Math.atan2(h, 1) / RAD, F = [{ pts: rectL(2, 2), parent: -1 }]; for (let k = 0; k < 4; k++) attacher(F, 0, k, triL(2, s), ang); return F; },
@@ -789,7 +1121,12 @@ function dessinPatron(F, t, yaw, pitch, W, H, hue = 215) {
   const fs = plier(F, t).map((f, i) => { const Q = f.pts.map((p) => tourner(sous(p, c), yaw, pitch)), n = tourner(f.n, yaw, pitch); return { i, Q, z: moy(Q)[2], dehors: dot(n, sous([0, 0, D], moy(Q))) > 0, n }; });
   fs.sort((a, b) => a.z - b.z);
   const lum = norme([-0.45, 0.75, 0.6]);
-  return fs.map((f) => { const l = Math.abs(dot(f.n, lum)), fill = f.dehors ? `hsl(${hue} 65% ${f1(55 + 25 * l)}%)` : `hsl(${hue} 45% ${f1(86 + 8 * l)}%)`; return `<polygon points="${vers(f.Q.map((p) => projeter(p, W, H, K)))}" fill="${fill}" class="geo-pface"/>`; }).join("");
+  return fs.map((f) => {
+    const l = Math.abs(dot(f.n, lum)), fill = f.dehors ? `hsl(${hue} 65% ${f1(55 + 25 * l)}%)` : `hsl(${hue} 45% ${f1(86 + 8 * l)}%)`, Q = f.Q.map((p) => projeter(p, W, H, K)), fines = F[f.i].fines;
+    if (!fines?.some(Boolean)) return `<polygon points="${vers(Q)}" fill="${fill}" class="geo-pface"/>`;
+    // morceau de surface courbe : remplissage sans trait, puis seulement les vrais bords
+    return `<polygon points="${vers(Q)}" fill="${fill}" stroke="${fill}" class="geo-pface-lisse"/><path d="${Q.map((p, k) => (fines[k] ? "" : `M${f1(p[0])} ${f1(p[1])}L${f1(Q[(k + 1) % Q.length][0])} ${f1(Q[(k + 1) % Q.length][1])}`)).join("")}" class="geo-pface-bord"/>`;
+  }).join("");
 }
 // Est-ce un patron du cube ? On « fait rouler » un cube sur les carrés : il faut que les 6 carrés touchent 6 faces différentes.
 function estPatronCube(cells) {
@@ -858,7 +1195,8 @@ function solides(el) {
 
   const render = () => {
     const modes = [["explorer", "🔍 Explorer"], ["quiz", "❓ Quiz"]];
-    if (patDispo().length) modes.push(["patrons", "📦 Patrons"], ["netcube", "🧩 Patron du cube ?"]);
+    if (patDispo().length) modes.push(["patrons", "📦 Patrons"]);
+    if (des(niv, "CE2")) modes.push(["netcube", "🧩 Patron du cube ?"]);
     if (!modes.some(([k]) => k === mode)) mode = "explorer";
     let h = `<div class="tool-top">${segNiveau(niv)}<div class="seg">${modes.map(([k, v]) => `<button data-mode="${k}" class="${mode === k ? "on" : ""}">${v}</button>`).join("")}</div></div>`;
     if (mode === "explorer") {
@@ -873,18 +1211,22 @@ function solides(el) {
             ${compte ? `<p class="geo-compte">${compte.k} ${NOMS_COMPTE[compte.type]}${compte.k === compte.total ? " : c'est fini !" : "…"}</p>` : `<p class="muted geo-compte-aide">Touche un bouton pour compter.</p>`}
             ${compte && compte.k === compte.total ? `<p class="muted">${COMPTER[niv].map((k) => `${c[k]} ${NOMS_COMPTE[k]}`).join(" • ")}${compte.type === "faces" ? ` — ${s.faces}` : ""}</p>` : ""}`
           : `<p class="geo-desc">${s.desc}</p>`}
-          <p class="muted">${s.roule ? "Il peut rouler." : "Il ne roule pas."} Fais-le tourner avec le doigt.</p></div></div>`;
+          <p class="muted">${s.roule ? "Il peut rouler." : "Il ne roule pas."} Fais-le tourner avec le doigt.</p>
+          ${PATRONS[sid] ? `<button class="geo-tb" data-deplier="${sid}">📄 Déplier ${esc(s.de)}</button>` : sid === "boule" ? `<p class="muted">Une boule ne se déplie pas : on ne peut pas l'aplatir sans la déchirer.</p>` : ""}</div></div>`;
     } else if (mode === "quiz") {
       h += `<div class="tool-top"><button class="pill" id="so-next">🎲 Autre question</button><span class="score">⭐ ${score} / ${total}</span></div>
         <div class="geo-sol rc-board">${scene()}<div class="geo-info"><p class="geo-q">${quiz.q}</p>
         <div class="geo-reps">${quiz.reps.map((r) => `<button class="geo-rep ${quiz.ok && r === quiz.bonne ? "good" : quiz.faux.has(r) ? "bad" : ""}" data-rep="${esc(r)}" ${quiz.ok ? "disabled" : ""}>${esc(r)}</button>`).join("")}</div>
         <p class="geo-msg">${quiz.ok ? `<span class="banner ok">Bravo ! 🎉</span> <button class="geo-tb" id="so-next2">Suivant ➜</button>` : quiz.faux.size ? `<span class="banner ko">Non, essaie encore. Tu peux le faire tourner !</span>` : ""}</p></div></div>`;
     } else if (mode === "patrons") {
-      if (!patDispo().includes(pat)) pat = "cube";
-      h += `<div class="tool-top"><div class="seg">${patDispo().map((k) => `<button data-pat="${k}" class="${k === pat ? "on" : ""}">${esc(SOLIDES.find((s) => s.id === k).nom)}</button>`).join("")}</div>
+      if (!PATRONS[pat]) pat = "cube";
+      const liste = patDispo().includes(pat) ? patDispo() : [...patDispo(), pat];
+      h += `<div class="tool-top"><div class="seg">${liste.map((k) => `<button data-pat="${k}" class="${k === pat ? "on" : ""}">${esc(SOLIDES.find((s) => s.id === k).nom)}</button>`).join("")}</div>
         <label class="inline">Pliage <input type="range" id="so-pt" min="0" max="100" value="${Math.round(pt * 100)}"></label></div>
         <div class="geo-sol rc-board">${scene()}<div class="geo-info"><h3>Patron ${esc(SOLIDES.find((s) => s.id === pat).de)}</h3>
         <div class="geo-cpt"><button class="geo-tb" data-plier="1">📦 Plier</button><button class="geo-tb" data-plier="0">📄 Déplier</button></div>
+        <label class="geo-plieur">Plier à la main <input type="range" id="so-pt2" min="0" max="100" value="${Math.round(pt * 100)}" aria-label="Pliage"></label>
+        ${NOTE_PATRON[pat] ? `<p class="geo-desc">${NOTE_PATRON[pat]}</p>` : ""}
         <p class="muted">Fais tourner avec le doigt pour regarder sous tous les angles.</p></div></div>`;
     } else {
       if (galerie) {
@@ -906,7 +1248,7 @@ function solides(el) {
   };
   const animer = (cible) => {
     cancelAnimationFrame(anim); const t0 = performance.now(), p0 = pt, dur = 1800 * Math.abs(cible - p0) + 1;
-    const pas = (now) => { const k = Math.min(1, (now - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; pt = p0 + (cible - p0) * e; majVue(); const r = el.querySelector("#so-pt"); if (r) r.value = Math.round(pt * 100); if (k < 1) anim = requestAnimationFrame(pas); else anim = null; };
+    const pas = (now) => { const k = Math.min(1, (now - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; pt = p0 + (cible - p0) * e; majVue(); for (const r of el.querySelectorAll("#so-pt, #so-pt2")) r.value = Math.round(pt * 100); if (k < 1) anim = requestAnimationFrame(pas); else anim = null; };
     anim = requestAnimationFrame(pas);
   };
   const boucle = () => { if (auto && !dragR) { yaw += 0.008; majVue(); } raf = requestAnimationFrame(boucle); };
@@ -920,7 +1262,7 @@ function solides(el) {
   };
   el.onpointerup = el.onpointercancel = () => { dragR = null; };
   el.onclick = (e) => {
-    if (surNiveau(e, (n) => { niv = n; stopCompte(); compte = null; score = total = 0; if (mode === "quiz") nouvQuiz(); render(); })) return;
+    if (surNiveau(e, (n) => { niv = n; stopCompte(); compte = null; score = total = 0; if (mode === "quiz") nouvQuiz(); if (mode === "patrons" && !patDispo().includes(pat)) { cancelAnimationFrame(anim); pat = patDispo()[0]; pt = 0; } render(); })) return;
     const t = e.target.closest("button"); if (!t) return;
     const d = t.dataset;
     if (d.mode) { mode = d.mode; stopCompte(); compte = null; cancelAnimationFrame(anim); pt = 0; galerie = false; score = total = 0; if (mode === "quiz") nouvQuiz(); if (mode === "netcube") nouvNet(); if (mode === "patrons" || mode === "explorer") { yaw = -0.6; pitch = mode === "patrons" ? 0.9 : 0.42; } }
@@ -934,6 +1276,7 @@ function solides(el) {
     else if (t.id === "so-next" || t.id === "so-next2") nouvQuiz();
     else if (d.rep && quiz && !quiz.ok) { if (d.rep === quiz.bonne) { quiz.ok = true; if (!quiz.faux.size) score++; total++; } else quiz.faux.add(d.rep); }
     else if (d.pat) { pat = d.pat; cancelAnimationFrame(anim); pt = 0; }
+    else if (d.deplier) { mode = "patrons"; pat = d.deplier; stopCompte(); compte = null; cancelAnimationFrame(anim); pt = 1; yaw = -0.6; pitch = 0.9; render(); animer(0); return; }
     else if (d.plier) { animer(+d.plier); return; }
     else if (t.id === "so-net") { nouvNet(); galerie = false; }
     else if (t.id === "so-gal") { galerie = !galerie; if (galerie) net = { ...net, voir: false }; else nouvNet(); }
@@ -942,16 +1285,17 @@ function solides(el) {
     else return;
     render();
   };
-  el.oninput = (e) => { if (e.target.id === "so-pt") { cancelAnimationFrame(anim); pt = +e.target.value / 100; majVue(); } };
+  el.oninput = (e) => { if (e.target.id === "so-pt" || e.target.id === "so-pt2") { cancelAnimationFrame(anim); pt = +e.target.value / 100; majVue(); for (const r of el.querySelectorAll("#so-pt, #so-pt2")) if (r !== e.target) r.value = e.target.value; } };
   render();
   return () => { stopCompte(); cancelAnimationFrame(raf); cancelAnimationFrame(anim); dragR = null; };
 }
 
 // Fonctions exposées pour les tests.
-export const _geo = { decoupe, elements, comparer, FRISES, SUITES, proprietes, fabriquer, nette, ATTENDU, TRIS, NOMME, DEVINETTES, CHAINES, SOLIDES, comptes, modele3D, estPatronCube, polyominos, PATRONS, plier, patronCarres };
+export const _geo = { decoupe, elements, comparer, FRISES, SUITES, proprietes, fabriquer, nette, ATTENDU, TRIS, NOMME, DEVINETTES, CHAINES, SOLIDES, comptes, modele3D, estPatronCube, polyominos, PATRONS, PATRONS_NIV, plier, patronCarres, deplier, typeFigure, nomFigure, axesSym, analyser, croise, DEPARTS, TOL_MANIP };
 
 export const GEO = [
   { id: "frises", nom: "Frises et motifs", icone: "〰️", couleur: "#ffe3a3", desc: "Continuer, reproduire, créer des frises sur quadrillage", mount: frises },
   { id: "formes", nom: "Formes et polygones", icone: "🔷", couleur: "#cfe6ff", desc: "Nommer, trier, devinettes « Qui suis-je ? »", mount: formes },
+  { id: "figures", nom: "Figures à manipuler", icone: "✋", couleur: "#c9ecd4", desc: "Déplacer les sommets, tourner, agrandir : propriétés en direct", mount: figures },
   { id: "solides", nom: "Les solides", icone: "🧊", couleur: "#d7ccff", desc: "Solides en 3D à faire tourner, patrons à plier", mount: solides },
 ];
