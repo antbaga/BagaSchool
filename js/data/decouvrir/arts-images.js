@@ -1,4 +1,391 @@
-// Images embarquées (générées par tools/fetch_art_images.py). Vide tant qu'elles ne sont pas téléchargées :
-// l'app charge alors les images depuis Wikipédia au moment de l'affichage.
-export const IMAGES_OEUVRES = {};
-export const IMAGES_MOTS = {};
+// Généré par tools/fetch_art_images.py (workflow art-images) : ne pas modifier à la main.
+// Images : Wikimedia Commons, via l'image principale des articles de Wikipédia en français ; licence de chaque photo ci-dessous.
+export const IMAGES_OEUVRES = {
+"lascaux": {
+"src": "img/arts/lascaux.webp",
+"w": 720,
+"h": 472,
+"fichier": "Lascaux_painting.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Lascaux_painting.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "EU",
+"article": "Grotte de Lascaux"
+},
+"kheops": {
+"src": "img/arts/kheops.webp",
+"w": 1280,
+"h": 800,
+"fichier": "Great_Pyramid_of_Giza.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Great_Pyramid_of_Giza.jpg",
+"licence": "CC BY-SA 3.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+"photo": "kallerna",
+"article": "Pyramide de Khéops"
+},
+"parthenon": {
+"src": "img/arts/parthenon.webp",
+"w": 1144,
+"h": 804,
+"fichier": "The_Parthenon_in_Athens.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:The_Parthenon_in_Athens.jpg",
+"licence": "CC BY 2.0",
+"licenceUrl": "https://creativecommons.org/licenses/by/2.0",
+"photo": "Steve Swayne",
+"article": "Parthénon"
+},
+"pont-gard": {
+"src": "img/arts/pont-gard.webp",
+"w": 1280,
+"h": 494,
+"fichier": "Pont_du_Gard_BLS.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Pont_du_Gard_BLS.jpg",
+"licence": "CC BY-SA 3.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+"photo": "Benh LIEU SONG ( Flickr )",
+"article": "Pont du Gard"
+},
+"bayeux": {
+"src": "img/arts/bayeux.webp",
+"w": 1280,
+"h": 928,
+"fichier": "Odo_bayeux_tapestry.png",
+"page": "https://commons.wikimedia.org/wiki/File:Odo_bayeux_tapestry.png",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "",
+"article": "Tapisserie de Bayeux"
+},
+"cluny": {
+"src": "img/arts/cluny.webp",
+"w": 1280,
+"h": 854,
+"fichier": "Cluny_-_Bâtiments_abbatiaux_-_08.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Cluny_-_B%C3%A2timents_abbatiaux_-_08.jpg",
+"licence": "CC BY-SA 4.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+"photo": "Benjamin Smith",
+"article": "Abbaye de Cluny"
+},
+"notre-dame": {
+"src": "img/arts/notre-dame.webp",
+"w": 1280,
+"h": 1728,
+"fichier": "Notre-Dame_de_Paris_2013-07-24.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Notre-Dame_de_Paris_2013-07-24.jpg",
+"licence": "CC BY-SA 3.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+"photo": "P e z i",
+"article": "Cathédrale Notre-Dame de Paris"
+},
+"joconde": {
+"src": "img/arts/joconde.webp",
+"w": 1280,
+"h": 1911,
+"fichier": "Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_natural_color.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_natural_color.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Leonardo da Vinci",
+"article": "La Joconde"
+},
+"chambord": {
+"src": "img/arts/chambord.webp",
+"w": 1280,
+"h": 513,
+"fichier": "Chambord_Castle_Northwest_facade.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Chambord_Castle_Northwest_facade.jpg",
+"licence": "CC BY-SA 3.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+"photo": "Benh LIEU SONG",
+"article": "Château de Chambord"
+},
+"versailles": {
+"src": "img/arts/versailles.webp",
+"w": 1280,
+"h": 960,
+"fichier": "Vue_aérienne_du_domaine_de_Versailles_par_ToucanWings_-_Creative_Commons_By_Sa_3.0_-_083.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Vue_a%C3%A9rienne_du_domaine_de_Versailles_par_ToucanWings_-_Creative_Commons_By_Sa_3.0_-_083.jpg",
+"licence": "CC BY-SA 3.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+"photo": "ToucanWings",
+"article": "Château de Versailles"
+},
+"perle": {
+"src": "img/arts/perle.webp",
+"w": 1280,
+"h": 1516,
+"fichier": "1665_Girl_with_a_Pearl_Earring.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:1665_Girl_with_a_Pearl_Earring.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Johannes Vermeer",
+"article": "La Jeune Fille à la perle"
+},
+"liberte": {
+"src": "img/arts/liberte.webp",
+"w": 1280,
+"h": 1024,
+"fichier": "La_Liberté_guidant_le_peuple_-_Eugène_Delacroix_-_Musée_du_Louvre_Peintures_RF_129_-_après_restauration_2024.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:La_Libert%C3%A9_guidant_le_peuple_-_Eug%C3%A8ne_Delacroix_-_Mus%C3%A9e_du_Louvre_Peintures_RF_129_-_apr%C3%A8s_restauration_2024.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Eugène Delacroix",
+"article": "La Liberté guidant le peuple"
+},
+"glaneuses": {
+"src": "img/arts/glaneuses.webp",
+"w": 1280,
+"h": 958,
+"fichier": "Jean-François_Millet_-_Gleaners_-_Google_Art_Project_2.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Jean-Fran%C3%A7ois_Millet_-_Gleaners_-_Google_Art_Project_2.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Jean-François Millet",
+"article": "Des glaneuses"
+},
+"impression": {
+"src": "img/arts/impression.webp",
+"w": 1280,
+"h": 996,
+"fichier": "Claude_Monet,_Impression,_soleil_levant.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Claude_Monet,_Impression,_soleil_levant.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Claude Monet",
+"article": "Impression, soleil levant"
+},
+"vague": {
+"src": "img/arts/vague.webp",
+"w": 1280,
+"h": 860,
+"fichier": "Tsunami_by_hokusai_19th_century.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Tsunami_by_hokusai_19th_century.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Katsushika Hokusai",
+"article": "La Grande Vague de Kanagawa"
+},
+"tour-eiffel": {
+"src": "img/arts/tour-eiffel.webp",
+"w": 1280,
+"h": 2369,
+"fichier": "Tour_Eiffel_Wikimedia_Commons.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Tour_Eiffel_Wikimedia_Commons.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Benh LIEU SONG",
+"article": "Tour Eiffel"
+},
+"penseur": {
+"src": "img/arts/penseur.webp",
+"w": 1280,
+"h": 1920,
+"fichier": "Le_Penseur_in_the_Jardin_du_Musée_Rodin,_Paris_March_2014.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Le_Penseur_in_the_Jardin_du_Mus%C3%A9e_Rodin,_Paris_March_2014.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Thibsweb",
+"article": "Le Penseur"
+}
+};
+export const IMAGES_MOTS = {
+"autoportrait": {
+"src": "img/arts/mots/autoportrait.webp",
+"w": 900,
+"h": 1084,
+"fichier": "De_mulieribus_claris_-_Marcia.png",
+"page": "https://commons.wikimedia.org/wiki/File:De_mulieribus_claris_-_Marcia.png",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Master of the Coronation of the Virgin",
+"article": "Autoportrait"
+},
+"nature-morte": {
+"src": "img/arts/mots/nature-morte.webp",
+"w": 900,
+"h": 1125,
+"fichier": "Vincent_Willem_van_Gogh_128.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Vincent_Willem_van_Gogh_128.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Vincent van Gogh",
+"article": "Nature morte"
+},
+"chaudes": {
+"src": "img/arts/mots/chaudes.webp",
+"w": 900,
+"h": 1135,
+"fichier": "Vincent_Willem_van_Gogh_127.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Vincent_Willem_van_Gogh_127.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Vincent van Gogh",
+"article": "Les Tournesols"
+},
+"primaires": {
+"src": "img/arts/mots/primaires.webp",
+"w": 900,
+"h": 897,
+"fichier": "Piet_Mondriaan,_1921_-_Composition_en_rouge,_jaune,_bleu_et_noir.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Piet_Mondriaan,_1921_-_Composition_en_rouge,_jaune,_bleu_et_noir.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Piet Mondrian",
+"article": "Composition avec grand plan rouge, jaune, noir, gris et bleu"
+},
+"mosaique": {
+"src": "img/arts/mots/mosaique.webp",
+"w": 900,
+"h": 615,
+"fichier": "P1012024mod.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:P1012024mod.jpg",
+"licence": "CC BY-SA 4.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+"photo": "JYB Devot",
+"article": "Mosaïque"
+},
+"fresque": {
+"src": "img/arts/mots/fresque.webp",
+"w": 900,
+"h": 601,
+"fichier": "Creación_de_Adán.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Creaci%C3%B3n_de_Ad%C3%A1n.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Michelangelo",
+"article": "La Création d'Adam (Michel-Ange)"
+},
+"roman": {
+"src": "img/arts/mots/roman.webp",
+"w": 900,
+"h": 1356,
+"fichier": "Conques_eglise_face_ter.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Conques_eglise_face_ter.jpg",
+"licence": "CC BY-SA 4.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+"photo": "Velvet",
+"article": "Abbatiale Sainte-Foy de Conques"
+},
+"gothique": {
+"src": "img/arts/mots/gothique.webp",
+"w": 900,
+"h": 1869,
+"fichier": "Cathédrale_Notre_Dame_-_Chartres_(FR28)_-_2021-03-14_-_4.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Cath%C3%A9drale_Notre_Dame_-_Chartres_(FR28)_-_2021-03-14_-_4.jpg",
+"licence": "CC BY-SA 4.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+"photo": "Chabe01",
+"article": "Cathédrale Notre-Dame de Chartres"
+},
+"arc-brise": {
+"src": "img/arts/mots/arc-brise.webp",
+"w": 900,
+"h": 1200,
+"fichier": "Cremona,_loggia_dei_Militi_01.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Cremona,_loggia_dei_Militi_01.jpg",
+"licence": "CC BY-SA 4.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+"photo": "Riccardo Ortelli",
+"article": "Arc brisé"
+},
+"voute": {
+"src": "img/arts/mots/voute.webp",
+"w": 900,
+"h": 708,
+"fichier": "Vezélay_-_Nau_interior.JPG",
+"page": "https://commons.wikimedia.org/wiki/File:Vez%C3%A9lay_-_Nau_interior.JPG",
+"licence": "CC BY-SA 3.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+"photo": "Josep Renalias",
+"article": "Voûte"
+},
+"arc-boutant": {
+"src": "img/arts/mots/arc-boutant.webp",
+"w": 900,
+"h": 675,
+"fichier": "Notre-Dame_de_Paris_arcs-boutants.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Notre-Dame_de_Paris_arcs-boutants.jpg",
+"licence": "CC BY 3.0",
+"licenceUrl": "https://creativecommons.org/licenses/by/3.0",
+"photo": "Andreas Praefcke",
+"article": "Arc-boutant"
+},
+"vitrail": {
+"src": "img/arts/mots/vitrail.webp",
+"w": 375,
+"h": 640,
+"fichier": "Vitrail_Notre-Dame_du_Sablon.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Vitrail_Notre-Dame_du_Sablon.jpg",
+"licence": "CC BY-SA 3.0",
+"licenceUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+"photo": "Photo et montage : fr:User:Roby",
+"article": "Vitrail"
+},
+"bas-relief": {
+"src": "img/arts/mots/bas-relief.webp",
+"w": 900,
+"h": 675,
+"fichier": "Cow_bas_relief_in_Mamallapuram.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Cow_bas_relief_in_Mamallapuram.jpg",
+"licence": "CC BY 2.0",
+"licenceUrl": "https://creativecommons.org/licenses/by/2.0",
+"photo": "McKay Savage",
+"article": "Bas-relief"
+},
+"perspective": {
+"src": "img/arts/mots/perspective.webp",
+"w": 900,
+"h": 698,
+"fichier": "\"The_School_of_Athens\"_by_Raffaello_Sanzio_da_Urbino.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:%22The_School_of_Athens%22_by_Raffaello_Sanzio_da_Urbino.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Raphael",
+"article": "L'École d'Athènes"
+},
+"fuite": {
+"src": "img/arts/mots/fuite.webp",
+"w": 900,
+"h": 698,
+"fichier": "\"The_School_of_Athens\"_by_Raffaello_Sanzio_da_Urbino.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:%22The_School_of_Athens%22_by_Raffaello_Sanzio_da_Urbino.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Raphael",
+"article": "L'École d'Athènes"
+},
+"composition": {
+"src": "img/arts/mots/composition.webp",
+"w": 900,
+"h": 614,
+"fichier": "JEAN_LOUIS_THÉODORE_GÉRICAULT_-_La_Balsa_de_la_Medusa_(Museo_del_Louvre,_1818-19).jpg",
+"page": "https://commons.wikimedia.org/wiki/File:JEAN_LOUIS_TH%C3%89ODORE_G%C3%89RICAULT_-_La_Balsa_de_la_Medusa_(Museo_del_Louvre,_1818-19).jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Théodore Géricault",
+"article": "Le Radeau de la Méduse"
+},
+"clair-obscur": {
+"src": "img/arts/mots/clair-obscur.webp",
+"w": 900,
+"h": 850,
+"fichier": "Caravaggio_—_The_Calling_of_Saint_Matthew.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Caravaggio_%E2%80%94_The_Calling_of_Saint_Matthew.jpg",
+"licence": "CC0",
+"licenceUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+"photo": "Gleb Simonov",
+"article": "La Vocation de saint Matthieu"
+},
+"tympan": {
+"src": "img/arts/mots/tympan.webp",
+"w": 900,
+"h": 600,
+"fichier": "0_Venise,_mosaïque_'La_descente_de_Croix'_-_Basilique_St-Marc.JPG",
+"page": "https://commons.wikimedia.org/wiki/File:0_Venise,_mosa%C3%AFque_%27La_descente_de_Croix%27_-_Basilique_St-Marc.JPG",
+"licence": "CC BY 4.0",
+"licenceUrl": "https://creativecommons.org/licenses/by/4.0",
+"photo": "Jean-Pol GRANDMONT",
+"article": "Tympan (architecture)"
+}
+};
