@@ -28,7 +28,7 @@ import { viewPartager, viewVoir } from "./partage.js";
 import { grilleHoraire, fusionQLM, SOURCE_HORAIRES, LIEN_HORAIRES, TOTAL_HEBDO } from "./data/horaires.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.32";
+export const VERSION = "0.33";
 
 // ---------- état ----------
 let state = {};
@@ -892,6 +892,8 @@ function viewAccueil() {
           return `<li class="${cls}" style="--c:${s.couleur}"><span class="today-time">${esc(s.debut)}</span><span class="today-what"><b>${esc(s.discipline)}</b>${s.libelle ? ` · ${esc(s.libelle)}` : ""}</span>${cls === "now" ? `<span class="badge">en cours</span>` : ""}</li>`;
         }).join("")}</ol>` : `<div class="empty"><span>🌤️</span><p>${state.edt.length ? `Pas de cours prévu ce ${jour.toLowerCase()}.` : "Ton emploi du temps est vide."}</p>${state.edt.length ? "" : `<a class="primary btn" href="#/edt">Remplir mon emploi du temps</a>`}</div>`}
         <div class="quick" style="margin-top:12px"><a class="quick-btn" href="#/journal"><span>📒</span>Cahier journal</a><a class="quick-btn" href="#/partager/${localISO(now)}"><span>👥</span>Partager ma journée</a>${state.eleves.length ? `<a class="quick-btn" href="#/appel"><span>🙋</span>${state.appel[localISO(now)] ? "Appel fait ✓" : "Faire l'appel"}</a>` : ""}${state.reglages.remplacant ? `<a class="quick-btn" href="#/remplacements"><span>🚗</span>Mes remplacements</a>` : ""}</div>
+        ${(() => { const t = localISO(now), L = evenements().filter((e) => e.date >= t && e.date <= addDays(t, 14)).slice(0, 4);
+          return L.length ? `<h4>Bientôt</h4>${L.map((e) => `<a class="item" href="#/calendrier">${evtPuce(e, e.date !== t)}${e.date === t ? ` <span class="badge">aujourd'hui</span>` : ""}</a>`).join("")}` : ""; })()}
         ${fiches.length ? `<h4>Fiches prévues aujourd'hui</h4>${fiches.map((f) => `<a class="item" href="#/fiches/${f.id}">📝 ${esc(f.titre)}</a>`).join("")}` : ""}
       </section>
       <section class="panel">
@@ -1177,15 +1179,57 @@ function prochainesVacances(dateISO) {
   const nom = { "Toussaint": "de la Toussaint", "Noël": "de Noël", "Hiver": "d'hiver", "Printemps": "de printemps", "été": "d'été" }[v.nom] ?? v.nom;
   return { nom, jours };
 }
+// ---------- calendrier de classe : sorties, photos, spectacles, conseils, rencontres parents, intervenants ----------
+// Rangé dans reglages.evenements (synchronisé avec le compte). { id, date, heure?, type, titre, note? }
+const TYPES_EVT = { sortie: ["🚌", "Sortie"], photos: ["📸", "Photos de classe"], spectacle: ["🎭", "Spectacle"], conseil: ["🏫", "Conseil"], parents: ["👪", "Rencontre parents"], intervenant: ["🧑‍🔬", "Intervenant"], autre: ["📌", "Autre"] };
+const evenements = () => (state.reglages.evenements ?? []).slice().sort((a, b) => (a.date + (a.heure || "")).localeCompare(b.date + (b.heure || "")));
+const evenementsDu = (date) => evenements().filter((e) => e.date === date);
+const evtTitre = (e) => e.titre || TYPES_EVT[e.type]?.[1] || "Événement";
+const evtPuce = (e, avecDate = false) => `<span class="evt-ico">${TYPES_EVT[e.type]?.[0] ?? "📌"}</span> ${avecDate ? `<b>${esc(fmtCourt(e.date))}</b> · ` : ""}${esc(evtTitre(e))}${e.heure ? ` · ${+e.heure.slice(0, 2)} h${e.heure.slice(3) !== "00" ? " " + esc(e.heure.slice(3)) : ""}` : ""}`;
+function editEvenement(e, apres) {
+  const isNew = !e.id;
+  e = { type: "sortie", date: isoLocal(new Date()), ...e };
+  openModal(`
+    <h2>${isNew ? "Nouvel événement" : "Modifier l'événement"}</h2>
+    <div class="seg wrap" id="evType">${Object.entries(TYPES_EVT).map(([k, [ico, t]]) => `<button type="button" data-ev="${k}" class="${k === e.type ? "on" : ""}">${ico} ${t}</button>`).join("")}</div>
+    <form id="f">
+      <label>Titre (facultatif)<input name="titre" value="${esc(e.titre ?? "")}" placeholder="ex. Musée des Beaux-Arts, conseil d'école du 2e trimestre"></label>
+      <div class="row"><label>Date<input type="date" name="date" value="${esc(e.date)}" required></label><label>Heure (facultatif)<input type="time" name="heure" value="${esc(e.heure ?? "")}"></label></div>
+      <label>Note (facultatif)<textarea name="note" rows="2" placeholder="Prévoir pique-nique, autorisations, intervenant à accueillir…">${esc(e.note ?? "")}</textarea></label>
+      <div class="actions">${isNew ? "" : `<button type="button" class="danger" id="del">Supprimer</button>`}<button type="button" data-close class="ghost">Annuler</button><button class="primary">Enregistrer</button></div>
+    </form>`, (m) => {
+    let type = e.type;
+    $("#evType", m).onclick = (ev) => { const b = ev.target.closest("[data-ev]"); if (!b) return; type = b.dataset.ev; $$("#evType button", m).forEach((x) => x.classList.toggle("on", x === b)); };
+    $("#f", m).onsubmit = (ev) => {
+      ev.preventDefault();
+      const d = formData(ev.target), L = (state.reglages.evenements ??= []);
+      const val = { type, titre: d.titre, date: d.date, heure: d.heure, note: d.note };
+      if (isNew) L.push({ id: uid(), ...val }); else Object.assign(L.find((x) => x.id === e.id), val);
+      save("reglages"); closeModal(true); apres();
+    };
+    $("#del", m)?.addEventListener("click", () => { state.reglages.evenements = (state.reglages.evenements ?? []).filter((x) => x.id !== e.id); save("reglages"); closeModal(true); apres(); });
+  });
+}
+function evenementsHTML() {
+  const today = isoLocal(new Date()), L = evenements(), avenir = L.filter((e) => e.date >= today), passes = L.filter((e) => e.date < today).reverse();
+  const ligne = (e) => `<button class="evt-ligne" data-evt="${e.id}">${evtPuce(e)}<span class="hint">${esc(capit(fmtLong(e.date)))}${e.note ? ` · ${esc(e.note)}` : ""}</span></button>`;
+  let mois = "";
+  return `<div class="sheet evts"><div class="label-row"><h3>Événements de la classe</h3><button class="primary small" id="evAdd">+ Événement</button></div>
+    ${avenir.length ? avenir.map((e) => { const m = new Date(e.date + "T12:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" }); const h = m !== mois ? `<h4 class="evt-mois">${capit(m)}</h4>` : ""; mois = m; return h + ligne(e); }).join("")
+      : `<p class="hint">Sorties, photos de classe, spectacles, conseils, rencontres avec les parents, intervenants : ajoute-les ici, ils s'affichent aussi le jour même dans le cahier journal et sur l'accueil.</p>`}
+    ${passes.length ? `<details class="evt-passes"><summary>Passés (${passes.length})</summary>${passes.map(ligne).join("")}</details>` : ""}</div>`;
+}
 function viewCalendrier() {
   const c = calendrierCourant();
   const zoneSel = `<div class="seg">${["A", "B", "C"].map((z) => `<button data-zone="${z}" class="${state.reglages.zone === z ? "on" : ""}">Zone ${z}</button>`).join("")}</div>`;
   if (!c) {
-    app.innerHTML = `<div class="sheet"><h2>Ton calendrier scolaire</h2>
+    app.innerHTML = `${evenementsHTML()}<div class="sheet"><h2>Ton calendrier scolaire</h2>
       ${CALENDRIERS[anneeScolaire()] ? `<p>Choisis ta zone pour afficher les vacances et calculer les périodes.</p>${zoneSel}<p class="hint">Zone A : ${ZONES.A}.<br>Zone B : ${ZONES.B}.<br>Zone C : ${ZONES.C}.</p>` : `<p>Le calendrier de l'année ${anneeScolaire()} n'est pas encore dans l'application.</p>`}</div>`;
   } else {
     const today = isoLocal(new Date());
     app.innerHTML = `
+      ${evenementsHTML()}
+      <h3 class="cal-titre">Vacances et périodes</h3>
       <div class="toolbar">${zoneSel}<span class="hint grow">Année ${anneeScolaire()} · ${esc(ZONES[c.zone])}</span></div>
       <div class="periods-cal">${c.periodes.map((p, i) => `
         <div class="pcal ${today >= p.debut && today <= p.fin ? "now" : ""}">
@@ -1197,7 +1241,11 @@ function viewCalendrier() {
         <ul class="feries">${[...c.feries.filter((f) => f.date >= c.rentree && f.date < c.ete && ![0, 6].includes(new Date(f.date + "T12:00").getDay()) && !c.vac.some((v) => f.date >= v.debut && f.date < v.reprise)), ...c.pontsOfficiels].sort((a, b) => a.date.localeCompare(b.date)).map((f) => `<li><b>${capit(fmtLong(f.date))}</b> · ${esc(f.nom)}</li>`).join("")}</ul>
         <p class="hint">Source : calendrier scolaire officiel (arrêté du 22 octobre 2025), service-public.gouv.fr. Les périodes sont calculées par l'application.</p></div>`;
   }
-  app.onclick = (e) => { const z = e.target.closest("[data-zone]"); if (z) { state.reglages.zone = z.dataset.zone; save("reglages"); viewCalendrier(); } };
+  app.onclick = (e) => {
+    const z = e.target.closest("[data-zone]"); if (z) { state.reglages.zone = z.dataset.zone; save("reglages"); viewCalendrier(); }
+    if (e.target.closest("#evAdd")) editEvenement({}, viewCalendrier);
+    const ev = e.target.closest("[data-evt]"); if (ev) editEvenement(state.reglages.evenements.find((x) => x.id === ev.dataset.evt), viewCalendrier);
+  };
 }
 
 // ---------- CAHIER JOURNAL ----------
@@ -1452,6 +1500,7 @@ function viewJournal(dateISO) {
     <div class="sheet journal">
       <h2 class="journal-date">${capit(fmtLong(date))}</h2>
       ${st && st.type !== "weekend" ? `<div class="banner-soft">🏖️ ${esc(st.nom)}</div>` : ""}
+      ${evenementsDu(date).map((e) => `<a class="banner-evt" href="#/calendrier">${evtPuce(e)}${e.note ? ` <span class="hint">· ${esc(e.note)}</span>` : ""}</a>`).join("")}
       ${ip ? `<div class="banner-ip">${IMPREVUS[ip.type]?.[0] ?? "⚡"} <b>${esc(ip.type === "sortie" ? ip.libelle || "Sortie" : ip.type === "absent" ? "Absent·e" : "École fermée")}</b> · ${ip.journee ? "toute la journée" : ip.quand === "matin" ? "le matin" : ip.quand === "aprem" ? "l'après-midi" : `${esc(ip.debut)}–${esc(ip.fin)}`}
         ${ip.type === "absent" ? `<a class="pill" href="#/partager/${date}">👥 Lien pour le remplaçant</a>` : ""}<button class="link no-print" id="ipRm">Retirer</button></div>` : ""}
       ${(() => { const L = progressionSemaine(date); if (!L.length) return "";
@@ -1578,7 +1627,7 @@ function semaineHTML(date) {
   return [0, 1, 2, 3, 4, 5].map((i) => addDays(lundi, i)).filter((x) => creneauxDuJour(x).length).map((x) => {
     const J = state.journal[x]?.creneaux ?? {};
     const st = statutJour(x);
-    return `<section class="pw-day"><h2>${capit(fmtLong(x))}</h2>${st && st.type !== "weekend" ? `<p><b>${esc(st.nom)}</b></p>` : `<table class="jtable"><tbody>${creneauxDuJour(x).map((s) => { const c = J[s.id] ?? {}; const f = state.fiches.find((y) => y.id === c.ficheId);
+    return `<section class="pw-day"><h2>${capit(fmtLong(x))}</h2>${evenementsDu(x).map((e) => `<p>${evtPuce(e)}</p>`).join("")}${st && st.type !== "weekend" ? `<p><b>${esc(st.nom)}</b></p>` : `<table class="jtable"><tbody>${creneauxDuJour(x).map((s) => { const c = J[s.id] ?? {}; const f = state.fiches.find((y) => y.id === c.ficheId);
       const comp = (c.competences ?? []).map((id) => compById[id]?.texte).filter(Boolean);
       return `<tr><td class="jt-time">${esc(s.debut)}–${esc(s.fin)}</td><td class="jt-disc"><b>${esc(s.discipline)}</b> ${esc(s.libelle ?? "")}</td><td>${f ? `<b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? " — " + esc(f.objectif) : ""}<br>` : ""}${c.objectif?.trim() ? `🎯 ${esc(c.objectif)}<br>` : ""}${comp.length ? `<span class="hint">${comp.map(esc).join(" · ")}</span><br>` : ""}${esc(c.notes ?? "")}${c.differenciation?.trim() ? `<br><i>Différenciation : ${esc(c.differenciation)}</i>` : ""}${c.supports?.length ? `<br>📎 ${c.supports.map((x) => esc(x.type === "lien" ? `${x.titre ? x.titre + " : " : ""}${x.url}` : x.nom)).join(" · ")}` : ""}</td></tr>`; }).join("")}</tbody></table>`}${state.journal[x]?.notes ? `<p>${esc(state.journal[x].notes)}</p>` : ""}</section>`;
   }).join("");
@@ -2973,7 +3022,7 @@ const SECTIONS = [
   { id: "tableau", ico: "🧑‍🏫", nom: "Au tableau", accueil: "outils", pages: [["outils", "Outils"], ["ressources", "Mes documents"], ["telecommande", "Télécommande"]] },
   { id: "preparer", ico: "🗓️", nom: "Préparer", accueil: "preparer", pages: [["programmations", "Programmations"], ["edt", "Emploi du temps"], ["fiches", "Fiches de prép"], ["imprimer", "À imprimer"]] },
   { id: "eleves", ico: "👧", nom: "Mes élèves", accueil: "classe", pages: [["classe", "Élèves"], ["evaluations", "Évaluations"], ["suivi", "Résultats"], ["comportement", "Comportement"], ["apc", "APC"]] },
-  { id: "moi", ico: "👤", nom: "Moi", accueil: "moi", pages: [["remplacements", "Mes remplacements"], ["calendrier", "Calendrier scolaire"], ["competences", "Compétences"], ["reglages", "Réglages et compte"], ["aide", "Installer et projeter"]], aussi: ["connexion", "admin"] },
+  { id: "moi", ico: "👤", nom: "Moi", accueil: "moi", pages: [["remplacements", "Mes remplacements"], ["calendrier", "Calendrier"], ["competences", "Compétences"], ["reglages", "Réglages et compte"], ["aide", "Installer et projeter"]], aussi: ["connexion", "admin"] },
 ];
 const sectionDe = (page) => SECTIONS.find((s) => s.accueil === page || s.pages.some(([p]) => p === page) || s.aussi?.includes(page));
 // Pages dont l'identifiant est une date ou un filtre : on garde les onglets de section.
@@ -3005,7 +3054,7 @@ function viewPreparer() {
 function viewMoi() {
   app.innerHTML = `<div class="big-cards">
       ${bigCard("#/remplacements", "🚗", "Mes remplacements", "Écoles, kilomètres, ISSR", "#ffe3ec")}
-      ${bigCard("#/calendrier", "🏖️", "Calendrier scolaire", "Vacances et jours fériés de ta zone", "#dff1ff")}
+      ${bigCard("#/calendrier", "📆", "Calendrier", "Sorties, réunions, photos, vacances", "#dff1ff")}
       ${bigCard("#/competences", "🎯", "Compétences", "Les programmes officiels", "#f4f1fb")}
       ${bigCard("#/reglages", "⚙️", "Réglages et compte", "Compte, synchro, sauvegarde, zone", "#e6f7e3")}
       ${bigCard("#/aide", "📲", "Installer et projeter", "Ordinateur, téléphone, TBI", "#fff0c2")}
@@ -3015,7 +3064,7 @@ function viewMoi() {
 }
 
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "Au tableau", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Mes élèves", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel et cantine", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Résultats de la classe", comportement: "Comportement", preparer: "Préparer", moi: "Moi", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes documents", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
+const TITLES = { accueil: "Aujourd'hui", outils: "Au tableau", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Mes élèves", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel et cantine", calendrier: "Calendrier", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Résultats de la classe", comportement: "Comportement", preparer: "Préparer", moi: "Moi", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes documents", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
