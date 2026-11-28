@@ -7,6 +7,26 @@
 import { esc, shuffle, niveauxHTML, niveauMemo, bravo, dragEtiquettes, clicApresDrag, zoomSVG, scoreHTML } from "./kit.js";
 import { PERIODES, TYPES, OEUVRES } from "../data/decouvrir/arts-oeuvres.js";
 import { VOCAB, SCHEMAS, ZONES } from "../data/decouvrir/arts-vocab.js";
+import { IMAGES_OEUVRES, IMAGES_MOTS } from "../data/decouvrir/arts-images.js";
+
+// Vraie image pour chaque mot de vocabulaire : une œuvre du musée (oe) ou l'image principale d'un article de Wikipédia (wiki).
+const MOT_IMG = {
+  portrait: { oe: "joconde" }, autoportrait: { wiki: ["Autoportrait"] }, paysage: { oe: "chasseurs" }, "nature-morte": { wiki: ["Nature morte"] },
+  chaudes: { wiki: ["Les Tournesols"] }, froides: { oe: "nuit-etoilee" }, "premier-plan": { oe: "glaneuses" }, "arriere-plan": { oe: "chasseurs" },
+  sculpture: { oe: "penseur" }, parietal: { oe: "lascaux" }, horizon: { oe: "impression" }, primaires: { wiki: ["Composition avec grand plan rouge, jaune, noir, gris et bleu", "Piet Mondrian"] },
+  mosaique: { wiki: ["Mosaïque"] }, colonne: { oe: "parthenon" }, architecture: { oe: "chambord" }, fresque: { wiki: ["La Création d'Adam"] },
+  roman: { wiki: ["Abbatiale Sainte-Foy de Conques"] }, gothique: { wiki: ["Cathédrale Notre-Dame de Chartres"] }, "plein-cintre": { oe: "pont-gard" },
+  "arc-brise": { wiki: ["Arc brisé"] }, voute: { wiki: ["Voûte"] }, "arc-boutant": { wiki: ["Arc-boutant"] }, vitrail: { wiki: ["Vitrail"] },
+  rosace: { wiki: ["Rosace"] }, "ronde-bosse": { oe: "penseur" }, "bas-relief": { wiki: ["Bas-relief"] }, perspective: { wiki: ["L'École d'Athènes"] },
+  fuite: { wiki: ["L'École d'Athènes"] }, composition: { wiki: ["Le Radeau de La Méduse"] }, "clair-obscur": { wiki: ["La Vocation de saint Matthieu", "Le Tricheur à l'as de carreau"] },
+  touche: { oe: "impression" }, symetrie: { oe: "versailles" }, fronton: { oe: "parthenon" }, estampe: { oe: "vague" }, tympan: { wiki: ["Tympan (architecture)"] },
+};
+// Objet image d'un mot : { id, wiki, emb } ; l'id est partagé avec le musée quand c'est une de ses œuvres.
+function imgMot(v) {
+  const m = MOT_IMG[v.id]; if (!m) return null;
+  if (m.oe && OE[m.oe]) return OE[m.oe];
+  return { id: "mot-" + (m.wiki[0] || v.id), cleMot: v.id, wiki: m.wiki, titre: v.mot, qui: "" };
+}
 
 const NIVS = ["CE1", "CE2", "CM1", "CM2"];
 const rang = (n) => NIVS.indexOf(n);
@@ -46,7 +66,10 @@ async function chercherCredit(fichier) {
   };
 }
 // → Promise<{ url, w, h, fichier, credit } | null>
+const embarquee = (e) => e && { url: e.src, w: e.w, h: e.h, fichier: e.fichier, emb: true, credit: { licence: e.licence || "", photo: e.photo || "", page: e.page } };
 export function imageOeuvre(o) {
+  const emb = embarquee(o.cleMot ? IMAGES_MOTS[o.cleMot] : IMAGES_OEUVRES[o.id]);
+  if (emb) return Promise.resolve(emb);
   const m = lireMemo(), c = m[o.id];
   const enLigne = navigator.onLine !== false;
   if (c && (!enLigne || Date.now() - c.t < DUREE)) {
@@ -77,14 +100,14 @@ export function imageOeuvre(o) {
   return p;
 }
 // Vignette légère : même fichier en 330 px de large (taille standard des miniatures Wikimedia).
-const vignette = (url) => (/\/thumb\/.+\/\d+px-[^/]+$/.test(url) ? url.replace(/\/(\d+)px-([^/]+)$/, "/330px-$2") : null);
+const vignette = (url) => (url.startsWith("img/") ? null : /\/thumb\/.+\/\d+px-[^/]+$/.test(url) ? url.replace(/\/(\d+)px-([^/]+)$/, "/330px-$2") : null);
 
 const repliHTML = (o, cache = false) => `<div class="ak-repli" style="--c:${PER[o.per].c};--f:${PER[o.per].fonce}"><span class="ak-repli-ico">${TYPES[o.type].ico}</span><b>${cache ? "?" : esc(o.court)}</b></div>`;
 const imgHTML = (o, { cls = "", cache = false } = {}) => `<div class="ak-img ${cls}" data-img="${o.id}"${cache ? ' data-cache="1"' : ""}>${repliHTML(o, cache)}</div>`;
 function remplirImages(root, petit = true) {
   root.querySelectorAll(".ak-img[data-img]:not([data-fait])").forEach((box) => {
     box.dataset.fait = "1";
-    const o = OE[box.dataset.img];
+    const o = OE[box.dataset.img] || box._oeuvre; if (!o) return;
     imageOeuvre(o).then((info) => {
       if (!info || !box.isConnected) return;
       const im = new Image(); im.alt = box.dataset.cache ? "Œuvre mystère" : o.titre; im.draggable = false; im.decoding = "async";
@@ -103,7 +126,7 @@ function creditHTML(o, info) {
   const pd = cr && /domaine public|public domain|^pd|cc0/i.test(cr.licence);
   const photo = !cr ? "Photo : Wikimedia Commons" : pd ? `Photo : ${esc(cr.licence)}` : `Photo : ${esc(cr.photo || "voir Commons")}${cr.licence ? ` — ${esc(cr.licence)}` : ""}`;
   const lien = sur(cr?.page, "commons.wikimedia.org") || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(info.fichier)}`;
-  return `<span>Œuvre : ${esc(auteur)}</span> · <span>${photo}</span> · <a href="${esc(lien)}" target="_blank" rel="noopener">Wikimedia Commons ↗</a>`;
+  return `${auteur ? `<span>Œuvre : ${esc(auteur)}</span> · ` : ""}<span>${photo}</span> · <a href="${esc(lien)}" target="_blank" rel="noopener">Wikimedia Commons ↗</a>`;
 }
 // Grande image zoomable (SVG + zoomSVG du kit). Retourne une fonction de nettoyage.
 function grandeImage(box, o, onCredit) {
@@ -304,9 +327,26 @@ function musee(el) {
 // ======================================================================
 // 2. LES MOTS POUR EN PARLER
 // ======================================================================
+// Remplit les vraies images des mots ([data-mimg]) ; crédit sous la grande image de l'explorateur.
+function photosMots(root, petit) {
+  root.querySelectorAll("[data-mimg]:not([data-fait])").forEach((box) => {
+    box.dataset.fait = "1";
+    const v = VOCAB.find((x) => x.id === box.dataset.mimg), o = v && imgMot(v); if (!o) return;
+    imageOeuvre(o).then((info) => {
+      const cred = root.querySelector(".ak-motcred");
+      if (!info || !box.isConnected) { if (cred) cred.innerHTML = `<span class="ak-cred-off">Photo indisponible (hors ligne ?) : le schéma la remplace.</span>`; return; }
+      const im = new Image(); im.alt = v.mot; im.draggable = false; im.decoding = "async";
+      const vg = petit && vignette(info.url);
+      im.onload = () => box.classList.add("ok");
+      im.onerror = () => { if (vg && im.src !== info.url) im.src = info.url; else im.remove(); };
+      im.src = vg || info.url; box.appendChild(im);
+      if (cred) cred.innerHTML = (OE[o.id] ? `<b>${esc(OE[o.id].titre)}</b> · ` : "") + creditHTML(OE[o.id] || o, info);
+    });
+  });
+}
 function mots(el) {
   const nm = niveauMemo("arts-mots", NIVS, "CE2");
-  let mode = "explorer", sel = null, dessins = true, tableau = "chasseurs", pl = null, finImg = null, serie = 0;
+  let mode = "explorer", sel = null, dessins = true, photos = true, tableau = "chasseurs", pl = null, finImg = null, serie = 0;
   const NB = { CE1: 4, CE2: 6, CM1: 8, CM2: 8 };
   const liste = () => auNiveau(VOCAB, nm.get());
   el.innerHTML = `
@@ -325,12 +365,14 @@ function mots(el) {
       <div class="explore ak-mots">
         <div class="ak-motsgrille rc-board">${l.map((x) => `<button class="ak-mot ${x === v ? "on" : ""}" data-mot="${x.id}">${SCHEMAS[x.id] || ""}<span>${esc(x.mot)}</span>${x.niv === nm.get() && nm.get() !== "CE1" ? `<i class="ak-new">nouveau</i>` : ""}</button>`).join("")}</div>
         <aside class="explore-card ak-motcarte">
-          <div class="ak-grandschema">${SCHEMAS[v.id] || ""}</div>
+          ${imgMot(v) ? `<div class="ak-img ak-motphoto" data-mimg="${v.id}"><div class="ak-repli ak-repli-schema">${SCHEMAS[v.id] || ""}</div></div><p class="ak-credit ak-motcred"></p>` : ""}
+          <div class="ak-grandschema ${imgMot(v) ? "petit" : ""}">${SCHEMAS[v.id] || ""}</div>
           <h3>${esc(v.mot)}</h3>
           <p class="ak-def">${esc(v.def)}</p>
           ${exs.length ? `<h4 class="ak-h4">🖼️ Pour l'observer</h4><div class="ak-exs">${exs.map((o) => `<button class="ak-ex" data-voir="${o.id}">${imgHTML(o, { cls: "mini" })}<span>${esc(o.court)}</span></button>`).join("")}</div>` : ""}
         </aside>
       </div>`;
+    photosMots(vue, false);
     remplirImages(vue);
   };
 
@@ -341,16 +383,17 @@ function mots(el) {
     const a = neufs.slice(0, Math.ceil(n / 2)), b = anciens.slice(0, n - a.length);
     const pris = shuffle([...a, ...b, ...neufs.slice(a.length, n - b.length)]);
     vue.innerHTML = `
-      <div class="ak-jeu rc-board ${dessins ? "" : "sans-dessins"}">
+      <div class="ak-jeu rc-board ${dessins ? "" : "sans-dessins"} ${photos ? "" : "sans-photos"}">
         <p class="ak-consigne">Place chaque mot sur sa définition (glisse l'étiquette, ou touche le mot puis la case).</p>
         <div class="ak-banque dk-banque" data-cible data-v="">${shuffle(pris).map((x) => `<button class="dk-etq" data-etq data-v="${x.id}">${esc(x.mot)}</button>`).join("")}</div>
-        <div class="ak-defs">${pris.map((x) => `<div class="ak-defc" data-cible data-v="${x.id}"><div class="ak-defschema">${SCHEMAS[x.id] || ""}</div><p>${esc(x.def)}</p><div class="ak-slot"></div></div>`).join("")}</div>
+        <div class="ak-defs">${pris.map((x) => `<div class="ak-defc" data-cible data-v="${x.id}">${imgMot(x) ? `<div class="ak-img ak-defphoto" data-mimg="${x.id}"><div class="ak-repli ak-repli-schema">${SCHEMAS[x.id] || ""}</div></div>` : ""}<div class="ak-defschema">${SCHEMAS[x.id] || ""}</div><p>${esc(x.def)}</p><div class="ak-slot"></div></div>`).join("")}</div>
       </div>
       <div class="tool-top wrap rc-keep ak-actions">
-        <label class="check rc-keep"><input type="checkbox" id="akdes" ${dessins ? "checked" : ""}> 🖍️ Dessins</label>
+        <label class="check rc-keep"><input type="checkbox" id="akpho" ${photos ? "checked" : ""}> 📷 Photos</label><label class="check rc-keep"><input type="checkbox" id="akdes" ${dessins ? "checked" : ""}> 🖍️ Dessins</label>
         <button class="big-btn rc-keep" data-act="verif">✔ Vérifier</button><button class="pill rc-keep" data-act="sol">💡 Solution</button><button class="pill rc-keep" data-act="nouv">🔄 Nouvelle série</button>
       </div><div id="akres" class="center"></div>`;
     pl = placeur(vue.querySelector(".ak-jeu"));
+    photosMots(vue, true);
   };
 
   const surOeuvre = () => {
@@ -419,7 +462,8 @@ function mots(el) {
     if (a === "nouv") associer();
     if (a === "refaire") surOeuvre();
   };
-  el.onchange = (e) => { if (e.target.id === "akdes") { dessins = e.target.checked; vue.querySelector(".ak-jeu")?.classList.toggle("sans-dessins", !dessins); } };
+  el.onchange = (e) => { if (e.target.id === "akpho") { photos = e.target.checked; vue.querySelector(".ak-jeu")?.classList.toggle("sans-photos", !photos); }
+    if (e.target.id === "akdes") { dessins = e.target.checked; vue.querySelector(".ak-jeu")?.classList.toggle("sans-dessins", !dessins); } };
   dessiner();
   return () => stop();
 }
