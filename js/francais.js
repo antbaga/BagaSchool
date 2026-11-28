@@ -71,11 +71,13 @@ export const ETQ_NIVEAUX = [
   A("CM1", "ces / ses", "trous", "Léo range [ses] affaires.\n[Ces] fleurs sentent bon.\nLe chat lèche [ses] pattes."),
   A("CM1", "ce / se", "trous", "Le chat [se] cache sous le lit.\n[Ce] livre est passionnant.\nIls [se] lavent les mains."),
   A("CM1", "la / là / l'a", "trous", "Ferme [la] porte.\nSon vélo ? Il [l'a] réparé hier.\nJe t'attends [là]."),
+  A("CM1", "c'est / s'est", "trous", "[C'est] mon anniversaire !\nIl [s'est] levé très tôt.\nLe vase [s'est] cassé et [c'est] dommage."),
+  A("CM1", "Homophones mélangés", "trous", "Mes cousins [ont] passé l'été [à] la mer.\n[On] a vu que le chat [s'est] caché.\nLéa [a] perdu [son] écharpe [et] elle [est] triste.\n[C'est] l'heure : les élèves [sont] prêts.", "a, à, ont, est, sont, s'est"),
   A("CM1", "Les classes de mots", "tri", "Noms : forêt, courage, Paris\nVerbes : partir, avons, finissait\nAdjectifs : immense, sombre, heureux\nDéterminants : cette, leurs, quelques\nPronoms : il, nous, elles"),
   A("CM1", "Mots invariables", "tri", "Adverbes : lentement, toujours, ici\nConjonctions de coordination : mais, ou, et, donc, or, ni, car"),
   A("CM1", "Accorder dans le groupe nominal", "trous", "Des chevaux [blancs] galopent.\nUne [grande] maison [blanche].\nLes [vieux] arbres sont [immenses].", "blanc, grand, blanches, vieille, immense"),
   // CM2
-  A("CM2", "c'est / s'est", "trous", "[C'est] mon anniversaire !\nIl [s'est] levé très tôt.\nLe vase [s'est] cassé et [c'est] dommage."),
+  A("CM2", "Homophones mélangés", "trous", "Ils [ont] dit qu'[on] partirait [à] midi.\nLe chien [s'est] sauvé : [c'est] la troisième fois.\nMes amis [sont] venus [et] ils [ont] apporté [leurs] jeux.\nOù [est] passé le ballon qu'il [a] reçu ?", "à, a, on, s'est, c'est, son, est, et, leur"),
   A("CM2", "leur / leurs", "trous", "Les élèves rangent [leurs] cahiers.\nJe [leur] parle tous les jours.\nLes oiseaux construisent [leur] nid."),
   A("CM2", "Participe passé avec être", "trous", "Elles sont [parties] tôt.\nMon frère est [tombé] de vélo.\nLes lettres sont [arrivées] hier.", "parti, partis, tombée, arrivés"),
   A("CM2", "Mots variables ou invariables ?", "tri", "Variables : nuage, lumineux, leurs, chantions, nous\nInvariables : lentement, pourtant, malgré, mais, hier"),
@@ -93,10 +95,14 @@ function mots(el) {
   garder();
   let niv = niveauJeux(), cle = null, edition = false, choisie = null, verif = false, place = {}, banque = [], trous = [], cats = [];
   const duNiveau = () => ETQ_NIVEAUX.filter((a) => a.niv === niv);
-  // cle : "n3" (3e activité du niveau) ou "p<id>" (activité de l'enseignante)
+  // Révisions : les homophones des niveaux précédents restent proposés (a / à, on / ont… jusqu'au CM2).
+  const estHomo = (a) => a.mode === "trous" && / \/ /.test(a.nom);
+  const revisions = () => ETQ_NIVEAUX.map((a, j) => [a, j]).filter(([a]) => rang(a.niv) < rang(niv) && estHomo(a) && !duNiveau().some((b) => b.nom === a.nom));
+  // cle : "n3" (3e activité du niveau), "r12" (révision, index dans ETQ_NIVEAUX) ou "p<id>" (activité de l'enseignante)
   const S = () => {
     if (cle?.startsWith("p")) { const p = perso.find((x) => "p" + x.id === cle); if (p) return p; }
     if (cle?.startsWith("n")) { const a = duNiveau()[+cle.slice(1)]; if (a) return a; }
+    if (cle?.startsWith("r")) { const a = ETQ_NIVEAUX[+cle.slice(1)]; if (a && revisions().some(([, j]) => j === +cle.slice(1))) return a; }
     cle = "n0"; return duNiveau()[0];
   };
   const estPerso = () => cle?.startsWith("p");
@@ -165,6 +171,7 @@ function mots(el) {
         ${segNiveau(niv)}
         <select id="set" aria-label="Activité">
           <optgroup label="Activités ${niv}">${duNiveau().map((a, j) => `<option value="n${j}" ${cle === "n" + j ? "selected" : ""}>${escF(a.nom)}</option>`).join("")}</optgroup>
+          ${revisions().length ? `<optgroup label="Révisions des homophones">${revisions().map(([a, j]) => `<option value="r${j}" ${cle === "r" + j ? "selected" : ""}>${escF(a.nom)} (${a.niv})</option>`).join("")}</optgroup>` : ""}
           ${perso.length ? `<optgroup label="Mes activités">${perso.map((p) => `<option value="p${p.id}" ${cle === "p" + p.id ? "selected" : ""}>${escF(p.nom)}</option>`).join("")}</optgroup>` : ""}
         </select>
       </div>
@@ -268,7 +275,7 @@ export const HOMOPHONES = [
   { id: "ce", nom: "ce / se", mots: ["ce", "se"], des: "CM1",
     astuce: "« se » est devant un verbe : on peut dire « me » à la place (il se lave, je me lave). « ce » est devant un nom : on peut dire « cette ».",
     phrases: ["Le chat [se] cache sous le lit.", "[Ce] livre est passionnant.", "Ils [se] lavent les mains.", "J'aime [ce] dessin.", "Elle [se] lève tôt.", "[Ce] matin, il pleut.", "Le soleil [se] couche.", "Regarde [ce] bateau !", "Les enfants [se] mettent en rang.", "Qui a cassé [ce] verre ?"] },
-  { id: "cest", nom: "c'est / s'est", mots: ["c'est", "s'est"], des: "CM2",
+  { id: "cest", nom: "c'est / s'est", mots: ["c'est", "s'est"], des: "CM1",
     astuce: "« c'est » veut dire « cela est ». « s'est » est devant un participe passé : à la 1re personne, on dirait « je me suis ».",
     phrases: ["[C'est] mon anniversaire !", "Il [s'est] levé très tôt.", "[C'est] une belle journée.", "Le chien [s'est] sauvé.", "Regarde, [c'est] la neige !", "Paul [s'est] trompé de chemin.", "[C'est] à toi de jouer.", "Le vase [s'est] cassé.", "Je crois que [c'est] fini.", "Mon cousin [s'est] endormi dans la voiture."] },
   { id: "leur", nom: "leur / leurs", mots: ["leur", "leurs"], des: "CM2",
