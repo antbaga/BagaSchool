@@ -59,7 +59,8 @@
    "id": "chasseurs",
    "wiki": [
     "Chasseurs dans la neige",
-    "Les Chasseurs dans la neige"
+    "Les Chasseurs dans la neige",
+    "en:The Hunters in the Snow"
    ]
   },
   {
@@ -97,7 +98,7 @@
    "id": "nuit-etoilee",
    "wiki": [
     "La Nuit étoilée",
-    "La Nuit étoilée (Van Gogh, juin 1889)"
+    "en:The Starry Night"
    ]
   },
   {
@@ -123,7 +124,7 @@
    "id": "danse",
    "wiki": [
     "La Danse (Matisse)",
-    "La Danse (Henri Matisse)"
+    "en:Dance (Matisse)"
    ]
   }
  ],
@@ -131,12 +132,15 @@
   {
    "id": "autoportrait",
    "wiki": [
+    "Autoportrait à la fourrure",
+    "en:Self-Portrait (Dürer, Munich)",
     "Autoportrait"
    ]
   },
   {
    "id": "nature-morte",
    "wiki": [
+    "en:The Basket of Apples",
     "Nature morte"
    ]
   },
@@ -204,7 +208,8 @@
   {
    "id": "rosace",
    "wiki": [
-    "Rosace"
+    "Rosace (architecture)",
+    "en:Rose window"
    ]
   },
   {
@@ -241,7 +246,7 @@
   {
    "id": "tympan",
    "wiki": [
-    "Tympan (architecture)"
+    "en:Tympanum (architecture)"
    ]
   }
  ]

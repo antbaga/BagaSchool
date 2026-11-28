@@ -37,11 +37,15 @@ def brut(s):
 
 def cherche(titres, largeur):
     for t in titres:
-        j = api("https://fr.wikipedia.org/w/api.php", action="query", redirects="1", prop="pageimages", piprop="name", titles=t)
-        pages = j.get("query", {}).get("pages", [])
-        if not pages or pages[0].get("missing") or not pages[0].get("pageimage"):
-            continue
-        fichier = pages[0]["pageimage"]
+        if t.startswith("file:"):  # fichier Commons donné directement
+            fichier, article = t[5:], t[5:]
+        else:
+            wiki, titre = ("en", t[3:]) if t.startswith("en:") else ("fr", t)
+            j = api(f"https://{wiki}.wikipedia.org/w/api.php", action="query", redirects="1", prop="pageimages", piprop="name", titles=titre)
+            pages = j.get("query", {}).get("pages", [])
+            if not pages or pages[0].get("missing") or not pages[0].get("pageimage"):
+                continue
+            fichier, article = pages[0]["pageimage"], (wiki + ":" if wiki != "fr" else "") + pages[0]["title"]
         c = api("https://commons.wikimedia.org/w/api.php", action="query", prop="imageinfo",
                 iiprop="url|size|extmetadata", iiurlwidth=str(largeur), titles="File:" + fichier)
         cp = c.get("query", {}).get("pages", [])
@@ -49,7 +53,7 @@ def cherche(titres, largeur):
             continue  # fichier local à fr.wikipedia (souvent non libre) : ignoré
         ii = cp[0]["imageinfo"][0]
         m = ii.get("extmetadata", {})
-        return {"article": pages[0]["title"], "fichier": fichier, "url": ii.get("thumburl") or ii["url"],
+        return {"article": article, "fichier": fichier, "url": ii.get("thumburl") or ii["url"],
                 "page": ii.get("descriptionurl"), "licence": brut(m.get("LicenseShortName", {}).get("value")),
                 "licenceUrl": brut(m.get("LicenseUrl", {}).get("value")), "photo": brut(m.get("Artist", {}).get("value"))[:160]}
     return None
