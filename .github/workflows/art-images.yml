@@ -1,0 +1,28 @@
+# Télécharge les images d'œuvres depuis Wikimedia Commons et les commite sur la branche.
+# (Les sessions de développement n'ont pas accès à Wikimedia.) Se lance quand la liste ou le script
+# change sur une branche claude/*, ou à la main depuis l'onglet Actions.
+name: art-images
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: ["tools/art-images.json", "tools/fetch_art_images.py", ".github/workflows/art-images.yml"]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow
+      - run: python tools/fetch_art_images.py
+      - name: Commit images
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add img/arts js/data/decouvrir/arts-images.js tools/art-images-rapport.md
+          git diff --cached --quiet || git commit -m "Art images from Wikimedia Commons (automated)"
+          git push

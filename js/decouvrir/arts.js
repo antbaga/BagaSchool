@@ -2,8 +2,8 @@
 // 1. Musée de la classe : galerie par période, fiche d'œuvre projetable, image zoomable ; jeu « Œuvre mystère ».
 // 2. Les mots pour en parler : vocabulaire illustré de schémas SVG originaux ; associer mot ↔ définition ; étiquettes sur l'œuvre.
 // 3. Qui a fait quoi ? : quiz œuvre ↔ artiste ↔ période, et frise à compléter.
-// Images : chargées par le navigateur depuis fr.wikipedia.org (image principale de l'article) + crédits Wikimedia Commons,
-// mémorisées dans localStorage. Repli propre (carte illustrée) si hors ligne ou si l'image manque : tout reste utilisable.
+// Images : embarquées dans l'app (img/arts, téléchargées depuis Wikimedia Commons par le workflow art-images, crédits dans
+// js/data/decouvrir/arts-images.js) ; à défaut, chargées par le navigateur depuis fr.wikipedia.org et mémorisées dans localStorage. Repli propre (carte illustrée) si hors ligne ou si l'image manque : tout reste utilisable.
 import { esc, shuffle, niveauxHTML, niveauMemo, bravo, dragEtiquettes, clicApresDrag, zoomSVG, scoreHTML } from "./kit.js";
 import { PERIODES, TYPES, OEUVRES } from "../data/decouvrir/arts-oeuvres.js";
 import { VOCAB, SCHEMAS, ZONES } from "../data/decouvrir/arts-vocab.js";
@@ -35,7 +35,7 @@ const PER = Object.fromEntries(PERIODES.map((p) => [p.id, p]));
 const OE = Object.fromEntries(OEUVRES.map((o) => [o.id, o]));
 const minus = (t) => t.charAt(0).toLowerCase() + t.slice(1);
 const chrono = (l) => [...l].sort((a, b) => a.an - b.an);
-const SOURCE = `Photos : Wikipédia et Wikimedia Commons (auteur et licence sous chaque image). Textes et schémas : BagaSchool. Repères : programmes 2026.`;
+const SOURCE = `Photos : Wikimedia Commons (auteur et licence sous chaque image). Textes et schémas : BagaSchool. Repères : programmes 2026.`;
 const OUVRIR = "bagaschool-arts-ouvrir";
 
 // ---------- Images (Wikipédia → Commons), avec cache localStorage ----------
@@ -215,7 +215,14 @@ function musee(el) {
       <div class="seg rc-keep" data-grp="mode"><button data-mode="galerie" class="on">🖼️ Galerie</button><button data-mode="mystere">🔎 Œuvre mystère</button></div>
     </div>
     <div class="ak-vue" id="akv"></div>
-    <p class="dk-source">${SOURCE}</p>`;
+    <p class="dk-source">${SOURCE} ${Object.keys(IMAGES_OEUVRES).length ? `<button class="pill rc-keep" id="akhl">📥 Garder toutes les images hors ligne</button>` : ""}</p>`;
+  el.addEventListener("click", async (e) => {
+    const b = e.target.closest?.("#akhl"); if (!b) return;
+    const srcs = [...new Set([...Object.values(IMAGES_OEUVRES), ...Object.values(IMAGES_MOTS)].map((x) => x.src))];
+    b.disabled = true; let n = 0;
+    for (const s of srcs) { try { await fetch(s); } catch {} b.textContent = `📥 ${++n} / ${srcs.length}…`; }
+    b.textContent = "✅ Images gardées pour la classe hors ligne";
+  });
   const vue = el.querySelector("#akv");
   const stopImg = () => { finImg?.(); finImg = null; };
 
