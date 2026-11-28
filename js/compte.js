@@ -33,6 +33,8 @@ export function messageErreur(e) {
   if (/rate limit|too many/i.test(m)) return "Trop d'essais. Réessaie dans quelques minutes.";
   if (/failed to fetch|network|load failed/i.test(m)) return "Pas de connexion internet. Réessaie quand tu es en ligne.";
   if (/ADMIN_SEULEMENT/.test(m)) return "Réservé à l'administratrice.";
+  if (/TROP_DE_PARTAGES/.test(m)) return "Tu as déjà 30 liens de partage actifs. Supprimes-en un pour en créer un nouveau.";
+  if (/creer_partage|lire_partage|relation .*partages/i.test(m)) return "Le partage n'est pas encore activé sur le serveur (script supabase/partages.sql à lancer).";
   return m || "Erreur inconnue.";
 }
 const verif = ({ data, error }) => { if (error) throw error; return data; };
@@ -106,6 +108,14 @@ export const admin = {
   async motDePasseProvisoire(userId) { const c = await client(); return verif(await c.rpc("reinitialiser_mot_de_passe", { p_user: userId })); },
   async avis() { const c = await client(); return verif(await c.from("avis").select("*").order("cree_le", { ascending: false }).limit(300)); },
   async marquerAvis(id, traite) { const c = await client(); verif(await c.from("avis").update({ traite }).eq("id", id)); },
+};
+
+// ---------- liens « Partager ma journée » (contenu déjà chiffré par partage.js) ----------
+export const partages = {
+  async creer(contenu, heures, jour) { const c = await client(); return verif(await c.rpc("creer_partage", { p_contenu: contenu, p_heures: heures, p_jour: jour || null })); },
+  async lire(id) { const c = await client(); const rows = verif(await c.rpc("lire_partage", { p_id: id })); return rows?.[0] ?? null; },
+  async miens() { const c = await client(); return verif(await c.from("partages").select("id, jour, expire_le, cree_le").gt("expire_le", new Date().toISOString()).order("cree_le", { ascending: false })); },
+  async supprimer(id) { const c = await client(); verif(await c.from("partages").delete().eq("id", id)); },
 };
 
 // ---------- transport de synchronisation (utilisé par sync.js) ----------
