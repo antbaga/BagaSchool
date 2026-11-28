@@ -569,7 +569,7 @@ function conversions(el) {
       const total = resultats.filter((r) => r.ok).length;
       el.innerHTML = `${tete}<div class="tool-center mes-fin rc-board">
         <div class="mes-score-big">${equipes === 2 ? `Équipe 1${NB}: ${scores[0]} · Équipe 2${NB}: ${scores[1]}` : `⭐ ${total} / ${serie.length}`}</div>
-        <div class="banner ok">${equipes === 2 ? (scores[0] === scores[1] ? "Égalité ! 🤝" : `L'équipe ${scores[0] > scores[1] ? 1 : 2} gagne ! 🎉`) : total === serie.length ? "Sans faute, bravo ! 🎉" : total >= 7 ? "Très bien ! 👏" : "Continue à t'entraîner, tu progresses ! 💪"}</div>
+        <div class="banner ok" ${equipes === 2 ? (scores[0] !== scores[1] ? "data-fete" : "") : total === serie.length ? "data-fete" : ""}>${equipes === 2 ? (scores[0] === scores[1] ? "Égalité ! 🤝" : `L'équipe ${scores[0] > scores[1] ? 1 : 2} gagne ! 🎉`) : total === serie.length ? "Sans faute, bravo ! 🎉" : total >= 7 ? "Très bien ! 👏" : "Continue à t'entraîner, tu progresses ! 💪"}</div>
         ${err.length ? `<p class="mes-aide">À revoir${NB}:</p><ul class="mes-revoir">${err.map((r) => `<li>${r.q.correction}</li>`).join("")}</ul>` : ""}
         <button type="button" class="big-btn" id="mesNew2">↻ Rejouer</button></div>`;
       return;

@@ -2,6 +2,8 @@
 // Chaque activité : { id, nom, icone, couleur, desc, niveaux:["CE2","CM1"], theme, mount(el, ctx) -> cleanup? }
 // Aucun module ne doit toucher au DOM hors de `el` (sauf le fantôme de glisser-déposer, retiré au cleanup).
 
+import { fete } from "../anim.js";
+
 export const NIVEAUX = ["CP", "CE1", "CE2", "CM1", "CM2"];
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -29,8 +31,9 @@ export function niveauMemo(id, dispo, defaut) {
 
 export const scoreHTML = (ok, total) => `<p class="score">Score : <b>${ok}</b> / ${total}</p>`;
 
-// Petite fête à l'écran quand tout est juste (respecte prefers-reduced-motion).
+// Petite fête à l'écran quand tout est juste (confettis discrets, respecte le réglage des animations).
 export function bravo(el, texte = "Bravo !") {
+  fete();
   const b = document.createElement("div");
   b.className = "dk-bravo"; b.textContent = `🎉 ${texte}`;
   el.appendChild(b);

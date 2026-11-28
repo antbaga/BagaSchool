@@ -112,7 +112,7 @@ function memory(el, ctx) {
       <div class="tool-top wrap"><button class="pill" id="back">← Réglages</button>
         ${equipes === 2 ? [0, 1].map((q) => `<span class="mem-team t${q} ${tour === q && !fini ? "on" : ""}">Équipe ${q + 1} : ${scores[q]}</span>`).join("") : `<span class="muted">Essais : ${essais} · Paires : ${scores[0]} / ${cartes.length / 2}</span>`}
         <span class="grow"></span><button class="pill" id="again">↻ Rejouer</button></div>
-      ${fini ? `<div class="banner ok">${equipes === 2 ? (scores[0] === scores[1] ? "Égalité ! 🤝" : `L'équipe ${scores[0] > scores[1] ? 1 : 2} gagne ! 🎉`) : `Bravo ! Toutes les paires en ${essais} essais 🎉`}</div>` : ""}
+      ${fini ? `<div class="banner ok" data-fete>${equipes === 2 ? (scores[0] === scores[1] ? "Égalité ! 🤝" : `L'équipe ${scores[0] > scores[1] ? 1 : 2} gagne ! 🎉`) : `Bravo ! Toutes les paires en ${essais} essais 🎉`}</div>` : ""}
       <div class="mem-grid rc-board" style="--cols:${cols}">${cartes.map((c, k) => `<button class="mem-card ${c.ok ? "ok" : ouvertes.includes(k) ? "open" : ""}" data-k="${k}" ${c.ok ? "disabled" : ""}><span>${c.ok || ouvertes.includes(k) ? esc(c.txt) : ""}</span></button>`).join("")}</div>`;
   };
   el.onclick = (e) => {
@@ -169,7 +169,7 @@ function motsmeles(el, ctx) {
     el.innerHTML = `
       <div class="tool-top wrap"><button class="pill" id="back">← Mots</button><span class="muted">${trouves.size} / ${jeu.places.length} trouvés</span><span class="grow"></span>
         <button class="pill" id="sol">${solution ? "Cacher" : "Voir"} la solution</button><button class="pill" id="go">↻ Nouvelle grille</button></div>
-      ${fini ? `<div class="banner ok">Tous les mots sont trouvés ! 🎉</div>` : `<p class="muted center">Touche la première lettre d'un mot, puis la dernière.</p>`}
+      ${fini ? `<div class="banner ok" data-fete>Tous les mots sont trouvés ! 🎉</div>` : `<p class="muted center">Touche la première lettre d'un mot, puis la dernière.</p>`}
       <div class="mm-wrap">
         <div class="mm-grid rc-board" style="--n:${taille}">${jeu.grille.map((row, r) => row.map((l, c) => { const k = cellTrouvee(r, c); return `<button class="mm-cell ${k >= 0 ? `f f${k % 6}` : ""} ${debut && debut[0] === r && debut[1] === c ? "start" : ""}" data-rc="${r},${c}">${l}</button>`; }).join("")).join("")}</div>
         <ul class="mm-list">${jeu.places.map((p, k) => `<li class="${trouves.has(k) ? "done" : ""}">${esc(p.mot)}</li>`).join("")}</ul>
@@ -286,7 +286,7 @@ function tables(el) {
     el.innerHTML = `
       <div class="tool-center">
         <div class="calc-q">⭐ ${score} bonne${score > 1 ? "s" : ""} réponse${score > 1 ? "s" : ""}</div>
-        ${err.length ? `<p>À revoir :</p><div class="pills">${err.map((x) => `<span class="pill">${x.a} × ${x.b} = ${x.a * x.b}</span>`).join("")}</div>` : `<div class="banner ok">Aucune erreur ! 🎉</div>`}
+        ${err.length ? `<p>À revoir :</p><div class="pills">${err.map((x) => `<span class="pill">${x.a} × ${x.b} = ${x.a * x.b}</span>`).join("")}</div>` : `<div class="banner ok" data-fete>Aucune erreur ! 🎉</div>`}
         <div class="pills"><button class="pill" id="back">Réglages</button><button class="big-btn" id="go">Rejouer</button></div>
       </div>`;
   };

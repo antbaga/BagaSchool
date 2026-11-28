@@ -329,7 +329,7 @@ function express(el) {
     if (fini) {
       el.innerHTML = tete + `<div class="tool-center rc-board cj-zone">
         <div class="cj-score">⭐ ${score} / ${serie.length}</div>
-        ${err.length ? `<p class="cj-revoir-t">À revoir :</p><div class="cj-revoir">${err.map((r) => `<p>${r}</p>`).join("")}</div>` : `<div class="banner ok">Aucune erreur ! 🎉</div>`}
+        ${err.length ? `<p class="cj-revoir-t">À revoir :</p><div class="cj-revoir">${err.map((r) => `<p>${r}</p>`).join("")}</div>` : `<div class="banner ok" data-fete>Aucune erreur ! 🎉</div>`}
         <button class="big-btn" id="go">Rejouer</button></div>`;
       return;
     }

@@ -110,11 +110,11 @@ function anglais(el) {
     if (jeu === "memory") {
       const fini = st.trouve.size === st.cartes.length / 2;
       return `<div class="en-mem rc-board">${st.cartes.map((c, k) => { const ouvert = st.ouv.includes(k) || st.trouve.has(c.k); return `<button class="en-carte ${ouvert ? "ouv" : ""} ${st.trouve.has(c.k) ? "ok" : ""}" data-c="${k}">${ouvert ? (c.face === "mot" ? `<span class="en-mot">${esc(c.it[0])}</span>` : imageHTML(c.it)) : "?"}</button>`; }).join("")}</div>
-        <p class="center">${fini ? `<b>Well done!</b> ${st.coups} coups.` : `<span class="muted">${st.coups} coups. Chaque carte retournée dit son mot.</span>`}</p>`;
+        <p class="center">${fini ? `<b data-fete>Well done!</b> ${st.coups} coups.` : `<span class="muted">${st.coups} coups. Chaque carte retournée dit son mot.</span>`}</p>`;
     }
     if (jeu === "morpion") {
       const eqs = ["❌", "⭕"];
-      return `<p class="center en-tour">${st.gagne ? (st.gagne === "nul" ? "Match nul !" : `L'équipe ${eqs[st.gagne - 1]} a gagné !`) : `À l'équipe ${eqs[st.tour]} de choisir une case et de dire le mot.`}</p>
+      return `<p class="center en-tour" ${st.gagne && st.gagne !== "nul" ? "data-fete" : ""}>${st.gagne ? (st.gagne === "nul" ? "Match nul !" : `L'équipe ${eqs[st.gagne - 1]} a gagné !`) : `À l'équipe ${eqs[st.tour]} de choisir une case et de dire le mot.`}</p>
         <div class="en-morpion">${st.cases.map((c, k) => `<button class="en-case ${st.sel === k ? "sel" : ""} ${c.eq != null ? "eq" + c.eq : ""}" data-m="${k}" ${c.eq != null || st.gagne ? "disabled" : ""}>${c.eq != null ? `<span class="en-pion">${eqs[c.eq]}</span>` : ""}${imageHTML(c.it)}${motHTML(c.it)}</button>`).join("")}</div>
         ${st.sel != null && !st.gagne ? `<div class="pills"><button class="big-btn soft" id="msay">🔊 Écouter</button><button class="big-btn" id="mok">✔ Bonne réponse</button><button class="big-btn soft" id="mko">✘ Raté, équipe suivante</button></div>` : ""}`;
     }

@@ -96,19 +96,25 @@ function tirage(el, ctx) {
       if (noRepeat && !reste.length) reste = [...pool];
       const src = noRepeat ? reste : pool;
       const pick = src[rnd(src.length)];
-      const nm = el.querySelector("#nm"); let k = 0; t.disabled = true; clearInterval(anim);
-      anim = setInterval(() => {
-        nm.textContent = pool[rnd(pool.length)]; nm.classList.remove("pop"); bip(400 + k * 20, .04);
-        if (++k > 14) {
-          clearInterval(anim); nm.textContent = pick; nm.classList.add("pop"); bip(990, .3); t.disabled = false;
+      // Le nom défile de plus en plus lentement (comme une roue qui ralentit), puis se pose.
+      const nm = el.querySelector("#nm"); let k = 0; t.disabled = true; clearTimeout(anim);
+      const N = 14, ecrire = (s) => { nm.innerHTML = `<span class="nm-t">${ctx.esc(s)}</span>`; };
+      nm.classList.remove("pop"); nm.classList.add("roule");
+      const tour = () => {
+        let s; do { s = pool[rnd(pool.length)]; } while (pool.length > 1 && s === nm.textContent);
+        ecrire(s); bip(400 + k * 20, .04);
+        if (++k < N) { anim = setTimeout(tour, 45 + 0.9 * k * k); return; }
+        anim = setTimeout(() => {
+          ecrire(pick); nm.classList.remove("roule"); void nm.offsetWidth; nm.classList.add("pop"); bip(990, .3); t.disabled = false;
           if (noRepeat) reste.splice(reste.indexOf(pick), 1);
           drawn.unshift(pick); upd();
-        }
-      }, 70);
+        }, 260);
+      };
+      tour();
     }
   };
   el.onchange = upd;
-  return () => clearInterval(anim);
+  return () => clearTimeout(anim);
 }
 function noPupils(el) {
   el.innerHTML = `<div class="tool-center"><div class="empty-big">👧🧒</div><p>Ajoute d'abord les prénoms de tes élèves dans <a href="#/classe">Mes élèves</a>.</p></div>`;

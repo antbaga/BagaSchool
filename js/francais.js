@@ -315,7 +315,7 @@ function homophones(el) {
       const err = reponses.filter((r) => !r.ok);
       el.innerHTML = tete + `<div class="tool-center rc-board">
         <div class="calc-q homo-score">⭐ ${score} / ${reponses.length}</div>
-        ${err.length ? `<p class="homo-revoir-t">À revoir :</p><div class="homo-revoir">${err.map((r) => `<p>${escF(r.p).replace(/\[([^\]]+)\]/g, "<b>$1</b>")}</p>`).join("")}</div>` : `<div class="banner ok">Aucune erreur ! 🎉</div>`}
+        ${err.length ? `<p class="homo-revoir-t">À revoir :</p><div class="homo-revoir">${err.map((r) => `<p>${escF(r.p).replace(/\[([^\]]+)\]/g, "<b>$1</b>")}</p>`).join("")}</div>` : `<div class="banner ok" data-fete>Aucune erreur ! 🎉</div>`}
         <button class="big-btn" id="go">Rejouer</button></div>`;
       return;
     }

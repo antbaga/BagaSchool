@@ -4,12 +4,13 @@
 import { REGIONS, TERRES } from "./data/geo.js";
 import { chargerImage, dessinerSphere, figer, disqueAnneaux, dessinerAnneaux } from "./sphere.js";
 import { CLIMAT } from "./decouvrir/climat.js";
+import { moinsAnim } from "./anim.js";
 
 const TAU = Math.PI * 2;
 const rad = (d) => (d * Math.PI) / 180;
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 function loop(fn) { let id, last = performance.now(); const f = (t) => { fn(Math.min(0.05, (t - last) / 1000), t); last = t; id = requestAnimationFrame(f); }; id = requestAnimationFrame(f); return () => cancelAnimationFrame(id); }
-const reduced = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const reduced = moinsAnim;
 
 // ---------- Système solaire ----------
 // Textures : Solar System Scope (INOVE), CC BY 4.0, d'après les données de la NASA. Voir img/planetes/CREDITS.md.
