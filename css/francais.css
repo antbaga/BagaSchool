@@ -44,3 +44,42 @@
 .acc-vi-mot{font-size:clamp(48px,11vmin,120px);font-weight:900;padding:.1em .6em;border-radius:24px;background:#fff;box-shadow:var(--shadow)}
 .acc-vi-mot.good{background:#dff3e6}.acc-vi-mot.bad{background:#ffe3e7}
 .homo-mot.bad s{opacity:.55;font-weight:700;margin-right:.1em}
+
+/* Lecture chronométrée (js/fluence.js) */
+.flu-opts .pill.on{background:var(--primary);color:#fff}
+.flu-zone{width:min(1100px,100%);margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.flu-titre{margin:4px 0 0;text-align:center;font-size:clamp(20px,3vmin,32px)}
+.flu-texte{font-size:calc(clamp(20px,3.2vmin,36px) * var(--flu-taille,1));line-height:1.75;font-weight:700;background:#fff;border-radius:18px;padding:18px 22px;box-shadow:var(--shadow);text-align:left;user-select:none;-webkit-user-select:none}
+.flu-m{border-radius:8px;padding:0 .06em}
+.flu-texte.lecture .flu-m,.flu-texte.dernier .flu-m{cursor:pointer}
+.flu-m.err{background:#ffd0dc;color:#b3233a;text-decoration:line-through;text-decoration-thickness:2px}
+.flu-m.apres{color:#c2bccf}
+.flu-m.dern{background:var(--primary);color:#fff;box-shadow:0 0 0 3px #cfc8f2}
+.flu-p{color:var(--ink)}
+.flu-rep{font-size:.45em;color:var(--muted);font-weight:800;margin-left:1px}
+.flu-progress{height:8px;border-radius:4px;background:#e8e3f6;overflow:hidden}
+.flu-progress div{height:100%;background:var(--primary);transition:width .2s linear}
+.flu-progress.cache,.flu-chrono.cache{visibility:hidden}
+.flu-actions{position:sticky;bottom:0;z-index:2;background:#fffc;backdrop-filter:blur(4px);padding:8px;border-radius:16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.flu-chrono{font-size:34px;font-weight:900;color:var(--primary);min-width:3.2em;text-align:center;font-variant-numeric:tabular-nums}
+.flu-src{text-align:center;margin:8px auto 0;max-width:900px}
+.flu-res{display:flex;flex-direction:column;align-items:center;gap:14px;width:min(900px,100%);margin:10px auto}
+.flu-score{display:flex;flex-direction:column;align-items:center}
+.flu-score b{font-size:clamp(64px,12vmin,120px);line-height:1;color:var(--primary)}
+.flu-score span{font-weight:800;color:var(--muted)}
+.flu-stats{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.flu-stats span{background:#f4f1fb;border-radius:14px;padding:6px 12px;font-weight:800}
+.flu-jauge{position:relative;width:100%;height:22px;border-radius:11px;background:#eef0f6;margin:34px 0 26px}
+.flu-jauge-in{height:100%;border-radius:11px;background:linear-gradient(90deg,#9be0b3,#5bbf84)}
+.flu-marque{position:absolute;top:-30px;bottom:-24px;width:0;border-left:3px dashed var(--ink);display:flex;flex-direction:column;justify-content:space-between}
+.flu-marque b{transform:translateX(-50%);font-size:16px}
+.flu-marque i{transform:translateX(-50%);font-style:normal;font-size:12px;color:var(--muted);white-space:nowrap}
+.flu-msg{font-size:20px;font-weight:900;margin:0}
+.flu-edit{display:flex;flex-direction:column;gap:12px;width:min(900px,100%);margin:0 auto}
+.flu-histo{width:min(1100px,100%);margin:0 auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.flu-table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden}
+.flu-table th,.flu-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.flu-spark{color:var(--primary)}
+.flu-rec{display:inline-flex;align-items:center;gap:4px;background:#f4f1fb;border-radius:10px;padding:2px 4px 2px 8px;margin:2px;font-size:14px}
+.flu-x{min-height:0;padding:0 6px;background:none;color:var(--muted);font-size:16px}
+.flu-texte.discret.lecture .flu-m.err{background:none;color:inherit;text-decoration:underline dotted #e0556a 3px;text-underline-offset:6px}
