@@ -241,13 +241,13 @@ function convMetrique(niv, g) {
       if (B === 0) continue;
       const txtC = `${qte(A, grand)} ${qte(B, petit)}`;
       const expl = `${relation(grand, petit, ecart)}, donc ${qte(A, grand)} = ${qte(A * p10(ecart), petit)} ; ${fmtNb(String(A * p10(ecart)))} + ${fmtNb(String(B))} = ${fmtNb(depuisBase(v, eP))}.`;
-      if (ea > eb) return { g, gauche: txtC, slots: [{ u: petit, att: depuisBase(v, eP) }], correction: `${txtC} = ${qteB(v, eP, petit)}`, tab: avecTab(niv, { g, v, dep: eG, arr: eP }), expl, cle: `${v}${a}${b}x` };
+      if (ea > eb) return { g, gauche: txtC, slots: [{ u: petit, att: depuisBase(v, eP) }], correction: `${txtC} = ${qteB(v, eP, petit)}`, tab: avecTab(niv, { g, v, dep: eG, arr: eP }), expl, cle: `${v}${a}${b}x`, m: { v, eb: eP, b: petit, A, B, ecart } };
       return { g, gauche: qteB(v, eP, petit), slots: [{ u: grand, att: String(A) }, { u: petit, att: String(B) }], correction: `${qteB(v, eP, petit)} = ${txtC}`, tab: avecTab(niv, { g, v, dep: eP, arr: eG }), expl, cle: `${v}${a}${b}x` };
     }
     const expl = v === p10(eG) ? `${relation(grand, petit, ecart)}.` : `${relation(grand, petit, ecart)}, donc ${qteB(v, ea, a)} = ${qteB(v, eb, b)}.` + (ea > eb ? "" : ` (Il faut ${fmtNb(String(p10(ecart)))} ${petit} pour faire 1${NB}${grand}.)`);
-    return { g, gauche: qteB(v, ea, a), slots: [{ u: b, att: depuisBase(v, eb) }], correction: `${qteB(v, ea, a)} = ${qteB(v, eb, b)}`, tab: avecTab(niv, { g, v, dep: ea, arr: eb }), expl, cle: `${v}${a}${b}` };
+    return { g, gauche: qteB(v, ea, a), slots: [{ u: b, att: depuisBase(v, eb) }], correction: `${qteB(v, ea, a)} = ${qteB(v, eb, b)}`, tab: avecTab(niv, { g, v, dep: ea, arr: eb }), expl, cle: `${v}${a}${b}`, m: { v, eb, b } };
   }
-  return { g: "longueurs", gauche: `1${NB}m`, slots: [{ u: "cm", att: "100" }], correction: `1${NB}m = 100${NB}cm`, tab: { g: "longueurs", v: 1000, dep: 3, arr: 1 }, expl: "1 m = 100 cm.", cle: "1mcm" };
+  return { g: "longueurs", gauche: `1${NB}m`, slots: [{ u: "cm", att: "100" }], correction: `1${NB}m = 100${NB}cm`, tab: { g: "longueurs", v: 1000, dep: 3, arr: 1 }, expl: "1 m = 100 cm.", cle: "1mcm", m: { v: 1000, eb: 1, b: "cm" } };
 }
 const s1 = (u, att) => ({ u, att: String(att) });
 // « 1 m = 100 cm, donc 3,5 m = 350 cm. »
@@ -281,12 +281,78 @@ const DUREES = {
 function convDuree(niv) {
   const t = choisir(CONV_NIV[niv].durees), q = DUREES[t]();
   const droite = q.slots.map((s) => qte(s.att, s.u)).join(" ");
-  return { g: "durees", ...q, correction: q.droite ? `${q.gauche}${droite}${q.droite}` : `${q.gauche} = ${droite}`, cle: q.gauche + droite };
+  return { g: "durees", ...q, correction: q.droite ? `${q.gauche}${droite}${q.droite}` : `${q.gauche} = ${droite}`, cle: q.gauche + droite, t };
 }
 export function genConversion(niv, g) {
   const liste = grandeursConv(niv);
   if (g === "melange" || !liste.includes(g)) g = choisir(liste);
   return g === "durees" ? convDuree(niv) : convMetrique(niv, g);
+}
+
+// =====================================================================
+// 3 bis. VRAI OU FAUX : « 2 kg = 200 g » — à partir des mêmes conversions que le jeu.
+// Les égalités fausses sont des erreurs plausibles : un zéro de trop ou de moins (virgule décalée),
+// la mauvaise unité, « 2 m 5 cm = 25 cm », 1 h = 100 min…
+// =====================================================================
+// Valeur entière (dans la plus petite unité) de l'écriture « 3,25 » dans l'unité d'exposant e ; null si pas entière.
+export const enBase = (s, e) => { const [i, f = ""] = normaliser(s).split(","); return f.length > e ? null : Number(i + f) * p10(e - f.length); };
+const unitesConv = (niv, g) => [...new Set(pairesMetriques(CONV_NIV[niv][g], g).flat())];
+// Durées : la valeur fausse « typique » pour chaque type de conversion (null = on fait ×10).
+const FAUX_DUREES = {
+  "h>min": (n) => 100 * n[0], "min>s": (n) => 100 * n[0],
+  "hmin>min": (n) => 100 * n[0] + n[1], "mins>s": (n) => 100 * n[0] + n[1],
+  "jh>h": (n) => Number(`${n[0]}${n[1]}`),
+  "sem>j": (n) => choisir([5, 10]) * n[0], "j>h": (n) => choisir([10, 12]) * n[0], "an>mois": (n) => 10 * n[0],
+  "siecle>an": (n) => choisir([10, 1000]) * n[0], "an>siecle": (n, att) => 10 * att,
+  "h>s": (n, att) => att / 10, millenaire: (n, att) => (att === 10 ? 100 : att / 10),
+  "hdec>min": (n, att, g) => { const [a, d = ""] = g.split(","); return 60 * Number(a) + (d.startsWith("5") && d.length === 1 ? 50 : Number(d.replace(/\D.*$/, ""))); },
+  demi: (n, att) => ({ 30: 50, 15: 25, 45: 75, 90: 150 })[att],
+};
+// Une égalité à juger. vrai : on garde la bonne réponse ; sinon on la remplace par une erreur plausible.
+export function vraiFaux(q, vrai) {
+  const s = q.slots[0], att = s.att;
+  const base = { g: q.g, vrai, correction: q.correction, expl: q.expl || "", cle: q.cle + (vrai ? "v" : "f") };
+  if (vrai) return { ...base, texte: q.correction };
+  let val = null, u = s.u;
+  for (let essai = 0; essai < 30 && val == null; essai++) {
+    let v2 = null, u2 = s.u;
+    if (q.g === "durees") {
+      const f = FAUX_DUREES[q.t], n = (q.gauche.match(/\d+/g) || []).map(Number);
+      v2 = f ? f(n, Number(att), (q.gauche.match(/\d+(?:,\d+)?/) || ["0"])[0]) : null;
+      if (v2 == null || !Number.isInteger(v2) || essai > 10) v2 = Number(att) * 10;
+      v2 = String(v2);
+      if (normaliser(v2) === normaliser(att)) continue;
+    } else {
+      const m = q.m, sortes = ["zero", "zero"];
+      if (m.A != null && m.B < p10(m.ecart - 1)) sortes.push("colle", "colle");
+      if (q.niv) sortes.push("unite");
+      const sorte = choisir(sortes);
+      if (sorte === "colle") v2 = `${m.A}${m.B}`; // 2 m 5 cm = 25 cm (on oublie le zéro)
+      else if (sorte === "unite") { // le bon nombre, mais la mauvaise unité
+        const us = unitesConv(q.niv, q.g).filter((x) => x !== s.u && Math.abs(UNITES[q.g][x] - m.eb) <= 3);
+        if (!us.length) continue;
+        u2 = choisir(us); v2 = att;
+      } else v2 = depuisBase(m.v, m.eb + choisir([1, -1])); // un zéro de trop ou de moins (ou la virgule décalée)
+      if (enBase(v2, UNITES[q.g][u2]) === m.v) continue; // par sécurité : l'égalité doit vraiment être fausse
+      if (rang(q.niv) < 3 && String(v2).includes(",")) continue; // pas de nombre à virgule avant le CM
+    }
+    val = v2; u = u2;
+  }
+  if (val == null) return { ...base, vrai: true, texte: q.correction };
+  return { ...base, texte: `${q.gauche} = ${qte(val, u)}`, faux: qte(val, u) };
+}
+// n égalités (à peu près moitié vraies), sans doublon si possible : seulement des conversions à une case.
+export function tirerVraiFaux(niv, g, n) {
+  const qs = [], vus = new Set();
+  for (let essai = 0; qs.length < n && essai < 400; essai++) {
+    const q = genConversion(niv, g);
+    if (q.slots.length !== 1 || q.droite) continue;
+    if (vus.has(q.cle) && essai < 250) continue;
+    vus.add(q.cle); q.niv = niv; qs.push(q);
+  }
+  const nbVrai = Math.round(n / 2) + choisir([-1, 0, 0, 1]);
+  const verites = melange(qs.map((_, i) => i < nbVrai));
+  return qs.map((q, i) => vraiFaux(q, verites[i]));
 }
 
 // =====================================================================
@@ -409,6 +475,59 @@ function tableauConversion(el) {
 }
 
 // =====================================================================
+// 4 bis. PETIT TABLEAU DE CONVERSION : fenêtre flottante de la boîte à outils 🧰 (js/barre.js).
+// Même tableau que l'outil, en plus petit (tailles en em : la fenêtre s'agrandit par son coin).
+// =====================================================================
+const MINI = { longueurs: "km hm dam m dm cm mm", masses: "t q · kg hg dag g dg cg mg", contenances: "hL daL L dL cL mL" };
+export function tableauMini(el) {
+  let g = "longueurs", cases = {}, virgule = null, sel = 3, dep = null, arr = null;
+  const cols = () => MINI[g].split(" ").map((u) => ({ u, e: UNITES[g][u], faible: u === "·" }));
+  const uDe = (e) => cols().find((c) => c.e === e)?.u ?? "";
+  const effacer = () => { cases = {}; virgule = null; dep = arr = null; sel = cols()[0].e; };
+  // Zéros à ajouter jusqu'à la colonne d'arrivée (affichés en rose, comme dans l'outil)
+  const zeros = () => {
+    const es = Object.keys(cases).map(Number), out = {};
+    if (arr == null || !es.length) return out;
+    for (let e = Math.max(...es, arr); e >= Math.min(...es, arr); e--) if (cases[e] == null) out[e] = true;
+    return out;
+  };
+  const lecture = () => {
+    if (!Object.keys(cases).length) return "";
+    const eLu = dep ?? virgule ?? UNITES[g][UNITE_REF[g]];
+    const l = [`<b class="dep">${qte(lireTableau(cases, eLu), uDe(eLu) === "·" ? "" : uDe(eLu))}</b>`];
+    if (arr != null && arr !== eLu) l.push(`<b class="arr">${qte(lireTableau(cases, arr), uDe(arr))}</b>`);
+    return l.join(" = ");
+  };
+  const render = () => {
+    el.innerHTML = `<div class="mes-mini">
+      <div class="qt-ligne mes-mini-onglets">${Object.keys(MINI).map((x) => `<button type="button" class="qt-pt ${x === g ? "on" : ""}" data-mg="${x}">${GRANDEURS[x].ico} ${GRANDEURS[x].nom}</button>`).join("")}</div>
+      ${tableauHTML(cols(), { cases, virgule, dep, arr, sel, actif: true, zeros: zeros(), virguleArr: arr != null && arr !== virgule && Object.entries(cases).some(([e, d]) => +e < arr && d !== "0") ? arr : null })}
+      <div class="mes-mini-lu">${lecture() || "&nbsp;"}</div>
+      <div class="mes-mini-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((n) => `<button type="button" data-k="${n}">${n}</button>`).join("")}<button type="button" data-k="," class="virg" aria-label="Virgule">,</button><button type="button" data-k="del" class="del" aria-label="Effacer le chiffre">⌫</button></div>
+      <div class="qt-ligne"><button type="button" class="qt-pt" data-k="eff">🧽 Effacer</button></div>
+      <p class="qt-aide">Touche une case puis un chiffre. Touche une unité : départ, puis arrivée.</p></div>`;
+  };
+  const touche = (k) => {
+    const cs = cols(), i = cs.findIndex((c) => c.e === sel);
+    if (k === "eff") effacer();
+    else if (i < 0) sel = cs[0].e;
+    else if (k === "del") { if (cases[sel] != null) delete cases[sel]; else if (i > 0) { sel = cs[i - 1].e; delete cases[sel]; } }
+    else if (k === ",") virgule = virgule === sel ? null : sel;
+    else { cases[sel] = k; if (i < cs.length - 1) sel = cs[i + 1].e; }
+    render();
+  };
+  el.onclick = (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.mg) { g = t.dataset.mg; effacer(); return render(); }
+    if (t.dataset.cell !== undefined) { sel = +t.dataset.cell; return render(); }
+    if (t.dataset.col !== undefined) { const c = +t.dataset.col; if (dep === c) dep = null; else if (arr === c) arr = null; else if (dep == null) dep = c; else arr = c; return render(); }
+    if (t.dataset.k !== undefined) touche(t.dataset.k);
+  };
+  effacer(); render();
+  return () => { el.onclick = null; };
+}
+
+// =====================================================================
 // 5. OUTIL : JEU DES CONVERSIONS
 // =====================================================================
 const NB_QUESTIONS = 10;
@@ -439,9 +558,9 @@ function conversions(el) {
   let serie = [], pos = 0, saisies = [], slotActif = 0, etat = null, voirAide = false, resultats = [], scores = [0, 0], attente = null;
   // Mode « fiche » : plusieurs conversions à la fois, puis correction collective
   const memo = (() => { try { return JSON.parse(localStorage.getItem(CLE_CONV)) || {}; } catch { return {}; } })();
-  let mode = memo.mode === "fiche" ? "fiche" : "une", taille = TAILLES_FICHE.includes(memo.taille) ? memo.taille : 8;
+  let mode = ["fiche", "vf"].includes(memo.mode) ? memo.mode : "une", taille = TAILLES_FICHE.includes(memo.taille) ? memo.taille : 8;
   let fiche = [], repF = [], revF = [], actif = null, corrPos = -1, masque = false, aDefiler = false;
-  const retenir = () => { try { localStorage.setItem(CLE_CONV, JSON.stringify({ mode, taille })); } catch {} };
+  const retenir = () => { try { localStorage.setItem(CLE_CONV, JSON.stringify({ mode, taille, vf: vfSous })); } catch {} };
   const valider = () => { const l = grandeursConv(niv); if (g !== "melange" && !l.includes(g)) g = l.length > 1 ? "melange" : l[0]; };
   const nouvelleSerie = () => {
     valider(); clearTimeout(attente);
@@ -454,7 +573,7 @@ function conversions(el) {
     repF = fiche.map((x) => x.slots.map(() => "")); revF = fiche.map(() => false);
     actif = null; corrPos = -1; masque = false;
   };
-  const nouveau = () => { nouvelleSerie(); nouvelleFiche(); };
+  const nouveau = () => { nouvelleSerie(); nouvelleFiche(); nouvelleVf(); nouvelleVfFiche(); };
   const preparer = () => { saisies = serie[pos].slots.map(() => ""); slotActif = 0; etat = null; voirAide = false; };
   const q = () => serie[pos];
   const virguleOk = () => rang(niv) >= 3;
@@ -476,7 +595,7 @@ function conversions(el) {
     }
     return `<p class="mes-expl">${typo(x.expl || "")}</p>`;
   };
-  const segMode = () => `<div class="seg mes-seg" role="group" aria-label="Façon de jouer"><button type="button" data-cmode="une" class="${mode === "une" ? "on" : ""}">🎯 Une à la fois</button><button type="button" data-cmode="fiche" class="${mode === "fiche" ? "on" : ""}">📋 Fiche de conversions</button></div>`;
+  const segMode = () => `<div class="seg mes-seg" role="group" aria-label="Façon de jouer"><button type="button" data-cmode="une" class="${mode === "une" ? "on" : ""}">🎯 Une à la fois</button><button type="button" data-cmode="fiche" class="${mode === "fiche" ? "on" : ""}">📋 Fiche de conversions</button><button type="button" data-cmode="vf" class="${mode === "vf" ? "on" : ""}">✔✘ Vrai ou faux</button></div>`;
   const titreFiche = () => `${niv} · ${g === "melange" ? "Mélange" : GRANDEURS[g].nom}`;
 
   // ---------- mode fiche ----------
@@ -558,12 +677,93 @@ function conversions(el) {
     setTimeout(fin, 1500);
   };
 
+  // ---------- mode « Vrai ou faux » : une égalité à la fois (série de 10) ou une fiche ----------
+  let vfSous = memo.vf === "fiche" ? "fiche" : "une", vfSerie = [], vfPos = 0, vfChoix = null, vfRes = [], vfScores = [0, 0];
+  let vfFiche = [], vfRep = [], vfRev = [], vfCorr = -1;
+  const nouvelleVf = () => { valider(); vfSerie = tirerVraiFaux(niv, g, NB_QUESTIONS); vfPos = 0; vfChoix = null; vfRes = []; vfScores = [0, 0]; };
+  const nouvelleVfFiche = () => { valider(); vfFiche = tirerVraiFaux(niv, g, taille); vfRep = vfFiche.map(() => null); vfRev = vfFiche.map(() => false); vfCorr = -1; };
+  const verdictVf = (x) => (x.vrai ? `C'est vrai : ${x.correction}.` : `C'est faux : ${x.correction}${x.faux ? `, et non ${x.faux}` : ""}.`);
+  const explVf = (x) => (x.expl ? `<p class="mes-expl">${typo(x.expl)}</p>` : "");
+  const renderVfUne = (tete) => {
+    if (vfPos >= vfSerie.length) {
+      const err = vfRes.filter((r) => !r.ok), total = vfRes.length - err.length;
+      el.innerHTML = `${tete}<div class="tool-center mes-fin rc-board">
+        <div class="mes-score-big">${equipes === 2 ? `Équipe 1${NB}: ${vfScores[0]} · Équipe 2${NB}: ${vfScores[1]}` : `⭐ ${total} / ${vfSerie.length}`}</div>
+        <div class="banner ok" ${equipes === 2 ? (vfScores[0] !== vfScores[1] ? "data-fete" : "") : total === vfSerie.length ? "data-fete" : ""}>${equipes === 2 ? (vfScores[0] === vfScores[1] ? "Égalité ! 🤝" : `L'équipe ${vfScores[0] > vfScores[1] ? 1 : 2} gagne ! 🎉`) : total === vfSerie.length ? "Sans faute, bravo ! 🎉" : total >= 7 ? "Très bien ! 👏" : "Continue à t'entraîner, tu progresses ! 💪"}</div>
+        ${err.length ? `<p class="mes-aide">À revoir${NB}:</p><ul class="mes-revoir">${err.map((r) => `<li>${r.x.vrai ? "✔ Vrai" : "✘ Faux"}${NB}: ${r.x.texte}${r.x.vrai ? "" : ` ➜ ${r.x.correction}`}</li>`).join("")}</ul>` : ""}
+        <button type="button" class="big-btn" id="mesVfNew2">↻ Rejouer</button></div>`;
+      return;
+    }
+    const x = vfSerie[vfPos], fait = vfChoix != null, ok = fait && vfChoix === x.vrai;
+    const etatB = (v) => (!fait ? "" : v === x.vrai ? "good" : v === vfChoix ? "bad" : "pale");
+    el.innerHTML = `${tete}
+      <div class="mes-jeu mes-vf rc-board">
+        <div class="mes-prog">${vfSerie.map((_, i) => `<i class="${i < vfRes.length ? (vfRes[i].ok ? "ok" : "ko") : i === vfPos ? "cur" : ""}"></i>`).join("")}
+          <span class="mes-score">${equipes === 2 ? `<b class="${vfPos % 2 === 0 ? "on" : ""}">Équipe 1${NB}: ${vfScores[0]}</b> <b class="${vfPos % 2 === 1 ? "on" : ""}">Équipe 2${NB}: ${vfScores[1]}</b>` : `⭐ ${vfScores[0]}`}</span></div>
+        ${equipes === 2 && !fait ? `<div class="mes-tour t${vfPos % 2}">À l'équipe ${vfPos % 2 + 1} !</div>` : ""}
+        <p class="mes-aide mes-vf-consigne">Cette égalité est-elle vraie ou fausse${NB}?</p>
+        <div class="mes-vf-enonce ${fait ? (x.vrai ? "vrai" : "faux") : ""}">${x.texte}</div>
+        <div class="mes-vf-btns ${fait ? "fait" : ""}"><button type="button" class="mes-vf-b vrai ${etatB(true)}" data-vf="1" ${fait ? "disabled" : ""}>✔ VRAI</button><button type="button" class="mes-vf-b faux ${etatB(false)}" data-vf="0" ${fait ? "disabled" : ""}>✘ FAUX</button></div>
+        ${fait ? `<div class="banner ${ok ? "ok" : "ko"} mes-verdict">${ok ? choisir(["Bravo ! ", "Exact ! ", "Bien vu ! "]) : "Non… "}${verdictVf(x)}</div>${explVf(x)}
+          <button type="button" class="big-btn mes-keep" id="mesVfNext">${vfPos + 1 < vfSerie.length ? "Suivant ➜" : "Résultats ➜"}</button>` : ""}
+      </div>`;
+  };
+  const repondreVf = (v) => {
+    if (vfChoix != null || vfPos >= vfSerie.length) return;
+    const x = vfSerie[vfPos], ok = v === x.vrai;
+    vfChoix = v; vfRes.push({ x, ok }); if (ok) vfScores[equipes === 2 ? vfPos % 2 : 0]++;
+    render();
+  };
+  const suivantVf = () => { if (vfChoix == null) return; vfPos++; vfChoix = null; render(); };
+  const renderVfFiche = (tete) => {
+    const n = vfFiche.length, nbRev = vfRev.filter(Boolean).length, tout = nbRev === n;
+    const corrigees = vfFiche.map((_, i) => i).filter((i) => vfRev[i] && vfRep[i] != null), bonnes = corrigees.filter((i) => vfRep[i] === vfFiche[i].vrai).length;
+    const item = (x, i) => {
+      const vis = vfRev[i], cur = i === vfCorr, r = vfRep[i];
+      const etat = vis && r != null ? (r === x.vrai ? "ok" : "ko") : "";
+      const bt = (v) => `<button type="button" class="mes-vf-mini ${v ? "vrai" : "faux"} ${r === v ? "on" : ""} ${vis && v === x.vrai ? "sol" : ""}" data-vfi="${i}" data-vfv="${v ? 1 : 0}" aria-label="${v ? "Vrai" : "Faux"} pour l'égalité ${i + 1}">${v ? "V" : "F"}</button>`;
+      return `<li class="mes-fi-item ${vis ? "rev" : ""} ${cur ? "cur" : ""} ${etat}">${vis ? `<button type="button" class="mes-fi-num" data-vfexpl="${i}" aria-label="Expliquer l'égalité ${i + 1}">${i + 1}</button>` : `<span class="mes-fi-num">${i + 1}</span>`}
+        <div class="mes-fi-corps"><div class="mes-fi-q">${x.texte}</div>${vis ? `<div class="mes-fi-plus"><span class="${x.vrai ? "mes-vf-ok" : "mes-fi-sol"}">${x.vrai ? "✔ Vrai" : `✘ Faux ➜ ${x.correction}`}</span>${cur && x.expl ? `<span class="mes-fi-expl">${typo(x.expl)}</span>` : ""}</div>` : ""}</div>
+        <span class="mes-vf-paire">${bt(true)}${bt(false)}</span></li>`;
+    };
+    el.innerHTML = `${tete}
+      <div class="tool-top wrap mes-fi-outils">
+        <div class="seg mes-seg" role="group" aria-label="Nombre d'égalités">${TAILLES_FICHE.map((t) => `<button type="button" data-vftaille="${t}" class="${t === taille ? "on" : ""}" aria-label="${t} égalités">${t}</button>`).join("")}</div>
+        <button type="button" class="pill" id="mesVfFiNew">↻ Nouvelle fiche</button>
+        <button type="button" class="pill mes-on" id="mesVfUne" ${tout ? "disabled" : ""}>${!nbRev ? "▶ Corriger une par une" : tout ? "✔ Tout est corrigé" : `Correction suivante ➜ (${nbRev + 1}/${n})`}</button>
+        <button type="button" class="pill" id="mesVfTout" ${tout ? "disabled" : ""}>✅ Tout corriger</button>
+        <button type="button" class="pill" id="mesVfEff" ${vfRep.some((r) => r != null) || nbRev ? "" : "disabled"}>🧽 Tout effacer</button>
+      </div>
+      <div class="mes-fiche mes-vf-fiche rc-board">
+        <div class="mes-fi-tete"><b>✔✘ Vrai ou faux · ${escM(titreFiche())}</b><span>${n} égalités</span>${corrigees.length ? `<span class="mes-fi-score">✔ ${bonnes} / ${corrigees.length}</span>` : ""}</div>
+        <ol class="mes-fi-grille" style="--rows:${Math.ceil(n / 2)};--n:${n}">${vfFiche.map(item).join("")}</ol>
+        <p class="mes-aide mes-fi-astuce">${nbRev ? "Touche un numéro pour afficher l'explication." : "Les élèves écrivent V ou F sur l'ardoise. Touche V ou F pour noter la réponse de la classe, puis corrigez ensemble."}</p>
+      </div>`;
+    if (aDefiler) { aDefiler = false; el.querySelector(".mes-vf-fiche .mes-fi-item.cur")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+  };
+  const clicVf = (t) => {
+    if (t.dataset.vfsous) { vfSous = t.dataset.vfsous; retenir(); return render(); }
+    if (t.dataset.eq) { equipes = +t.dataset.eq; nouvelleVf(); return render(); }
+    if (t.id === "mesVfNew" || t.id === "mesVfNew2") { nouvelleVf(); return render(); }
+    if (t.dataset.vf) return repondreVf(t.dataset.vf === "1");
+    if (t.id === "mesVfNext") return suivantVf();
+    if (t.dataset.vftaille) { taille = +t.dataset.vftaille; retenir(); nouvelleVfFiche(); nouvelleFiche(); return render(); }
+    if (t.dataset.vfi !== undefined) { const i = +t.dataset.vfi, v = t.dataset.vfv === "1"; vfRep[i] = vfRep[i] === v ? null : v; return render(); }
+    if (t.dataset.vfexpl !== undefined) { const i = +t.dataset.vfexpl; vfCorr = vfCorr === i ? -1 : i; return render(); }
+    if (t.id === "mesVfFiNew") { nouvelleVfFiche(); return render(); }
+    if (t.id === "mesVfUne") { const k = vfRev.findIndex((r) => !r); if (k >= 0) { vfRev[k] = true; vfCorr = k; aDefiler = true; } return render(); }
+    if (t.id === "mesVfTout") { vfRev = vfRev.map(() => true); vfCorr = -1; return render(); }
+    if (t.id === "mesVfEff") { vfRep = vfFiche.map(() => null); vfRev = vfRev.map(() => false); vfCorr = -1; return render(); }
+  };
+
   const render = () => {
     valider();
     const tete = `<div class="tool-top wrap">${segNiveau(niv)}${segGrandeur(grandeursConv(niv), g, grandeursConv(niv).length > 1 ? [["melange", "🎲 Mélange"]] : [])}
       ${segMode()}${mode === "une" ? `<div class="seg"><button type="button" data-eq="1" class="${equipes === 1 ? "on" : ""}">1 joueur</button><button type="button" data-eq="2" class="${equipes === 2 ? "on" : ""}">2 équipes</button></div>
-      <button type="button" class="pill" id="mesNew">↻ Nouvelle série</button>` : ""}</div>`;
+      <button type="button" class="pill" id="mesNew">↻ Nouvelle série</button>` : ""}${mode === "vf" ? `<div class="seg" role="group" aria-label="Vrai ou faux"><button type="button" data-vfsous="une" class="${vfSous === "une" ? "on" : ""}">Une par une</button><button type="button" data-vfsous="fiche" class="${vfSous === "fiche" ? "on" : ""}">Plusieurs à la fois</button></div>
+      ${vfSous === "une" ? `<div class="seg"><button type="button" data-eq="1" class="${equipes === 1 ? "on" : ""}">1 joueur</button><button type="button" data-eq="2" class="${equipes === 2 ? "on" : ""}">2 équipes</button></div><button type="button" class="pill" id="mesVfNew">↻ Nouvelle série</button>` : ""}` : ""}</div>`;
     if (mode === "fiche") return renderFiche(tete);
+    if (mode === "vf") return vfSous === "fiche" ? renderVfFiche(tete) : renderVfUne(tete);
     if (pos >= serie.length) {
       const err = resultats.filter((r) => !r.ok);
       const total = resultats.filter((r) => r.ok).length;
@@ -626,6 +826,7 @@ function conversions(el) {
     if (t.dataset.g) { g = t.dataset.g; nouveau(); return render(); }
     if (t.dataset.cmode) { if (mode !== t.dataset.cmode) { mode = t.dataset.cmode; retenir(); actif = null; } return render(); }
     if (mode === "fiche") return clicFiche(t);
+    if (mode === "vf") return clicVf(t);
     if (t.dataset.eq) { equipes = +t.dataset.eq; nouvelleSerie(); return render(); }
     if (t.id === "mesNew" || t.id === "mesNew2") { nouvelleSerie(); return render(); }
     if (t.dataset.slot !== undefined) { if (!etat) { slotActif = +t.dataset.slot; render(); } return; }
@@ -635,6 +836,13 @@ function conversions(el) {
     if (t.id === "mesNext") return suivant();
   };
   const finClavier = clavier((e) => {
+    if (mode === "vf") {
+      if (vfSous !== "une" || vfPos >= vfSerie.length) return;
+      if (/^[vV]$/.test(e.key)) { repondreVf(true); return true; }
+      if (/^[fF]$/.test(e.key)) { repondreVf(false); return true; }
+      if (e.key === "Enter") { suivantVf(); return true; }
+      return;
+    }
     if (mode === "fiche") {
       if (!actif) return;
       if (/^\d$/.test(e.key)) { toucheFiche(e.key); return true; }
@@ -791,7 +999,7 @@ function quelleUnite(el) {
 
 export const MESURES = [
   { id: "tableau-conversion", nom: "Tableau de conversion", icone: "📐", couleur: "#cfe6ff", desc: "Le tableau des mesures à remplir au tableau", mount: tableauConversion },
-  { id: "conversions", nom: "Conversions", icone: "🔁", couleur: "#d7ccff", desc: "Longueurs, masses, contenances, durées", mount: conversions },
+  { id: "conversions", nom: "Conversions", icone: "🔁", couleur: "#d7ccff", desc: "Longueurs, masses, contenances, durées · fiche · vrai ou faux", mount: conversions },
   { id: "problemes-mesures", nom: "Problèmes de mesures", icone: "🧮", couleur: "#ffe3a3", desc: "Des problèmes du quotidien, avec indice", mount: problemesMesures },
   { id: "quelle-unite", nom: "Quelle unité ?", icone: "📏", couleur: "#c9ecd4", desc: "Choisir la bonne unité de mesure", mount: quelleUnite },
 ];

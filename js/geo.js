@@ -2,6 +2,7 @@
 // Programmes : cycle 2 (rentrée 2025) et cycle 3 (CM1-CM2, rentrée 2026).
 // Les contenus par niveau sont regroupés dans des tables en haut de chaque partie pour être relus facilement.
 import { segNiveau, surNiveau, niveauJeux, rang } from "./niveau.js";
+import { GEO_ETIQUETTES } from "./geo-etiquettes.js";
 
 const hasard = (n) => Math.floor(Math.random() * n);
 const choix = (a) => a[hasard(a.length)];
@@ -1486,4 +1487,5 @@ export const GEO = [
   { id: "formes", nom: "Formes et polygones", icone: "🔷", couleur: "#cfe6ff", desc: "Nommer, trier, devinettes « Qui suis-je ? »", mount: formes },
   { id: "figures", nom: "Figures à manipuler", icone: "✋", couleur: "#c9ecd4", desc: "Déplacer les sommets, tourner, agrandir : propriétés en direct", mount: figures },
   { id: "solides", nom: "Les solides", icone: "🧊", couleur: "#d7ccff", desc: "Solides en 3D à faire tourner, patrons à plier", mount: solides },
+  ...GEO_ETIQUETTES,
 ];

@@ -1,8 +1,9 @@
 // Barre d'outils du tableau : une petite vignette (🧰) en haut à droite de chaque outil projeté
-// ouvre des fenêtres flottantes (feu, minuteur, chrono, bruit, voix, tirage, dés, heure).
+// ouvre des fenêtres flottantes (feu, minuteur, chrono, bruit, voix, tirage, dés, heure, tableau de conversion).
 // Les fenêtres se déplacent par leur barre de titre et s'agrandissent par le coin, au stylet de TBI,
 // au doigt ou à la souris. Elles restent ouvertes (et le minuteur continue) quand on change d'outil.
 import { bip, dieHTML, VOIX } from "./outils.js";
+import { tableauMini } from "./mesures.js";
 
 const CLE = "bagaschool-barre";
 const hasard = (n) => Math.floor(Math.random() * n);
@@ -225,6 +226,7 @@ export const OUTILS_BARRE = [
   { id: "tirage", nom: "Tirage au sort", ico: "🎯", mount: tirage },
   { id: "des", nom: "Dés", ico: "🎲", mount: des },
   { id: "heure", nom: "Heure", ico: "🕒", mount: heure },
+  { id: "conversion", nom: "Tableau de conversion", ico: "📏", mount: tableauMini },
 ];
 
 // ---------- fenêtres flottantes ----------

@@ -238,14 +238,16 @@ const CM_TYPES = {
   decAdd: ["Additions de décimaux", () => { const a = (1 + rnd(49)) / 10, b = (1 + rnd(49)) / 10; return [`${dec(a)} + ${dec(b)}`, dec(a + b)]; }],
   comp1: ["Compléments à 1", () => { const a = (1 + rnd(99)) / 100; return [`${dec(a)} + ? = 1`, dec(1 - a)]; }],
   decX: ["Décimaux × et ÷ par 10, 100", () => { const a = (1 + rnd(999)) / 100, m = rnd(2) ? 10 : 100; return rnd(2) ? [`${dec(a)} × ${m}`, dec(a * m)] : [`${dec(a)} ÷ ${m}`, dec(a / m)]; }],
+  dblmoEnt: ["Doubles et moitiés des entiers", () => { const a = [12, 15, 24, 25, 35, 45, 48, 60, 75, 120, 125, 150, 250, 350, 450, 500, 750, 1200, 1500, 2500][rnd(20)] + (rnd(3) ? 0 : 1 + rnd(9)); return rnd(2) ? [`Le double de ${a.toLocaleString("fr-FR")}`, 2 * a] : [`La moitié de ${(2 * a).toLocaleString("fr-FR")}`, a]; }],
+  moImp: ["Moitiés des nombres impairs", () => { const a = 2 * (5 + rnd(250)) + 1; return [`La moitié de ${a}`, dec(a / 2)]; }],
   dblmoDec: ["Doubles et moitiés (décimaux)", () => { const a = (1 + rnd(99)) / 10; return rnd(2) ? [`Le double de ${dec(a)}`, dec(2 * a)] : [`La moitié de ${dec(a)}`, dec(a / 2)]; }],
 };
 const CM_NIV = {
   CP: ["comp10", "dbl10", "mo20", "add20", "sous10", "plus10"],
   CE1: ["dbl50", "mo100", "compDiz", "add2", "sous2", "t2510", "plus10"],
   CE2: ["tables", "comp100", "add2r", "sous2", "x10", "dblmo"],
-  CM1: ["tables", "tinv", "x1000", "comp1000", "x5", "decAdd"],
-  CM2: ["tinv", "x1000", "comp1", "decX", "dblmoDec", "decAdd"],
+  CM1: ["tables", "tinv", "dblmoEnt", "x1000", "comp1000", "x5", "decAdd"],
+  CM2: ["tinv", "dblmoEnt", "moImp", "x1000", "comp1", "decX", "dblmoDec", "decAdd"],
 };
 function calcul(el) {
   const OPS = { "+": "Additions", "−": "Soustractions", "×": "Multiplications", "÷": "Divisions" };
