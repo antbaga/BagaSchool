@@ -25,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.18.1";
+export const VERSION = "0.19.1";
 
 // ---------- état ----------
 let state = {};

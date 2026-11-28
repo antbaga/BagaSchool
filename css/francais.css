@@ -83,3 +83,9 @@
 .flu-rec{display:inline-flex;align-items:center;gap:4px;background:#f4f1fb;border-radius:10px;padding:2px 4px 2px 8px;margin:2px;font-size:14px}
 .flu-x{min-height:0;padding:0 6px;background:none;color:var(--muted);font-size:16px}
 .flu-texte.discret.lecture .flu-m.err{background:none;color:inherit;text-decoration:underline dotted #e0556a 3px;text-underline-offset:6px}
+.flu-texte.liste{display:flex;flex-wrap:wrap;justify-content:center;gap:.3em .5em;text-align:center}
+.flu-texte.liste .flu-m{display:inline-block;min-width:5.5em;padding:.05em .3em;position:relative;background:#f7f5fd}
+.flu-texte.liste .flu-m.err{background:#ffd0dc}.flu-texte.liste .flu-m.dern{background:var(--primary)}
+.flu-texte.liste.discret.lecture .flu-m.err{background:#f7f5fd}
+.flu-texte.liste .flu-rep{position:absolute;right:-.4em;top:0}
+.flu-sorte button{font-weight:900}
