@@ -370,8 +370,9 @@ export function horloge(el, opts = {}) {
 
 // =====================================================================
 // Date du jour : jour, numéro, mois, année, en français et/ou en anglais.
-// « Afficher » : la date du jour (toucher une case la cache) ; « Construire » : les élèves
-// choisissent chaque étiquette puis on vérifie.
+// « À compléter » (par défaut) : quatre cases vides, toutes les étiquettes en dessous ;
+// les élèves touchent ou glissent l'étiquette dans sa case, puis on vérifie.
+// « Afficher » : la date du jour (toucher une case la cache). L'année est facultative.
 // =====================================================================
 const JOURS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 const JOURS_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -388,85 +389,123 @@ const CASES_DATE = [["jour", "Jour", "Day"], ["num", "Date", "Date"], ["mois", "
 
 export function dateDuJour(el) {
   const CLE = "bagaschool-date";
-  const cfg = Object.assign({ langue: "fr", mode: "voir" }, JSON.parse(localStorage.getItem(CLE) || "{}"));
+  const cfg = Object.assign({ langue: "fr", mode: "construire", annee: true }, JSON.parse(localStorage.getItem(CLE) || "{}"));
   const sauver = () => localStorage.setItem(CLE, JSON.stringify(cfg));
-  let decal = 0, caches = new Set(), choix = {}, actif = "jour", verifie = false;
+  let decal = 0, caches = new Set(), choix = {}, verifie = false, ignorerClic = false;
   const fr = () => cfg.langue !== "en", en = () => cfg.langue !== "fr";
+  const cases = () => CASES_DATE.filter(([k]) => cfg.annee || k !== "annee");
   const jourJ = () => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + decal); return d; };
   const valeurs = (d) => ({ jour: jourIdx(d), num: d.getDate(), mois: d.getMonth(), annee: d.getFullYear() });
   const libelle = (k, v) => {
-    if (v == null) return ["?", ""];
+    if (v == null) return ["", ""];
     if (k === "jour") return [JOURS_FR[v], JOURS_EN[v]];
     if (k === "num") return [numFr(v), ordEn(v)];
     if (k === "mois") return [MOIS_FR[v], MOIS_EN[v]];
     return [String(v), String(v)];
   };
-  const double = ([f, e]) => cfg.langue === "both" ? `${escO(f)}<small>${escO(e)}</small>` : escO(fr() ? f : e);
-  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const double = ([f, e]) => cfg.langue === "both" && f !== e ? `${escO(f)}<small>${escO(e)}</small>` : escO(fr() ? f : e);
+  const titre = (lf, le) => cfg.langue === "both" && lf !== le ? `${lf} · ${le}` : fr() ? lf : le;
   const phrasesDate = (d) => {
     const hier = new Date(d); hier.setDate(d.getDate() - 1);
     const dem = new Date(d); dem.setDate(d.getDate() + 1);
-    const v = valeurs(d), s = saison(d), out = [];
+    const v = valeurs(d), s = saison(d), out = [], an = cfg.annee ? ` ${v.annee}` : "";
     const ajd = decal === 0;
-    if (fr()) out.push(`<p class="dt-phrase">${ajd ? "Aujourd'hui, nous sommes" : "Ce jour-là, nous sommes"} <b>${JOURS_FR[v.jour]} ${numFr(v.num)} ${MOIS_FR[v.mois]} ${v.annee}</b>.</p>
+    if (fr()) out.push(`<p class="dt-phrase">${ajd ? "Aujourd'hui, nous sommes" : "Ce jour-là, nous sommes"} <b>${JOURS_FR[v.jour]} ${numFr(v.num)} ${MOIS_FR[v.mois]}${an}</b>.</p>
       <p class="dt-sous">Hier, c'était ${JOURS_FR[jourIdx(hier)]} ${numFr(hier.getDate())} ${MOIS_FR[hier.getMonth()]}. Demain, ce sera ${JOURS_FR[jourIdx(dem)]} ${numFr(dem.getDate())} ${MOIS_FR[dem.getMonth()]}.</p>`);
-    if (en()) out.push(`<p class="dt-phrase en">🇬🇧 ${ajd ? "Today is" : "It is"} <b>${JOURS_EN[v.jour]} ${ordEn(v.num)} ${MOIS_EN[v.mois]} ${v.annee}</b>.</p>
+    if (en()) out.push(`<p class="dt-phrase en">🇬🇧 ${ajd ? "Today is" : "It is"} <b>${JOURS_EN[v.jour]} ${ordEn(v.num)} ${MOIS_EN[v.mois]}${an}</b>.</p>
       <p class="dt-sous en">Yesterday was ${JOURS_EN[jourIdx(hier)]}. Tomorrow will be ${JOURS_EN[jourIdx(dem)]}.</p>`);
-    const extras = [`${p2(v.num)}/${p2(v.mois + 1)}/${v.annee}`];
+    const extras = [`${p2(v.num)}/${p2(v.mois + 1)}${cfg.annee ? "/" + v.annee : ""}`];
     if (fr()) extras.push(`${s[2]} Saison : ${s[0]}`);
     if (en()) extras.push(`${fr() ? "" : s[2] + " "}Season: ${s[1]}`);
-    if (fr()) extras.push(`En lettres : le ${v.num === 1 ? "premier" : enLettres(v.num)} ${MOIS_FR[v.mois]} ${enLettres(v.annee)}`);
+    if (fr()) extras.push(`En lettres : le ${v.num === 1 ? "premier" : enLettres(v.num)} ${MOIS_FR[v.mois]}${cfg.annee ? " " + enLettres(v.annee) : ""}`);
     return out.join("") + `<p class="dt-extra">${extras.map(escO).join(" · ")}</p>`;
   };
-  const picker = (d) => {
+  // Toutes les étiquettes, rangée par rangée (une rangée par case).
+  const banque = (d) => {
     const v = valeurs(d);
-    let opts = [];
-    if (actif === "jour") opts = JOURS_FR.map((_, i) => [i, libelle("jour", i)]);
-    if (actif === "num") opts = Array.from({ length: 31 }, (_, i) => [i + 1, [String(i + 1), String(i + 1)]]);
-    if (actif === "mois") opts = MOIS_FR.map((_, i) => [i, libelle("mois", i)]);
-    if (actif === "annee") opts = [v.annee - 1, v.annee, v.annee + 1].map((y) => [y, [String(y), String(y)]]);
-    return `<div class="dt-picker dt-p-${actif}">${opts.map(([val, lab]) => `<button class="dt-opt ${choix[actif] === val ? "on" : ""}" data-opt="${val}">${double(lab)}</button>`).join("")}</div>`;
+    const rangs = {
+      jour: JOURS_FR.map((_, i) => [i, libelle("jour", i)]),
+      num: Array.from({ length: 31 }, (_, i) => [i + 1, [String(i + 1), String(i + 1)]]),
+      mois: MOIS_FR.map((_, i) => [i, libelle("mois", i)]),
+      annee: [v.annee - 1, v.annee, v.annee + 1].map((y) => [y, [String(y), String(y)]]),
+    };
+    return `<div class="dt-banque">${cases().map(([k, lf, le]) => `<div class="dt-rang"><span class="dt-rang-lab">${titre(lf, le)}</span>
+      <div class="dt-picker dt-p-${k}">${rangs[k].map(([val, lab]) => `<button class="dt-opt t-${k} ${choix[k] === val ? "on" : ""}" data-k="${k}" data-opt="${val}">${double(lab)}</button>`).join("")}</div></div>`).join("")}</div>`;
   };
   const render = () => {
     const d = jourJ(), v = valeurs(d), construire = cfg.mode === "construire";
-    const juste = construire && CASES_DATE.every(([k]) => choix[k] === v[k]);
+    const juste = construire && cases().every(([k]) => choix[k] === v[k]);
     el.innerHTML = `
       <div class="tool-top wrap">
         <div class="seg">${[["fr", "🇫🇷 Français"], ["en", "🇬🇧 English"], ["both", "FR + EN"]].map(([k, l]) => `<button data-lang="${k}" class="${cfg.langue === k ? "on" : ""}">${l}</button>`).join("")}</div>
-        <div class="seg">${[["voir", "👀 Afficher"], ["construire", "🧩 Construire"]].map(([k, l]) => `<button data-dmode="${k}" class="${cfg.mode === k ? "on" : ""}">${l}</button>`).join("")}</div>
+        <div class="seg">${[["construire", "🧩 À compléter"], ["voir", "👀 Afficher"]].map(([k, l]) => `<button data-dmode="${k}" class="${cfg.mode === k ? "on" : ""}">${l}</button>`).join("")}</div>
+        <button class="pill ${cfg.annee ? "on" : ""}" id="dtAn">${cfg.annee ? "✓ " : ""}Avec l'année</button>
         <div class="pills"><button class="pill" data-dec="-1" aria-label="Jour précédent">◀</button><button class="pill ${decal ? "" : "on"}" id="dtAuj">Aujourd'hui</button><button class="pill" data-dec="1" aria-label="Jour suivant">▶</button></div>
       </div>
       <div class="dt-board">
-        <div class="dt-tiles">${CASES_DATE.map(([k, lf, le]) => {
+        <div class="dt-tiles n${cases().length}">${cases().map(([k, lf, le]) => {
           const val = construire ? choix[k] : v[k], cache = !construire && caches.has(k);
-          const etat = construire && verifie && choix[k] != null ? (choix[k] === v[k] ? "ok" : "ko") : "";
-          return `<button class="dt-tile t-${k} ${construire && actif === k ? "actif" : ""} ${etat}" data-tile="${k}"><span class="dt-lab">${cfg.langue === "both" && lf !== le ? `${lf} · ${le}` : fr() ? lf : le}</span><span class="dt-val">${cache ? "?" : double(libelle(k, val))}</span></button>`;
+          const etat = construire && verifie ? (choix[k] == null ? "vide" : choix[k] === v[k] ? "ok" : "ko") : "";
+          return `<button class="dt-tile t-${k} ${construire && val == null ? "attente" : ""} ${etat}" data-tile="${k}" aria-label="${titre(lf, le)}"><span class="dt-lab">${titre(lf, le)}</span><span class="dt-val">${cache ? "?" : val == null ? "" : double(libelle(k, val))}</span></button>`;
         }).join("")}</div>
-        ${construire ? `${picker(d)}<div class="pills"><button class="big-btn" id="dtVerif">✔ Vérifier</button><button class="big-btn soft" id="dtEff">↺ Effacer</button></div>` : `<p class="muted center">Touchez une case pour la cacher ou la montrer.</p>`}
-        ${construire && verifie ? (juste ? `<p class="dt-bravo">🎉 Bravo, la date est juste !</p>` : `<p class="dt-encore">Les cases rouges sont à corriger.</p>`) : ""}
+        ${construire ? `<p class="muted center">Touche ou fais glisser une étiquette dans sa case. Touche une case pour la vider.</p>${banque(d)}
+          <div class="pills"><button class="big-btn" id="dtVerif">✔ Vérifier</button><button class="big-btn soft" id="dtEff">↺ Tout effacer</button></div>` : `<p class="muted center">Touchez une case pour la cacher ou la montrer.</p>`}
+        ${construire && verifie ? (juste ? `<p class="dt-bravo">🎉 Bravo, la date est juste !</p>` : `<p class="dt-encore">${cases().some(([k]) => choix[k] == null) ? "Il manque des étiquettes. " : ""}${cases().some(([k]) => choix[k] != null && choix[k] !== v[k]) ? "Les cases rouges sont à corriger." : ""}</p>`) : ""}
         <div class="dt-phrases">${!construire || juste ? phrasesDate(d) : ""}</div>
         <div class="dt-heure" id="dtH">${p2(new Date().getHours())}:${p2(new Date().getMinutes())}</div>
       </div>`;
   };
+  const poser = (k, val) => { choix[k] = val; verifie = false; };
   el.onclick = (e) => {
+    if (ignorerClic) { ignorerClic = false; return; }
     const b = e.target.closest("button"); if (!b) return;
     if (b.dataset.lang) { cfg.langue = b.dataset.lang; sauver(); }
     if (b.dataset.dmode) { cfg.mode = b.dataset.dmode; sauver(); verifie = false; }
-    if (b.dataset.dec) { decal += +b.dataset.dec; choix = {}; verifie = false; actif = "jour"; }
-    if (b.id === "dtAuj") { decal = 0; choix = {}; verifie = false; actif = "jour"; }
-    if (b.dataset.tile) { const k = b.dataset.tile; if (cfg.mode === "construire") actif = k; else caches.has(k) ? caches.delete(k) : caches.add(k); }
-    if (b.dataset.opt != null) {
-      choix[actif] = +b.dataset.opt; verifie = false;
-      const i = CASES_DATE.findIndex(([k]) => k === actif), suiv = CASES_DATE.slice(i + 1).find(([k]) => choix[k] == null);
-      if (suiv) actif = suiv[0];
-    }
+    if (b.id === "dtAn") { cfg.annee = !cfg.annee; sauver(); verifie = false; }
+    if (b.dataset.dec) { decal += +b.dataset.dec; choix = {}; verifie = false; }
+    if (b.id === "dtAuj") { decal = 0; choix = {}; verifie = false; }
+    if (b.dataset.tile) { const k = b.dataset.tile; if (cfg.mode === "construire") { delete choix[k]; verifie = false; } else caches.has(k) ? caches.delete(k) : caches.add(k); }
+    if (b.dataset.opt != null) poser(b.dataset.k, +b.dataset.opt);
     if (b.id === "dtVerif") verifie = true;
-    if (b.id === "dtEff") { choix = {}; verifie = false; actif = "jour"; }
+    if (b.id === "dtEff") { choix = {}; verifie = false; }
     render();
   };
+  // Glisser une étiquette (doigt, stylet de TBI ou souris) jusqu'à sa case.
+  let glisse = null;
+  el.onpointerdown = (e) => {
+    const b = e.target.closest(".dt-opt"); if (!b) return;
+    glisse = { b, x: e.clientX, y: e.clientY, fant: null, id: e.pointerId };
+  };
+  const bouge = (e) => {
+    if (!glisse || e.pointerId !== glisse.id) return;
+    const dx = e.clientX - glisse.x, dy = e.clientY - glisse.y;
+    if (!glisse.fant && Math.hypot(dx, dy) < 10) return;
+    if (!glisse.fant) {
+      const r = glisse.b.getBoundingClientRect(), f = glisse.b.cloneNode(true);
+      f.classList.add("dt-fantome"); Object.assign(f.style, { width: r.width + "px", height: r.height + "px" });
+      document.body.appendChild(f); glisse.fant = f; glisse.dx = glisse.x - r.left; glisse.dy = glisse.y - r.top;
+    }
+    glisse.fant.style.transform = `translate(${e.clientX - glisse.dx}px, ${e.clientY - glisse.dy}px)`;
+    const sous = document.elementFromPoint(e.clientX, e.clientY)?.closest(".dt-tile");
+    el.querySelectorAll(".dt-tile.survol").forEach((t) => t !== sous && t.classList.remove("survol"));
+    if (sous && sous.dataset.tile === glisse.b.dataset.k) sous.classList.add("survol");
+    e.preventDefault();
+  };
+  const lache = (e) => {
+    if (!glisse || e.pointerId !== glisse.id) return;
+    const g = glisse; glisse = null;
+    if (!g.fant) return; // simple toucher : le clic s'en charge
+    g.fant.remove(); ignorerClic = true; setTimeout(() => { ignorerClic = false; }, 0);
+    const sous = document.elementFromPoint(e.clientX, e.clientY)?.closest(".dt-tile");
+    if (sous && sous.dataset.tile === g.b.dataset.k) poser(g.b.dataset.k, +g.b.dataset.opt);
+    render();
+  };
+  window.addEventListener("pointermove", bouge, { passive: false });
+  window.addEventListener("pointerup", lache);
+  window.addEventListener("pointercancel", lache);
   render();
   const tm = setInterval(() => { const h = el.querySelector("#dtH"); if (h) h.textContent = `${p2(new Date().getHours())}:${p2(new Date().getMinutes())}`; }, 15000);
-  return () => clearInterval(tm);
+  return () => { clearInterval(tm); window.removeEventListener("pointermove", bouge); window.removeEventListener("pointerup", lache); window.removeEventListener("pointercancel", lache); document.querySelectorAll(".dt-fantome").forEach((f) => f.remove()); };
 }
 
 // =====================================================================

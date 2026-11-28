@@ -812,19 +812,29 @@ body.projection .cp-x{display:none}
 .dt-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;width:min(1100px,100%)}
 .dt-tile{container-type:inline-size;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;border-radius:22px;background:#fff;box-shadow:var(--shadow);padding:14px 8px;border:4px solid transparent}
 .dt-tile.t-jour{background:#fff4d6}.dt-tile.t-num{background:#ffe3ea}.dt-tile.t-mois{background:#e3f0ff}.dt-tile.t-annee{background:#e6f6ea}
-.dt-tile.actif{border-color:var(--primary)}
 .dt-tile.ok{border-color:#2f9e5b}.dt-tile.ko{border-color:#e0556a;animation:dtko .4s}
 @keyframes dtko{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 .dt-lab{font-size:15px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .dt-val{font-size:min(15cqi,64px);font-weight:900;line-height:1.05;display:flex;flex-direction:column;align-items:center;white-space:nowrap}
 .t-num .dt-val,.t-annee .dt-val{font-size:min(30cqi,96px)}
 .dt-val small{font-size:.5em;color:#2448b8;font-weight:800;margin-top:4px}
-.dt-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;width:min(1100px,100%)}
-.dt-p-num{grid-template-columns:repeat(7,1fr);width:min(620px,100%)}
-.dt-p-annee{grid-template-columns:repeat(3,1fr);width:min(520px,100%)}
-.dt-opt{min-height:56px;border-radius:16px;background:#f4f1fb;font-size:20px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px}
-.dt-opt small{font-size:14px;color:#2448b8}
+.dt-tiles.n3{grid-template-columns:repeat(3,minmax(0,1fr));width:min(860px,100%)}
+.dt-tile.attente{border:4px dashed #c9c1e0;min-height:150px}
+.dt-tile.survol{border:4px solid var(--primary);transform:scale(1.03)}
+.dt-tile.vide{border-color:#e0a24d}
+.dt-banque{display:flex;flex-direction:column;gap:10px;width:min(1100px,100%)}
+.dt-rang{display:flex;gap:10px;align-items:center}
+.dt-rang-lab{flex:0 0 92px;font-size:14px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:right}
+.dt-picker{flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.dt-p-num{grid-template-columns:repeat(16,1fr)}
+.dt-p-mois{grid-template-columns:repeat(6,1fr)}
+.dt-p-annee{grid-template-columns:repeat(3,minmax(0,160px))}
+.dt-opt{min-height:50px;border-radius:14px;font-size:19px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;touch-action:none;user-select:none;box-shadow:0 2px 0 #0001}
+.dt-opt.t-jour{background:#fff4d6}.dt-opt.t-num{background:#ffe3ea;padding:4px 0}.dt-opt.t-mois{background:#e3f0ff}.dt-opt.t-annee{background:#e6f6ea}
+.dt-opt small{font-size:13px;color:#2448b8}
 .dt-opt.on{background:var(--primary);color:#fff}.dt-opt.on small{color:#fff}
+.dt-fantome{position:fixed;left:0;top:0;z-index:9999;pointer-events:none;opacity:.92;box-shadow:0 10px 24px #0003;transform-origin:0 0}
+@media (max-width:900px){.dt-p-num{grid-template-columns:repeat(8,1fr)}.dt-p-mois{grid-template-columns:repeat(4,1fr)}.dt-picker{grid-template-columns:repeat(4,1fr)}.dt-rang{flex-direction:column;align-items:stretch}.dt-rang-lab{text-align:left;flex:none}}
 .dt-phrases{display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;width:min(1100px,100%)}
 .dt-phrase{font-size:clamp(22px,3vw,36px);margin:0}
 .dt-phrase.en,.dt-sous.en{color:#2448b8}
