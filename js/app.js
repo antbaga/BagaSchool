@@ -7,9 +7,10 @@ import { JEUX } from "./jeux.js";
 import { OUTILS2 } from "./outils2.js";
 import { ANGLAIS } from "./anglais.js";
 import { FRANCAIS } from "./francais.js";
+import { FLUENCE } from "./fluence.js";
 import { MESURES } from "./mesures.js";
 import { GEO } from "./geo.js";
-const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...FRANCAIS, ...MESURES, ...GEO, ...ANGLAIS, ...DECOUVRIR, ...DECOUVRIR_PLUS, ...JEUX];
+const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...FRANCAIS, ...FLUENCE, ...MESURES, ...GEO, ...ANGLAIS, ...DECOUVRIR, ...DECOUVRIR_PLUS, ...JEUX];
 import { GENERATEURS, seeded } from "./imprimer.js";
 import { CALENDRIERS, ZONES, joursFeries } from "./data/calendrier.js";
 import { sync, initSync, marquer, demarrer, arreter, oublier, appareil, actif as syncActif, appareilsConnectes } from "./sync.js";
@@ -24,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.14.0";
+export const VERSION = "0.15.0";
 
 // ---------- état ----------
 let state = {};
@@ -674,7 +675,7 @@ function viewOutils() {
     ["☀️ Au tableau", "Rituels du matin, cahier, calcul posé, géométrie : à projeter et à manipuler.", OUTILS2],
     ["🧑‍🏫 Gérer la classe", "", OUTILS_CLASSE.filter((o) => GESTION.includes(o.id))],
     ["🧮 Maths, mots et dessin", "", OUTILS_CLASSE.filter((o) => !GESTION.includes(o.id))],
-    ["✏️ Français", "Du CP au CM2 : étiquettes, homophones, accords. Choisis le niveau dans chaque jeu.", FRANCAIS],
+    ["✏️ Français", "Du CP au CM2 : étiquettes, homophones, accords, lecture chronométrée. Choisis le niveau dans chaque jeu.", [...FRANCAIS, ...FLUENCE]],
     ["🔢 Maths", "Du CP au CM2 : mesures et conversions, problèmes, géométrie.", [...MESURES, ...GEO]],
     ["🇬🇧 Anglais", "Images et son pour les petits, mots écrits pour les CM.", ANGLAIS],
     ["🎲 Jeux", "Pour réviser en s'amusant, au tableau ou en petits groupes.", JEUX],
@@ -703,7 +704,7 @@ function viewOutil(id) {
       </header>
       <div class="board-body" id="tool"></div>
     </section>`;
-  const finOutil = o.mount($("#tool"), { eleves: state.eleves, esc, decks: state.decks, saveDecks: () => save("decks"), cahier: state.cahier, saveCahier: () => save("cahier") }) || null;
+  const finOutil = o.mount($("#tool"), { eleves: state.eleves, esc, decks: state.decks, saveDecks: () => save("decks"), cahier: state.cahier, saveCahier: () => save("cahier"), fluence: state.fluence, saveFluence: () => save("fluence") }) || null;
   const finAnnot = installerAnnotation($("#board")), finTap = tapFiable($("#board")), finBarre = installerBarre($("#board"), ctxBarre);
   toolCleanup = () => { finBarre(); finAnnot(); finTap(); finOutil?.(); };
   surveiller();
@@ -1080,6 +1081,8 @@ function viewEleve(id, sub) {
       ${(() => { const comps = resultatsParCompetence(null).filter((c) => c.res[id]); if (!comps.length) return "";
         const parD = {}; for (const c of comps) (parD[c.discipline] ??= []).push(c);
         return `<h3>Compétences évaluées (dernier résultat)</h3>${Object.entries(parD).map(([dd, cs]) => `<h4>${esc(dd)} <span class="hint">${cs.filter((c) => ACQUIS(c.res[id].code)).length} acquise(s) sur ${cs.length}</span></h4><table class="items"><tbody>${cs.map((c) => `<tr><td>${esc(c.texte)}</td><td class="code"><span class="res r-${c.res[id].code}">${c.res[id].code}</span></td></tr>`).join("")}</tbody></table>`).join("")}`; })()}
+      ${(() => { const fl = (state.fluence ?? []).filter((r) => r.eleveId === id).sort((a, b) => a.date.localeCompare(b.date)); if (!fl.length) return "";
+        return `<h3>Lecture chronométrée</h3><table class="items"><thead><tr><th>Date</th><th>Texte</th><th>Mots lus</th><th>Erreurs</th><th>Mots correctement lus / min</th></tr></thead><tbody>${fl.map((r) => `<tr><td>${new Date(r.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}</td><td>${esc(r.titre)} <span class="hint">${r.niveau}</span></td><td>${r.lus}</td><td>${r.erreurs}</td><td><b>${r.mclm}</b></td></tr>`).join("")}</tbody></table>`; })()}
       <label>Observations (pour le livret, les rendez-vous avec les parents…)<textarea id="obs" rows="4">${esc(el.observations)}</textarea></label>
     </div>`;
   $("#obs").oninput = (e) => { el.observations = e.target.value; save("eleves"); };
