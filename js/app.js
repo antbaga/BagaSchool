@@ -18,7 +18,7 @@ import { sync, initSync, marquer, demarrer, arreter, oublier, appareil, actif as
 import * as compte from "./compte.js";
 import { ecran, surveiller, quitterProjection, surRcEcran, surRcTel, viewTelecommande, rafraichirTel } from "./telecommande.js";
 import qrcode from "./vendor/qrcode.mjs";
-import { ISSR_BAREMES, issrJour, trancheISSR, nomTrancheISSR } from "./data/issr.js";
+import { ISSR_BAREMES, baremeISSR, issrJour, trancheISSR, nomTrancheISSR } from "./data/issr.js";
 import { chercherAdresse, chercherEcole, distanceRoute, lienGeoportail } from "./distance.js";
 import { installerAnnotation, tapFiable } from "./annoter.js";
 import { installerBarre } from "./barre.js";
@@ -26,7 +26,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.28";
+export const VERSION = "0.28.1";
 
 // ---------- état ----------
 let state = {};
@@ -2412,7 +2412,10 @@ function viewRemplacements(partiel = false) {
         <p><b>Année ${an} :</b> ${nb1(recAn.jours)} jour${recAn.jours > 1 ? "s" : ""} de remplacement, ${nb1(recAn.km)} km aller (${nb1(2 * recAn.km)} km aller-retour), ISSR estimée ${eur(recAn.issr)}.</p>
         <details class="hint rp-issr"><summary>Comment l'ISSR est estimée (indicatif)</summary>
           <p>Montant journalier selon la distance entre l'école de rattachement et l'école du remplacement (décret n° 89-825 du 9 novembre 1989, art. 3). Une journée notée compte pour une indemnité, y compris une demi-journée : vérifie la règle appliquée par ta circonscription. Rien n'est compté pour une école à 0 km (ton école de rattachement). L'ISSR concerne les remplacements de courte ou moyenne durée : pour un remplacement à l'année, ce sont d'autres règles.</p>
-          <p>Barèmes utilisés : ${ISSR_BAREMES.map((b) => `${esc(b.src)} : ${b.t.map((v) => v.toLocaleString("fr-FR")).join(" / ")} € par jour (moins de 10 km, 10-19, 20-29, 30-39, 40-49, 50-59, 60-80 km), puis ${b.sup.toLocaleString("fr-FR")} € par tranche de 20 km.`).join(" ")}</p>
+          ${(() => { const b = baremeISSR(today), d = (x) => fmtLong(x).replace(/^\S+ /, ""), noms = ["moins de 10 km", "10 à 19 km", "20 à 29 km", "30 à 39 km", "40 à 49 km", "50 à 59 km", "60 à 80 km"];
+            return b ? `<p><b>Barème en vigueur aujourd'hui</b> : ${esc(b.src)}.</p>
+            <table class="rp-table rp-bareme"><thead><tr><th>Distance (aller)</th><th>Par jour</th></tr></thead><tbody>${b.t.map((v, k) => `<tr><td>${noms[k]}</td><td>${eur(v)}</td></tr>`).join("")}<tr><td>par tranche de 20 km au-delà de 80 km</td><td>+ ${eur(b.sup)}</td></tr></tbody></table>
+            ${b.au ? `<p>Après le ${d(b.au)}, l'application revient au barème de base (${esc(ISSR_BAREMES[0].src)}) tant qu'aucun nouveau texte n'est paru. Chaque jour noté est calculé avec le barème de sa date.</p>` : ""}` : ""; })()}
           <p>Ce n'est pas un calcul officiel : le montant versé est celui de ton administration.</p></details>
         <button class="pill" id="rpCsv">⬇️ Télécharger le mois (tableur)</button>
       </div>
