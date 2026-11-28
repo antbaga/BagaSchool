@@ -87,30 +87,35 @@ function cahier(el, ctx) {
 }
 
 // =====================================================================
-// Calcul posé au tableau : grille à carreaux, chiffres alignés, cases de retenues.
+// Calcul posé au tableau : page Seyès, un chiffre par carreau, cases de retenues.
+// Plusieurs opérations côte à côte ; la barre du haut agit sur l'opération active.
 // On touche une case puis on tape le chiffre (clavier de l'outil ou du PC).
+// Hauteurs de lignes en quarts de carreau (interlignes Seyès) : chiffres = 4, retenues = 2 ou 4.
 // =====================================================================
 function calculPose(el) {
-  let op = "+", a = 347, b = 285, nd = 3, corr = false, sel = null, rouge = false;
-  let cells = {}; // "r,c" -> { v, rouge }
-  const exemple = () => {
+  const MAX_OPS = 6, TAILLES = [["S", 44], ["M", 60], ["L", 76]];
+  let nd = 3, corr = false, sel = null, rouge = false, act = 0, taille = 60;
+  const nouvelle = (op) => { const o = { op, a: 0, b: 0, cells: {} }; tirer(o); return o; };
+  const tirer = (o) => {
     const n = (k) => entre(10 ** (k - 1), 10 ** k - 1);
-    if (op === "+") { a = n(nd); b = n(nd); }
-    if (op === "−") { a = n(nd); b = n(nd); if (b > a) [a, b] = [b, a]; }
-    if (op === "×") { a = n(nd); b = n(Math.min(2, nd)); }
-    if (op === "÷") { b = entre(2, 9); a = n(Math.max(2, nd)); }
-    cells = {}; corr = false; sel = null;
+    if (o.op === "+") { o.a = n(nd); o.b = n(nd); }
+    if (o.op === "−") { o.a = n(nd); o.b = n(nd); if (o.b > o.a) [o.a, o.b] = [o.b, o.a]; }
+    if (o.op === "×") { o.a = n(nd); o.b = n(Math.min(2, nd)); }
+    if (o.op === "÷") { o.b = entre(2, 9); o.a = n(Math.max(2, nd)); }
+    o.cells = {};
   };
-  // Construit la disposition : liste de lignes { cls, cases: [{ t: "fixe"|"vide"|"ret"|"signe", v }] }
-  const disposer = () => {
+  const ops = [{ op: "+", a: 347, b: 285, cells: {} }];
+  // Disposition d'une opération : { W, lignes: [{ cls, h, trait, sol, cases: [{ t: "fixe"|"vide"|"ret"|"signe"|"rien", v }] }] }
+  const disposer = ({ op, a, b }) => {
     const A = String(a), B = String(b);
+    const retenues = (W) => ({ cls: "ret", cases: Array.from({ length: W }, (_, c) => (c > 0 ? { t: "ret" } : { t: "rien" })) });
     if (op === "+" || op === "−") {
       const r = String(op === "+" ? a + b : a - b), W = Math.max(A.length, B.length, r.length) + 1;
       const ligne = (s, kind) => Array.from({ length: W }, (_, c) => { const k = c - (W - s.length); return k >= 0 ? { t: kind, v: s[k] } : { t: "rien" }; });
       return { W, lignes: [
-        { cls: "ret", cases: Array.from({ length: W }, (_, c) => (c > 0 ? { t: "ret" } : { t: "rien" })) },
+        retenues(W),
         { cases: ligne(A, "fixe") },
-        ...(op === "−" ? [{ cls: "ret", cases: Array.from({ length: W }, (_, c) => (c > 0 ? { t: "ret" } : { t: "rien" })) }] : []),
+        ...(op === "−" ? [retenues(W)] : []),
         { cases: ligne(B, "fixe").map((x, c) => (c === 0 ? { t: "signe", v: op } : x)), trait: true },
         { cases: ligne(r, "vide"), sol: r },
       ] };
@@ -119,53 +124,75 @@ function calculPose(el) {
       const r = String(a * b), W = Math.max(A.length, B.length, r.length) + 1;
       const ligne = (s, kind, dec = 0) => Array.from({ length: W }, (_, c) => { const k = c - (W - dec - s.length); return k >= 0 && k < s.length ? { t: kind, v: s[k] } : c >= W - dec ? { t: "vide", v: "0", point: true } : { t: kind === "vide" ? "vide" : "rien" }; });
       const partiels = B.length > 1 ? [...B].reverse().map((d, k) => ({ cases: ligne(String(a * +d), "vide", k), sol: String(a * +d) + "0".repeat(k) })) : [];
+      // Une ligne de retenues par chiffre du multiplicateur (la plus proche du nombre = unités),
+      // puis, si plusieurs lignes de produits, une ligne de retenues pour leur addition.
       return { W, lignes: [
-        { cls: "ret", cases: Array.from({ length: W }, (_, c) => (c > 0 ? { t: "ret" } : { t: "rien" })) },
+        ...[...B].map(() => retenues(W)),
         { cases: ligne(A, "fixe") },
         { cases: ligne(B, "fixe").map((x, c) => (c === 0 ? { t: "signe", v: "×" } : x)), trait: true },
+        ...(partiels.length ? [retenues(W)] : []),
         ...partiels.map((l, k) => (k === partiels.length - 1 ? { ...l, trait: true } : l)),
         { cases: ligne(r, "vide"), sol: r },
       ] };
     }
     // Division : potence. Dividende à gauche, diviseur et quotient à droite.
     const q = String(Math.floor(a / b)), reste = a % b, WL = A.length + 1, WR = Math.max(B.length, q.length) + 1, W = WL + WR;
-    const lignes = [{ cases: [...Array.from({ length: WL }, (_, c) => (c < A.length ? { t: "fixe", v: A[c] } : { t: "rien" })), ...Array.from({ length: WR }, (_, c) => (c < B.length ? { t: "fixe", v: B[c], pot: c === 0 } : { t: "rien", pot: c === 0 }))], div: true }];
-    lignes.push({ cases: [...Array.from({ length: WL }, () => ({ t: "vide" })), ...Array.from({ length: WR }, (_, c) => (c < q.length ? { t: "vide", sol: q[c], pot: c === 0, q: true } : { t: "rien", pot: c === 0 }))], quot: true });
+    const lignes = [{ cases: [...Array.from({ length: WL }, (_, c) => (c < A.length ? { t: "fixe", v: A[c] } : { t: "rien" })), ...Array.from({ length: WR }, (_, c) => (c < B.length ? { t: "fixe", v: B[c], pot: c === 0 } : { t: "rien", pot: c === 0 }))], cls: "div" }];
+    lignes.push({ cases: [...Array.from({ length: WL }, () => ({ t: "vide" })), ...Array.from({ length: WR }, (_, c) => (c < q.length ? { t: "vide", sol: q[c], pot: c === 0, q: true } : { t: "rien", pot: c === 0 }))] });
     for (let k = 0; k < 2 * q.length; k++) lignes.push({ cases: [...Array.from({ length: WL }, () => ({ t: "vide" })), ...Array.from({ length: WR }, () => ({ t: "rien" }))] });
     return { W, lignes, q, reste };
   };
-  const render = () => {
-    const L = disposer();
+  // Lignes de retenues : deux lignes consécutives se partagent un carreau (une par moitié),
+  // une ligne seule prend un carreau entier, pour que les chiffres restent dans leurs carreaux.
+  const caler = (L) => {
+    for (let r = 0; r < L.lignes.length; ) {
+      let k = 0; while (L.lignes[r + k]?.cls === "ret") k++;
+      for (let j = 0; j < k; j++) L.lignes[r + j].h = k % 2 && j === k - 1 ? 4 : 2;
+      r += k || 1;
+    }
+    return L;
+  };
+  const opHTML = (o, i) => {
+    const L = caler(disposer(o)), quarts = L.lignes.reduce((s, l) => s + (l.h || 4), 0);
     const solRow = (l) => (l.sol ? l.sol.padStart(L.W, " ") : null);
+    return `<div class="cp-op ${i === act && ops.length > 1 ? "act" : ""} ${o.op === "÷" ? "div" : ""}" data-op-i="${i}" style="--w:${L.W};padding-bottom:calc(var(--c) * ${(4 - (quarts % 4)) % 4} / 4)">
+      ${ops.length > 1 ? `<button class="cp-x" data-suppr="${i}" aria-label="Retirer cette opération">✕</button>` : ""}
+      ${L.lignes.map((l, r) => `<div class="cp-row ${l.cls || ""} ${l.h === 4 ? "plein" : ""} ${l.trait ? "trait" : ""}">${l.cases.map((x, c) => {
+        const key = `${i}|${r},${c}`, u = o.cells[`${r},${c}`];
+        const sol = corr && !u ? (x.sol ?? (solRow(l)?.[c]?.trim() || (x.point ? "0" : ""))) : "";
+        const cls = ["cp-c", x.t, x.pot ? "pot" : "", sel === key ? "sel" : "", u?.rouge ? "rouge" : "", sol ? "solution" : ""].join(" ");
+        const txt = x.t === "fixe" || x.t === "signe" ? x.v : u ? u.v : sol;
+        return `<span class="${cls}" ${x.t === "vide" || x.t === "ret" ? `data-cell="${key}"` : ""}>${escO(txt ?? "")}</span>`;
+      }).join("")}</div>`).join("")}
+      ${o.op === "÷" && corr ? `<p class="cp-res">${o.a} = (${o.b} × ${L.q}) + ${L.reste}</p>` : ""}
+    </div>`;
+  };
+  const render = () => {
+    const o = ops[act];
     el.innerHTML = `
       <div class="tool-top wrap">
-        <div class="seg">${["+", "−", "×", "÷"].map((o) => `<button data-op="${o}" class="${o === op ? "on" : ""}">${o}</button>`).join("")}</div>
-        <label class="inline">Nombres <input id="na" class="num-in" value="${a}" inputmode="numeric"> ${op} <input id="nb" class="num-in" value="${b}" inputmode="numeric"></label>
+        <div class="seg">${["+", "−", "×", "÷"].map((x) => `<button data-op="${x}" class="${x === o.op ? "on" : ""}">${x}</button>`).join("")}</div>
+        <label class="inline">Nombres <input id="na" class="num-in" value="${o.a}" inputmode="numeric"> ${o.op} <input id="nb" class="num-in" value="${o.b}" inputmode="numeric"></label>
         <button class="pill" id="go">Poser</button>
         <label class="inline">Chiffres <select id="nd">${[2, 3, 4, 5].map((n) => `<option ${n === nd ? "selected" : ""}>${n}</option>`).join("")}</select></label>
         <button class="pill" id="rnd">🎲 Au hasard</button>
+        <button class="pill" id="ajout" ${ops.length >= MAX_OPS ? "disabled" : ""}>＋ Opération</button>
         <button class="pill ${corr ? "on" : ""}" id="corr">✔ Correction</button>
         <button class="pill" id="vider">Effacer mes chiffres</button>
+        <div class="seg">${TAILLES.map(([n, px]) => `<button data-taille="${px}" class="${px === taille ? "on" : ""}" aria-label="Taille des carreaux ${n}">${n}</button>`).join("")}</div>
       </div>
-      <div class="cp-wrap rc-board"><div class="cp-grid ${op === "÷" ? "div" : ""}" style="--w:${L.W}">
-        ${L.lignes.map((l, r) => `<div class="cp-row ${l.cls || ""} ${l.trait ? "trait" : ""} ${l.quot ? "quot" : ""}">${l.cases.map((x, c) => {
-          const key = `${r},${c}`, u = cells[key];
-          const sol = corr && !u ? (x.sol ?? (solRow(l)?.[c]?.trim() || (x.point ? "0" : ""))) : "";
-          const cls = ["cp-c", x.t, x.pot ? "pot" : "", sel === key ? "sel" : "", u?.rouge ? "rouge" : "", sol ? "solution" : ""].join(" ");
-          const txt = x.t === "fixe" || x.t === "signe" ? x.v : u ? u.v : sol;
-          return `<span class="${cls}" ${x.t === "vide" || x.t === "ret" ? `data-cell="${key}"` : ""}>${escO(txt ?? "")}</span>`;
-        }).join("")}</div>`).join("")}
-      </div>${op === "÷" && corr ? `<p class="cp-res">${a} = (${b} × ${L.q}) + ${L.reste}</p>` : ""}</div>
+      <div class="cp-page rc-board" style="--c:${taille}px">${ops.map(opHTML).join("")}</div>
       <div class="keypad cp-keys">${[7, 8, 9, 4, 5, 6, 1, 2, 3].map((n) => `<button data-k="${n}">${n}</button>`).join("")}<button data-k="del" aria-label="Effacer">⌫</button><button data-k="0">0</button><button data-k="rouge" class="${rouge ? "on" : ""}">Rouge</button></div>`;
   };
+  const parse = (key) => { const [i, rc] = key.split("|"); const [r, c] = rc.split(",").map(Number); return { i: +i, r, c, rc }; };
   const taper = (k) => {
     if (k === "rouge") { rouge = !rouge; return render(); }
     if (!sel) return;
-    if (k === "del") delete cells[sel]; else cells[sel] = { v: k, rouge };
-    if (k !== "del") { // case suivante : vers la gauche (on calcule de droite à gauche)
-      const [r, c] = sel.split(",").map(Number);
-      const prev = el.querySelector(`[data-cell="${r},${c - 1}"]`);
-      if (prev && !el.querySelector(`[data-cell="${sel}"]`)?.classList.contains("ret")) sel = `${r},${c - 1}`;
+    const { i, r, c, rc } = parse(sel), o = ops[i];
+    if (k === "del") delete o.cells[rc]; else o.cells[rc] = { v: k, rouge };
+    if (k !== "del") { // case suivante : vers la gauche (on calcule de droite à gauche), sauf dans les retenues
+      const prev = el.querySelector(`[data-cell="${i}|${r},${c - 1}"]`);
+      if (prev && !el.querySelector(`[data-cell="${sel}"]`)?.classList.contains("ret")) sel = `${i}|${r},${c - 1}`;
     }
     render();
   };
@@ -174,29 +201,35 @@ function calculPose(el) {
     if (/^[0-9]$/.test(e.key)) { taper(e.key); e.preventDefault(); }
     else if (e.key === "Backspace" || e.key === "Delete") { taper("del"); e.preventDefault(); }
     else if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
-      if (!sel) return; const [r, c] = sel.split(",").map(Number);
+      if (!sel) return; const { i, r, c } = parse(sel);
       const [dr, dc] = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
-      if (el.querySelector(`[data-cell="${r + dr},${c + dc}"]`)) { sel = `${r + dr},${c + dc}`; render(); }
+      const k = `${i}|${r + dr},${c + dc}`;
+      if (el.querySelector(`[data-cell="${k}"]`)) { sel = k; render(); }
       e.preventDefault();
     }
   };
   document.addEventListener("keydown", onKey);
   el.onclick = (e) => {
     const cell = e.target.closest("[data-cell]");
-    if (cell) { sel = cell.dataset.cell; return render(); }
-    const t = e.target.closest("button"); if (!t) return;
-    if (t.dataset.op) { op = t.dataset.op; exemple(); }
-    if (t.id === "rnd") exemple();
+    if (cell) { sel = cell.dataset.cell; act = parse(sel).i; return render(); }
+    const t = e.target.closest("button");
+    if (!t) { const opEl = e.target.closest("[data-op-i]"); if (opEl && +opEl.dataset.opI !== act) { act = +opEl.dataset.opI; render(); } return; }
+    const o = ops[act];
+    if (t.dataset.suppr) { ops.splice(+t.dataset.suppr, 1); act = Math.min(act, ops.length - 1); sel = null; }
+    if (t.dataset.op) { o.op = t.dataset.op; tirer(o); sel = null; }
+    if (t.dataset.taille) taille = +t.dataset.taille;
+    if (t.id === "rnd") { tirer(o); sel = null; }
+    if (t.id === "ajout" && ops.length < MAX_OPS) { ops.push(nouvelle(o.op)); act = ops.length - 1; sel = null; }
     if (t.id === "go") {
       const na = parseInt(el.querySelector("#na").value, 10), nb = parseInt(el.querySelector("#nb").value, 10);
-      if (na >= 0 && nb >= 0 && !(op === "÷" && nb === 0) && !(op === "−" && nb > na) && String(na).length <= 7 && String(nb).length <= 4) { a = na; b = nb; cells = {}; corr = false; sel = null; }
+      if (na >= 0 && nb >= 0 && !(o.op === "÷" && nb === 0) && !(o.op === "−" && nb > na) && String(na).length <= 7 && String(nb).length <= 4) { o.a = na; o.b = nb; o.cells = {}; sel = null; }
     }
     if (t.id === "corr") corr = !corr;
-    if (t.id === "vider") cells = {};
+    if (t.id === "vider") o.cells = {};
     if (t.dataset.k) return taper(t.dataset.k);
     render();
   };
-  el.onchange = (e) => { if (e.target.id === "nd") { nd = +e.target.value; exemple(); render(); } };
+  el.onchange = (e) => { if (e.target.id === "nd") { nd = +e.target.value; tirer(ops[act]); sel = null; render(); } };
   render();
   return () => document.removeEventListener("keydown", onKey);
 }
