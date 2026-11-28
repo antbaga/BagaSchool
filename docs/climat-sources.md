@@ -1,7 +1,7 @@
 # « Le climat change » : sources et points à vérifier
 
 Activité : `js/decouvrir/climat.js`, contenus : `js/data/decouvrir/climat-donnees.js`.
-Trois versions de texte : CP-CE1 (pas de chiffres), CE2, CM1-CM2.
+Trois versions de texte : CP-CE1 (peu de chiffres), CE2, CM1-CM2. Six étapes : effet de serre, causes, +2 °C ?, conséquences, agir, quiz.
 
 ## Chiffres utilisés
 
@@ -19,6 +19,12 @@ Trois versions de texte : CP-CE1 (pas de chiffres), CE2, CM1-CM2.
 | Océan | absorbe ≈ 29 % du CO₂ émis (2015-2024) | OMM 2025 |
 | Record de chaleur France | 46,0 °C, Vérargues (Hérault), 28 juin 2019 | Météo-France |
 | Pluies | ≈ +7 % de vapeur d'eau par °C | Relation de Clausius-Clapeyron (GIEC AR6) |
+| Dernière glaciation (il y a ≈ 20 000 ans) | ≈ 6 °C plus froid (5 à 7 °C), mer > 100 m plus bas | GIEC AR6 groupe I |
+| Vitesse | sortie de glaciation ≈ 10 000 ans ; réchauffement actuel ≈ 10 fois plus rapide, sans équivalent depuis au moins 2 000 ans | GIEC AR6 groupe I ; NASA Earth Observatory (ordre de grandeur) |
+| Chaleur extrême « 1 fois en 50 ans » (climat 1850-1900) | ×4,8 à +1 °C, ×8,6 à +1,5 °C, ×13,9 à +2 °C, ×39,2 à +4 °C | GIEC AR6, RID groupe I, figure SPM.6 |
+| Arctique | se réchauffe ≈ 4 fois plus vite que la moyenne (depuis 1979) | Rantanen et al., 2022 |
+| Océans | stockent ≈ 91 % de l'excès de chaleur | GIEC AR6 groupe I |
+| Lumière solaire renvoyée | ≈ 30 % (albédo) | Valeur classique (GIEC, manuels) |
 
 Liens : https://www.ipcc.ch/report/ar6/syr/ · https://wmo.int/news/media-centre/earths-climate-swings-increasingly-out-of-balance · https://www.ecologie.gouv.fr/dossiers/france-sadapte/rechauffement-trajectoire-reference · https://www.statistiques.developpement-durable.gouv.fr/edition-numerique/chiffres-cles-du-climat/fr/10-panorama-francais-des-gaz-a
 
@@ -27,5 +33,6 @@ Liens : https://www.ipcc.ch/report/ar6/syr/ · https://wmo.int/news/media-centre
 - Liens avec les programmes 2026 de sciences (BO n°24 du 11 juin 2026) : non vérifiés en détail, intitulés indicatifs.
 - Canicule 2003 (≈ 15 000 décès) et vendanges « plusieurs semaines plus tôt » : ordres de grandeur courants, non revérifiés.
 - Gestes alimentaires (viande rouge, fruits de saison) : à présenter sans juger les familles.
+- Étape « +2 °C ? » : courbe sur 22 000 ans simplifiée (forme approximative) ; « 10 fois plus vite » est un ordre de grandeur.
 - L'animation de l'effet de serre est un modèle : la part de flèches renvoyées n'est pas une mesure.
 - Les chiffres datés (2025) sont à mettre à jour chaque année.
