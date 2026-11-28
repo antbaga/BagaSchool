@@ -43,8 +43,8 @@ const GRATICULE = (() => {
 })();
 const DEFS = `<defs><clipPath id="mo-sph"><path d="${SPHERE}"/></clipPath>
   <linearGradient id="mo-mer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfeaff"/><stop offset=".5" stop-color="#a9d8fb"/><stop offset="1" stop-color="#cfeaff"/></linearGradient>
-  <pattern id="mo-pdes" width="22" height="22" patternUnits="userSpaceOnUse"><rect width="22" height="22" fill="#ffe08a"/><circle cx="5" cy="5" r="2.4" fill="#d9a441"/><circle cx="16" cy="15" r="2.4" fill="#d9a441"/></pattern>
-  <pattern id="mo-pfor" width="26" height="26" patternUnits="userSpaceOnUse"><rect width="26" height="26" fill="#5fbf6a"/><circle cx="7" cy="7" r="5" fill="#3e9b4f"/><circle cx="20" cy="19" r="5" fill="#3e9b4f"/></pattern>
+  <pattern id="mo-pdes" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="34" height="34" fill="#ffd36e" fill-opacity=".22"/><rect width="7" height="34" fill="#d9822b" fill-opacity=".7"/></pattern>
+  <pattern id="mo-pfor" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="#1f8a3a" fill-opacity=".16"/><circle cx="10" cy="10" r="6.5" fill="#14632a" fill-opacity=".85"/><circle cx="30" cy="30" r="6.5" fill="#14632a" fill-opacity=".85"/></pattern>
   <clipPath id="mo-eu"><path d="${anneaux([EUROPE_CLIP])}"/></clipPath></defs>`;
 const MER = (cible) => `<path d="${SPHERE}" class="mo-mer"${cible ? ` data-cible="mer"` : ""}/><path d="${GRATICULE}" class="mo-grat"/>`;
 const PD = Object.fromEntries(PAYS_D.map((p) => [p[0], p]));
@@ -185,9 +185,9 @@ function atelier(el, cfg) {
     el.innerHTML = `<div class="tool-top wrap mo-top">
         <div class="seg" role="group" aria-label="Mode">${cfg.modes.map(([m, t]) => `<button data-mode="${m}" class="${S.mode === m ? "on" : ""}">${t}</button>`).join("")}</div>
         ${niveauxHTML(cfg.niveaux, S.niv)}${cfg.options?.(S) ?? ""}</div>
-      <div class="explore mo-explore rc-board"><div class="explore-main mo-main"><svg class="mo-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Planisphère"></svg></div>
+      <div class="explore mo-explore rc-board"><div class="explore-main mo-main"><svg class="mo-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Planisphère"></svg>${cfg.sous?.(S) ?? ""}</div>
       <aside class="explore-card mo-card"></aside></div>
-      <p class="dk-source">${SOURCE}</p>`;
+      <p class="dk-source">${cfg.source ?? SOURCE}</p>`;
     svg = el.querySelector(".mo-svg");
     const main = el.querySelector(".mo-main");
     zoom = zoomCarte(svg, { max: 12, onChange: () => majEchelle() });
@@ -356,6 +356,7 @@ function atelier(el, cfg) {
   });
   el.onclick = (e) => {
     if (clicApresDrag(el) || zoom?.panFini()) return;
+    const sm = e.target.closest("summary[data-leg]"); if (sm) { S.leg = !sm.parentElement.open; return; }
     const b = e.target.closest("button");
     if (b && el.contains(b)) {
       if (b.dataset.zoom) return;
@@ -535,32 +536,49 @@ function paysDuMonde(el) {
 }
 
 // ---------- 3. Le monde physique ----------
+// Fond : planisphère en relief (image pré-calculée dans la même projection), tracés et zones par-dessus.
+const IMG_RELIEF = "img/decouvrir/relief-monde.webp";
+const SOURCE_RELIEF = "Relief : Mapzen Terrain Tiles / AWS (SRTM, ETOPO1, GMTED…), mis en couleurs pour BagaSchool · Fonds de carte et fleuves : Natural Earth (domaine public), projection Equal Earth. Déserts et forêts : contours simplifiés.";
+const ALTI = [["#76b260", "moins de 100 m"], ["#9ac770", "100 à 200 m"], ["#cede92", "200 à 500 m"], ["#f2dc8e", "500 à 1 000 m"], ["#e6b268", "1 000 à 1 500 m"], ["#d18b4c", "1 500 à 2 000 m"], ["#ab663c", "2 000 à 3 000 m"], ["#8a5038", "3 000 à 4 500 m"], ["#704234", "plus de 4 500 m"]];
+let frontieres = null;
 const CATS = { fleuves: "💧 Fleuves", massifs: "⛰️ Montagnes", milieux: "🏜️ Déserts et forêts", zones: "🌡️ Zones climatiques" };
 function mondePhysique(el) {
   const dispo = (S, o) => Object.entries(o).filter(([, v]) => nivIdx(v[3]) <= nivIdx(S.niv)).map(([k]) => k);
   const voir = (S, cat) => S.mode !== "placer" ? (cat !== "zones" || (S.mode === "explorer" && S.zones)) : S.cat === cat;
   const nomItem = (id) => FLEUVES[id]?.[0] ?? MASSIFS[id]?.[0] ?? MILIEUX[id]?.[0] ?? ZONES[id.replace(/^z\d/, "")]?.[0] ?? id;
+  const front0 = localStorage.getItem("bagaschool-dk-monde-front") !== "0";
+  const legende = (S) => `<details class="mo-legende" ${S.leg ? "open" : ""}><summary data-leg>Légende</summary><div class="mo-leg-cols">
+      <div><b>Altitude</b>${[...ALTI].reverse().map(([c, t]) => `<span><i style="background:${c}"></i>${t}</span>`).join("")}</div>
+      <div><b>Sur la carte</b><span><i style="background:#f6fafd"></i>glaces</span><span><i style="background:#cdeafa"></i>mer peu profonde</span><span><i style="background:#79b2e2"></i>océan profond</span>
+      ${voir(S, "fleuves") ? `<span><i class="mo-li-fl"></i>fleuve</span>` : ""}${voir(S, "massifs") ? `<span><i class="mo-li-ma"></i>chaîne de montagnes</span>` : ""}
+      ${voir(S, "milieux") ? `<span><i class="mo-li-de"></i>désert</span><span><i class="mo-li-fo"></i>forêt tropicale</span>` : ""}</div></div></details>`;
   return atelier(el, {
     id: "monde-physique", niveaux: ["CE1", "CE2", "CM1", "CM2"], defaut: "CE1", aimant: 34,
     modes: [["explorer", "🔎 Explorer"], ["quiz", "❓ Touche…"], ["placer", "🏷️ Placer"]],
-    etat: () => ({ cat: "fleuves", zones: false }),
-    options: (S) => S.mode === "placer" ? `<div class="seg" role="group" aria-label="Thème">${Object.entries(CATS).map(([k, n]) => `<button data-cat="${k}" class="${S.cat === k ? "on" : ""}">${n}</button>`).join("")}</div>` : "",
+    etat: () => ({ cat: "fleuves", zones: false, front: front0, leg: innerWidth >= 1500 || document.body.classList.contains("projection") }),
+    options: (S) => (S.mode === "placer" ? `<div class="seg" role="group" aria-label="Thème">${Object.entries(CATS).map(([k, n]) => `<button data-cat="${k}" class="${S.cat === k ? "on" : ""}">${n}</button>`).join("")}</div>` : "")
+      + `<a class="pill mo-lien-fr rc-keep" href="#/outils/geo-relief">🇫🇷 La même chose pour la France</a>`,
     bouton(b, S) { if (b.dataset.cat) { S.cat = b.dataset.cat; return "monter"; } },
-    change(t, S) { if (t.dataset.opt === "zones") { S.zones = t.checked; return "carte"; } },
+    change(t, S) {
+      if (t.dataset.opt === "zones") { S.zones = t.checked; return "monter"; }
+      if (t.dataset.opt === "front") { S.front = t.checked; localStorage.setItem("bagaschool-dk-monde-front", S.front ? "1" : "0"); return "carte"; }
+    },
+    source: SOURCE_RELIEF, sous: legende,
     fond(S) {
-      let h = MER(false) + `<g clip-path="url(#mo-sph)">`;
+      let h = `<path d="${SPHERE}" class="mo-mer"/><g clip-path="url(#mo-sph)"><image href="${IMG_RELIEF}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none" class="mo-relief"/>`;
       const zonesActives = voir(S, "zones");
       if (zonesActives) {
         const col = S.mode === "explorer";
         h += BANDES.map(([z, a, b], i) => { const [x0] = P(-180, 0), [x1] = P(180, 0), y0 = P(0, b)[1], y1 = P(0, a)[1]; return `<rect class="mo-bande ${col ? "auto" : ""}" data-cible="z${i}${z}" x="${f1(x0)}" y="${f1(y0)}" width="${f1(x1 - x0)}" height="${f1(y1 - y0)}" ${col ? `style="fill:${ZONES[z][1]}"` : ""}/>`; }).join("");
       }
-      for (const k of ["af", "eua", "na", "sa", "oc"]) h += `<path class="mo-terre ${zonesActives ? "trans" : ""}" d="${CONT_D[k]}"/>`;
-      const antar = voir(S, "milieux") && !zonesActives;
-      h += `<path class="mo-terre an ${zonesActives ? "trans" : ""}" ${antar ? `data-cible="antarctique"` : ""} d="${CONT_D.an}"/>`;
+      h += `<path d="${GRATICULE}" class="mo-grat r"/>`;
+      if (S.front) h += `<path class="mo-front" d="${(frontieres ||= PAYS_D.map((p) => p[1]).join(""))}"/>`;
+      h += `<path class="mo-cote" d="${["af", "eua", "na", "sa", "oc", "an"].map((k) => CONT_D[k]).join("")}"/>`;
+      if (voir(S, "milieux") && !zonesActives) h += `<path class="mo-ant" data-cible="antarctique" d="${CONT_D.an}"/>`;
       if (zonesActives) h += [23.44, -23.44, 66.56, -66.56].map((la) => `<path class="mo-par" d="M${f1(P(-180, la)[0])},${f1(P(0, la)[1])}H${f1(P(180, la)[0])}"/>`).join("") + `<path class="mo-par eq" d="M${f1(P(-180, 0)[0])},${f1(H / 2)}H${f1(P(180, 0)[0])}"/>`;
       if (voir(S, "milieux")) for (const k of dispo(S, MILIEUX)) { const m = MILIEUX[k]; if (m[1]) h += `<path class="mo-milieu ${m[4]}" data-cible="${k}" d="${anneaux(m[1])}"/>`; }
-      if (voir(S, "massifs")) for (const k of dispo(S, MASSIFS)) { const d = ligne(MASSIFS[k][1]); h += `<g class="mo-massif" data-cible="${k}"><path class="hit" d="${d}"/><path class="b" d="${d}"/><path class="t" d="${d}"/></g>`; }
-      if (voir(S, "fleuves")) for (const k of dispo(S, FLEUVES)) h += `<g class="mo-fleuve" data-cible="${k}"><path class="hit" d="${FLEUVES_D[k]}"/><path class="v" d="${FLEUVES_D[k]}"/></g>`;
+      if (voir(S, "massifs")) for (const k of dispo(S, MASSIFS)) h += `<g class="mo-massif" data-cible="${k}"><path class="zc" d="${anneaux([MASSIFS[k][4]])}"/><path class="z" d="${anneaux([MASSIFS[k][4]])}"/><path class="hit" d="${ligne(MASSIFS[k][1])}"/></g>`;
+      if (voir(S, "fleuves")) for (const k of dispo(S, FLEUVES)) h += `<g class="mo-fleuve" data-cible="${k}"><path class="hit" d="${FLEUVES_D[k]}"/><path class="c" d="${FLEUVES_D[k]}"/><path class="v" d="${FLEUVES_D[k]}"/></g>`;
       return h + `</g>`;
     },
     items(S) {
@@ -579,9 +597,9 @@ function mondePhysique(el) {
       cibles: Object.fromEntries(BANDES.map(([z], i) => [`z${i}${z}`, z])),
     } : null,
     choisir: (ids) => ids.find((i) => FLEUVES[i]) ?? ids.find((i) => MASSIFS[i]) ?? ids[0],
-    intro: (S) => `<h3>Le monde physique</h3><p>Touche un fleuve (en bleu), une chaîne de montagnes (en marron), un désert (en jaune) ou une forêt (en vert).</p>
-      <p class="muted">Les formes sont simplifiées, comme sur une carte d'école.</p>`,
-    optionsExplorer: (S) => `<label class="check mo-chk"><input type="checkbox" data-opt="zones" ${S.zones ? "checked" : ""}> Zones climatiques</label>`,
+    intro: (S) => `<h3>Le monde physique</h3><p>Touche un fleuve (trait bleu), une chaîne de montagnes (contour pointillé), un désert (hachures orange) ou une forêt (points verts).</p>
+      <p class="muted">Les couleurs montrent l'altitude : <b style="color:#4f8f3e">vert</b> pour les plaines basses, <b style="color:#b58a1e">jaune</b> et <b style="color:#b06a2c">orange</b> pour les plateaux, <b style="color:#7a4430">brun</b> pour les hautes montagnes, <b>blanc</b> pour les glaces. Dans les océans, plus le bleu est foncé, plus c'est profond.</p>`,
+    optionsExplorer: (S) => `<label class="check mo-chk"><input type="checkbox" data-opt="zones" ${S.zones ? "checked" : ""}> Zones climatiques</label><label class="check mo-chk"><input type="checkbox" data-opt="front" ${S.front ? "checked" : ""}> Frontières des pays</label>`,
     fiche(id) {
       const z = /^z\d(.+)$/.exec(id);
       if (z) return `<h3>${esc(ZONES[z[1]][0])}</h3><span class="dk-tag">Zone climatique</span><p>${ZONES[z[1]][2]}</p>`;

@@ -1,0 +1,28 @@
+/* English games : illustrations Microsoft Fluent Emoji 3D (img/emoji, MIT) et nombres en boîtes de dix. */
+.en-emo{display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.en-img{display:block;width:100px;height:100px;object-fit:contain;user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;pointer-events:none;filter:drop-shadow(0 6px 6px #00000014)}
+.en-emo-txt{font-size:inherit;line-height:1}
+/* Flashcards / mot au hasard : grande image nette au TBI (source 256 px). */
+.en-flash{min-height:min(52vh,560px)}
+.en-emo.xl .en-img{width:min(42vh,280px);height:min(42vh,280px)}
+/* Memory, morpion, What's missing? : plus petites, proportionnelles à la case. */
+.en-carte,.en-case{padding:6px}
+.en-carte .en-emo{width:80%}
+.en-carte .en-img,.en-case .en-img{width:100%;height:auto;aspect-ratio:1}
+.en-case .en-emo{width:60%}
+.en-case:has(.en-mot) .en-emo{width:50%}
+.en-kim-it .en-img{width:96px;height:96px}
+.en-kim-it:has(.en-mot) .en-img{width:80px;height:80px}
+/* Météo : nuages et brouillard blancs -> pastille ciel pour le contraste. */
+.en-th-weather .en-emo{background:radial-gradient(circle at 50% 40%,#e6f2ff,#c6defa);border-radius:26%;padding:7%}
+.en-th-weather .en-carte .en-emo,.en-th-weather .en-case .en-emo{padding:5%}
+/* Nombres : chiffre + boîtes de dix (2 rangées de 5). */
+.en-boites{display:flex;flex-direction:column;align-items:center;gap:.12em;font-size:.17em;margin-top:.25em}
+.en-boite{display:grid;grid-template-columns:repeat(5,1em);gap:.28em;padding:.32em;border:.12em solid #d9d3ff;border-radius:.45em;background:#fff}
+.en-boite i{width:1em;height:1em;border-radius:50%;background:#efeaff}
+.en-boite i.on{background:#ff8fab;box-shadow:inset 0 -.12em 0 #0000001f}
+.en-carte .en-num{font-size:40px}.en-case .en-num{font-size:58px}
+.en-kim-it .en-num{font-size:44px}
+@media (min-width:1400px){.en-kim{width:min(1000px,100%)}.en-kim-it{width:190px;height:190px}.en-kim-it .en-img{width:130px;height:130px}.en-kim-it:has(.en-mot) .en-img{width:110px;height:110px}}
+.en-credit{font-size:12px;color:var(--muted);text-align:center;margin:10px 0 0;opacity:.75}
+@media (max-width:700px){.en-flash{min-height:44vh}.en-emo.xl .en-img{width:min(30vh,230px);height:min(30vh,230px)}.en-carte .en-emo{width:88%}.en-carte .en-num{font-size:24px}.en-case .en-num{font-size:34px}.en-img{width:80px;height:80px}.en-kim-it{width:120px;height:120px}.en-kim-it:has(.en-mot) .en-img{width:64px;height:64px}}

@@ -5,7 +5,9 @@ const hasard = (n) => Math.floor(Math.random() * n);
 const melange = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = hasard(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-// Un élément : [mot anglais, image] ; image = emoji, "#couleur" (pastille) ou "fr:texte" (indice écrit).
+// Un élément : [mot anglais, image] ; image = emoji, "#couleur" (pastille), "n:nombre" ou "fr:texte" (indice écrit).
+// Chaque emoji est affiché par son illustration Microsoft Fluent Emoji 3D (img/emoji/<code unicode sans FE0F>.webp, MIT) ;
+// si le fichier manque, on retombe sur l'emoji texte du système.
 const T = (s) => s.split("|").map((x) => x.split("="));
 export const THEMES = {
   colours: { nom: "Colours 🎨", items: T("red=#e53935|blue=#1e63d6|yellow=#ffd23f|green=#2e9d4a|orange=#ff8a1f|purple=#8e44ad|pink=#ff8fc7|brown=#8d5a2b|black=#222222|white=#ffffff|grey=#9aa0a6") },
@@ -13,11 +15,11 @@ export const THEMES = {
   days: { nom: "Days 📅", items: T("Monday=fr:lundi|Tuesday=fr:mardi|Wednesday=fr:mercredi|Thursday=fr:jeudi|Friday=fr:vendredi|Saturday=fr:samedi|Sunday=fr:dimanche") },
   emotions: { nom: "Feelings 😀", items: T("happy=😀|sad=😢|angry=😠|scared=😨|tired=😴|surprised=😲|ill=🤒|bored=😑|hungry=😋") },
   clothes: { nom: "Clothes 👕", items: T("T-shirt=👕|trousers=👖|dress=👗|shorts=🩳|coat=🧥|scarf=🧣|gloves=🧤|socks=🧦|cap=🧢|hat=👒|shoes=👞|trainers=👟|boots=🥾|glasses=👓") },
-  christmas: { nom: "Christmas 🎄", items: T("Christmas tree=🎄|Father Christmas=🎅|present=🎁|star=⭐|bell=🔔|reindeer=🦌|snowman=⛄|candle=🕯️|snowflake=❄️|sleigh=🛷|elf=🧝|angel=👼|stocking=🧦") },
+  christmas: { nom: "Christmas 🎄", items: T("Christmas tree=🎄|Father Christmas=🎅|present=🎁|star=⭐|bell=🔔|reindeer=🦌|snowman=☃️|candle=🕯️|snowflake=❄️|sleigh=🛷|elf=🧝|angel=👼|stocking=🧦") },
   animals: { nom: "Animals 🐶", items: T("dog=🐶|cat=🐱|rabbit=🐰|bird=🐦|fish=🐟|horse=🐴|cow=🐮|pig=🐷|sheep=🐑|chicken=🐔|lion=🦁|elephant=🐘|monkey=🐵|mouse=🐭|frog=🐸") },
   food: { nom: "Food 🍎", items: T("apple=🍎|banana=🍌|bread=🍞|cheese=🧀|pizza=🍕|egg=🥚|milk=🥛|strawberry=🍓|orange=🍊|carrot=🥕|cake=🍰|chocolate=🍫|chips=🍟|ice cream=🍦") },
   body: { nom: "My body 👂", items: T("eye=👁️|ear=👂|nose=👃|mouth=👄|hand=✋|foot=🦶|leg=🦵|arm=💪|tooth=🦷") },
-  weather: { nom: "Weather ☀️", items: T("sunny=☀️|rainy=🌧️|snowy=🌨️|cloudy=☁️|windy=💨|stormy=⛈️|foggy=🌫️") },
+  weather: { nom: "Weather ☀️", items: T("sunny=☀️|rainy=🌧️|snowy=🌨️|cloudy=☁️|windy=🌬️|stormy=⛈️|foggy=🌁") },
   family: { nom: "Family 👪", items: T("mum=👩|dad=👨|sister=👧|brother=👦|grandma=👵|grandpa=👴|baby=👶") },
   school: { nom: "School ✏️", items: T("pencil=✏️|pen=🖊️|ruler=📏|book=📕|scissors=✂️|schoolbag=🎒|notebook=📓|crayon=🖍️|chair=🪑|computer=💻|clock=🕒") },
 };
@@ -33,12 +35,17 @@ export const dire = (txt) => {
   speechSynthesis.speak(u);
 };
 
+export const emojiSrc = (g) => `img/emoji/${[...g].map((c) => c.codePointAt(0)).filter((c) => c !== 0xfe0f).map((c) => c.toString(16)).join("-")}.webp`;
+// Nombres : le chiffre + des « boîtes de dix » (2 rangées de 5 points), comme en classe.
+const boites = (n) => Array.from({ length: Math.ceil(n / 10) }, (_, b) => `<span class="en-boite">${Array.from({ length: 10 }, (_, k) => `<i class="${b * 10 + k < n ? "on" : ""}"></i>`).join("")}</span>`).join("");
 const imageHTML = ([mot, img], taille = "") => {
   if (img.startsWith("#")) return `<span class="en-sw ${taille}" style="background:${img}" aria-label="${esc(mot)}"></span>`;
-  if (img.startsWith("n:")) { const n = +img.slice(2); return `<span class="en-num ${taille}">${n}<span class="en-dots">${"•".repeat(Math.min(n, 20))}</span></span>`; }
+  if (img.startsWith("n:")) { const n = +img.slice(2); return `<span class="en-num ${taille}">${n}<span class="en-boites">${boites(n)}</span></span>`; }
   if (img.startsWith("fr:")) return `<span class="en-fr ${taille}">${esc(img.slice(3))}</span>`;
-  return `<span class="en-emo ${taille}">${img}</span>`;
+  return `<span class="en-emo ${taille}"><img class="en-img" src="${emojiSrc(img)}" alt="${esc(mot)}" loading="lazy" decoding="async" draggable="false" data-emo="${esc(img)}"></span>`;
 };
+// Repli : image absente (hors ligne sans cache, fichier manquant) -> emoji texte.
+const replier = (e) => { const i = e.target; if (i.tagName !== "IMG" || !i.dataset.emo) return; const s = document.createElement("span"); s.className = "en-emo-txt"; s.textContent = i.dataset.emo; s.setAttribute("aria-label", i.alt); i.replaceWith(s); };
 
 // ---------- Guess who : personnages dessinés (SVG), attributs simples ----------
 const PRENOMS = { girl: ["Emma", "Lily", "Sophie", "Grace", "Amy", "Chloe", "Ruby", "Mia", "Ella", "Kate"], boy: ["Tom", "Jack", "Harry", "Sam", "Ben", "Leo", "Max", "Oscar", "Alfie", "Joe"] };
@@ -83,6 +90,7 @@ function anglais(el) {
   const motHTML = (it, force = false) => (mots || force) ? `<span class="en-mot">${esc(it[0])}</span>` : "";
   const init = () => {
     const its = items();
+    its.forEach(([, g]) => { if (!/^(#|n:|fr:)/.test(g)) new Image().src = emojiSrc(g); }); // précharge le thème (memory, morpion…)
     if (jeu === "flash") st = { ordre: melange(its.map((_, k) => k)), i: 0, voir: mots };
     if (jeu === "memory") { const pick = melange(its).slice(0, Math.min(8, its.length)); st = { cartes: melange(pick.flatMap((it, k) => [{ k, it, face: "img" }, { k, it, face: mots ? "mot" : "img" }])), ouv: [], trouve: new Set(), bloc: false, coups: 0 }; }
     if (jeu === "morpion") st = { cases: melange(its).slice(0, 9).map((it) => ({ it, eq: null })), tour: 0, sel: null, gagne: null };
@@ -135,7 +143,8 @@ function anglais(el) {
         <div class="seg"><button data-mots="0" class="${mots ? "" : "on"}">CP-CE2 : images + son</button><button data-mots="1" class="${mots ? "on" : ""}">CM : avec les mots</button></div>
       </div>
       <div class="tool-top wrap"><div class="seg">${[["flash", "🃏 Flashcards"], ["memory", "🧠 Memory"], ["morpion", "⭕ Morpion"], ["kim", "🙈 What's missing?"], ["gw", "🕵️ Guess who?"], ["tirage", "🎲 Mot au hasard"]].map(([k, v]) => `<button data-jeu="${k}" class="${jeu === k ? "on" : ""}">${v}</button>`).join("")}</div></div>
-      <div class="en-jeu">${vue()}</div>`;
+      <div class="en-jeu en-th-${theme}">${vue()}</div>
+      <p class="en-credit">Illustrations : Microsoft Fluent Emoji (MIT)</p>`;
   };
   el.onclick = (e) => {
     const t = e.target.closest("button"); if (!t) return;
@@ -197,8 +206,9 @@ function anglais(el) {
     if (e.target.id === "theme") { theme = e.target.value; localStorage.setItem("bagaschool-en-theme", theme); init(); render(); }
     if (e.target.id === "gwauto") st.auto = e.target.checked;
   };
+  el.addEventListener("error", replier, true);
   init(); render();
-  return () => { if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel(); };
+  return () => { el.removeEventListener("error", replier, true); if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel(); };
 }
 
 export const ANGLAIS = [
