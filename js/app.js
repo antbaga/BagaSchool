@@ -25,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.21";
+export const VERSION = "0.21.1";
 
 // ---------- état ----------
 let state = {};
@@ -803,7 +803,7 @@ function viewAccueil() {
     <section class="hello"><h2>Bonjour ! 👋</h2><p>Nous sommes ${esc(dateTxt)}.${(() => { const st = statutJour(localISO(now)); if (st && st.type !== "weekend") return ` ${esc(st.nom)} 🏖️`; const v = prochainesVacances(localISO(now)); return v ? ` Vacances ${v.nom} dans ${v.jours} jour${v.jours > 1 ? "s" : ""}.` : ""; })()}</p></section>
     <div class="home-grid">
       <section class="panel">
-        <div class="panel-head"><h3>Ma journée</h3><a href="#/journal" class="link">Cahier journal</a></div>
+        <div class="panel-head"><h3>Ma journée</h3></div>
         ${slots.length ? `<ol class="today">${slots.map((s) => {
           const cls = s.fin <= hm ? "past" : s.debut <= hm ? "now" : "";
           return `<li class="${cls}" style="--c:${s.couleur}"><span class="today-time">${esc(s.debut)}</span><span class="today-what"><b>${esc(s.discipline)}</b>${s.libelle ? ` · ${esc(s.libelle)}` : ""}</span>${cls === "now" ? `<span class="badge">en cours</span>` : ""}</li>`;
@@ -2566,7 +2566,7 @@ async function viewRessource(id) {
 const ctxPartage = () => ({ app, state, save, esc, $, $$, fmtLong, fmtCourt, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, compte, qrcode, creneauxDuJour, compById });
 
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Mes élèves", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel et cantine", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {

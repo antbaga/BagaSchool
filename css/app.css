@@ -37,6 +37,9 @@ main{margin-left:var(--nav);padding:8px 24px 40px;max-width:1240px}
   .tabbar span{font-size:21px;line-height:1.2;display:grid;place-items:center;width:48px;height:30px;border-radius:15px}
   .tabbar .on{color:var(--primary)}.tabbar .on span{background:var(--primary-soft)}
   main{margin-left:0;padding:4px 14px calc(96px + env(safe-area-inset-bottom))}
+  /* La bannière d'installation passe au-dessus de la barre d'onglets et s'efface quand le menu est ouvert. */
+  .inst-ban{bottom:calc(78px + env(safe-area-inset-bottom))}
+  body.nav-open .inst-ban{display:none}
 }
 /* ----- contrôles ----- */
 button,.btn{font:700 15px var(--font);border-radius:var(--r-sm);border:0;padding:10px 16px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--ink);background:none;min-height:42px;transition:transform .08s,background .15s}
