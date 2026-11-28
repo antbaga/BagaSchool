@@ -56,7 +56,7 @@ const POUR = { remplacant: "Remplaçant·e", aesh: "AESH", collegue: "Collègue"
 const DUREES = [[24, "24 h"], [48, "2 jours"], [168, "1 semaine"]];
 const INCLURE = [
   ["edt", "Emploi du temps de la journée"],
-  ["contenus", "Contenus prévus (cahier journal, titres et objectifs des fiches)"],
+  ["contenus", "Contenus prévus (cahier journal : objectifs, compétences, différenciation, fiches)"],
   ["fiches", "Déroulement détaillé des fiches"],
   ["devoirs", "Devoirs à donner"],
   ["besoins", "Élèves à besoins particuliers"],
@@ -70,7 +70,7 @@ const PRESETS = {
 
 // ---------- écran de l'enseignant : #/partager/<date> ----------
 export function viewPartager(ctx, dateISO) {
-  const { app, state, save, esc, $, $$, fmtLong, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, fmtCourt, compte, creneauxDuJour } = ctx;
+  const { app, state, save, esc, $, $$, fmtLong, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, fmtCourt, compte, creneauxDuJour, compById } = ctx;
   const date = dateISO || isoLocal(new Date());
   const P = (state.reglages.partage ??= {});
   P.pour ??= "remplacant"; P.heures ??= 48;
@@ -165,6 +165,10 @@ export function viewPartager(ctx, dateISO) {
         return {
           debut: s.debut, fin: s.fin, discipline: s.discipline || "", libelle: s.libelle || "", couleur: s.couleur || "",
           notes: I.contenus ? c.notes?.trim() || "" : "",
+          // objectif, compétences et différenciation de la séance (cahier journal, même sans fiche)
+          objectif: I.contenus ? c.objectif?.trim() || "" : "",
+          competences: I.contenus ? (c.competences ?? []).map((id) => compById?.[id]?.texte).filter(Boolean) : [],
+          differenciation: I.contenus ? c.differenciation?.trim() || "" : "",
           fiche: f ? { titre: f.titre, objectif: f.objectif || "", ...(I.fiches ? { materiel: f.materiel || "", differenciation: f.differenciation || "",
             phases: (f.phases || []).filter((p) => p.phase || p.deroulement).map((p) => ({ duree: p.duree || "", phase: p.phase || "", deroulement: p.deroulement || "", modalite: p.modalite || "" })) } : {}) } : null,
         };
@@ -275,7 +279,10 @@ export async function viewVoir(ctx, code) {
         <li style="--c:${/^#[0-9a-f]{3,8}$/i.test(c.couleur) ? c.couleur : "#e5e5e5"}">
           <span class="voir-h">${esc(c.debut)}<br><span class="hint">${esc(c.fin)}</span></span>
           <div><b>${esc(c.discipline)}</b>${c.libelle ? ` · ${esc(c.libelle)}` : ""}
-            ${c.fiche ? `<div class="voir-fiche"><b>${esc(c.fiche.titre)}</b>${c.fiche.objectif ? `<br>Objectif : ${multi(c.fiche.objectif)}` : ""}</div>` : ""}
+            ${c.fiche ? `<div class="voir-fiche"><b>${esc(c.fiche.titre)}</b>${c.fiche.objectif && !c.objectif ? `<br>Objectif : ${multi(c.fiche.objectif)}` : ""}</div>` : ""}
+            ${c.objectif ? `<p>🎯 <b>Objectif :</b> ${multi(c.objectif)}</p>` : ""}
+            ${c.competences?.length ? `<ul class="voir-comp">${c.competences.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
+            ${c.differenciation ? `<p><b>Différenciation :</b> ${multi(c.differenciation)}</p>` : ""}
             ${c.notes ? `<p>${multi(c.notes)}</p>` : ""}
             ${c.fiche?.phases?.length || c.fiche?.materiel || c.fiche?.differenciation ? `<details class="voir-details"><summary>Déroulement détaillé</summary>
               ${c.fiche.materiel ? `<p><b>Matériel :</b> ${multi(c.fiche.materiel)}</p>` : ""}
