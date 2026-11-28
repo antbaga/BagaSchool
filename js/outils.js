@@ -111,7 +111,7 @@ function tirage(el, ctx) {
   return () => clearInterval(anim);
 }
 function noPupils(el) {
-  el.innerHTML = `<div class="tool-center"><div class="empty-big">👧🧒</div><p>Ajoute d'abord les prénoms de tes élèves dans <a href="#/classe">Ma classe</a>.</p></div>`;
+  el.innerHTML = `<div class="tool-center"><div class="empty-big">👧🧒</div><p>Ajoute d'abord les prénoms de tes élèves dans <a href="#/classe">Mes élèves</a>.</p></div>`;
 }
 
 // ---------- Groupes ----------

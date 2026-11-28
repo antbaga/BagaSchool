@@ -32,38 +32,9 @@
   <span class="topbar-title" id="viewTitle"></span>
   <span id="syncDot" class="sync-dot" hidden></span>
 </header>
-<nav class="sidebar" id="sidebar">
-  <a href="#/accueil" data-route="accueil"><span>🏠</span>Aujourd'hui</a>
-  <a href="#/outils" data-route="outils"><span>🎒</span>En classe</a>
-  <a href="#/telecommande" data-route="telecommande"><span>📱</span>Télécommande</a>
-  <a href="#/ressources" data-route="ressources"><span>📂</span>Mes ressources</a>
-  <a href="#/journal" data-route="journal"><span>📒</span>Cahier journal</a>
-  <div class="nav-sep">Préparer</div>
-  <a href="#/edt" data-route="edt"><span>📅</span>Emploi du temps</a>
-  <a href="#/programmations" data-route="programmations"><span>🗂️</span>Programmations</a>
-  <a href="#/fiches" data-route="fiches"><span>📝</span>Fiches de prép</a>
-  <a href="#/imprimer" data-route="imprimer"><span>🖨️</span>À imprimer</a>
-  <a href="#/evaluations" data-route="evaluations"><span>✅</span>Évaluations</a>
-  <a href="#/devoirs" data-route="devoirs"><span>📚</span>Devoirs</a>
-  <div class="nav-sep">Ma classe</div>
-  <a href="#/classe" data-route="classe"><span>👧</span>Mes élèves</a>
-  <a href="#/suivi" data-route="suivi"><span>📊</span>Suivi de la classe</a>
-  <a href="#/apc" data-route="apc"><span>🤝</span>APC</a>
-  <a href="#/appel" data-route="appel"><span>🙋</span>Appel et cantine</a>
-  <a href="#/calendrier" data-route="calendrier"><span>🏖️</span>Calendrier</a>
-  <a href="#/remplacements" data-route="remplacements"><span>🚗</span>Mes remplacements</a>
-  <a href="#/competences" data-route="competences"><span>🎯</span>Compétences</a>
-  <a href="#/reglages" data-route="reglages"><span>⚙️</span>Réglages</a>
-  <a href="#/aide" data-route="aide"><span>❓</span>Installer et projeter</a>
-  <a href="#" id="navAvis"><span>💬</span>Donner mon avis</a>
-</nav>
-<nav class="tabbar" aria-label="Navigation">
-  <a href="#/accueil" data-route="accueil"><span>🏠</span>Aujourd'hui</a>
-  <a href="#/outils" data-route="outils"><span>🎒</span>En classe</a>
-  <a href="#/fiches" data-route="fiches"><span>📝</span>Fiches</a>
-  <a href="#/evaluations" data-route="evaluations"><span>✅</span>Évals</a>
-  <button id="menuBtn" type="button"><span>☰</span>Plus</button>
-</nav>
+<nav class="sidebar" id="sidebar" aria-label="Menu"></nav>
+<nav class="tabbar" id="tabbar" aria-label="Navigation"></nav>
+<nav class="subnav no-print" id="subnav" aria-label="Pages de la section" hidden></nav>
 <div class="nav-backdrop" id="navBackdrop"></div>
 <main id="app"></main>
 <div class="modal-backdrop" id="modal" hidden><div class="modal" role="dialog" aria-modal="true"></div></div>

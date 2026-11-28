@@ -25,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.22.0";
+export const VERSION = "0.23";
 
 // ---------- état ----------
 let state = {};
@@ -522,7 +522,7 @@ function viewEvals() {
   for (const ev of [...vus].sort((a, b) => (b.date || "9999").localeCompare(a.date || "9999"))) (parD[ev.discipline || "Autre"] ??= []).push(ev);
   const saisie = (ev) => { const tot = ev.items.length * state.eleves.length; if (!tot) return ""; let n = 0; for (const el of state.eleves) for (let k = 0; k < ev.items.length; k++) if (ev.resultats[el.id]?.[k]) n++; return n === tot ? " · ✅ résultats saisis" : n ? ` · résultats ${Math.round((n / tot) * 100)} %` : " · résultats à saisir"; };
   app.innerHTML = `
-    <div class="toolbar"><button class="primary" id="add">+ Nouvelle évaluation</button><span class="grow"></span><a class="ghost btn" href="#/suivi">📊 Suivi de la classe</a></div>
+    <div class="toolbar"><button class="primary" id="add">+ Nouvelle évaluation</button></div>
     ${discs.length > 1 ? `<div class="seg wrap ev-filtres"><button data-fd="" class="${!filtreEvals ? "on" : ""}">Toutes (${state.evaluations.length})</button>${discs.map((d) => `<button data-fd="${esc(d)}" class="${filtreEvals === d ? "on" : ""}">${esc(d)} (${state.evaluations.filter((e) => (e.discipline || "Autre") === d).length})</button>`).join("")}</div>` : ""}
     ${Object.entries(parD).sort((a, b) => DISCIPLINES.indexOf(a[0]) - DISCIPLINES.indexOf(b[0])).map(([d, evs]) => `<h3 class="ev-groupe">${esc(d)}</h3>
     <div class="list">${evs.map((ev) => `
@@ -584,7 +584,7 @@ function viewEval(id, tab = "prep") {
       </form>` : `
       <div class="sheet">
         <h2>${esc(ev.titre)} <span class="hint">${esc(ev.discipline)}${ev.date ? " · " + fmtDate(ev.date) : ""}</span></h2>
-        ${!eleves.length ? `<p class="hint">Ajoute d'abord tes élèves dans <a href="#/classe">Ma classe</a>.</p>` :
+        ${!eleves.length ? `<p class="hint">Ajoute d'abord tes élèves dans <a href="#/classe">Mes élèves</a>.</p>` :
         !ev.items.length ? `<p class="hint">Ajoute des compétences dans l'onglet 1.</p>` : `
         <div class="pinceau no-print"><span>À chaque touche :</span><div class="seg">
           <button data-p="" class="${!pinceau ? "on" : ""}" title="Chaque touche fait défiler — NA PA A D">↻ Défiler</button>
@@ -759,7 +759,7 @@ async function viewReglages() {
   };
   $("#demo").onclick = async () => { if (confirm("Ajouter des données d'exemple ?")) { await loadDemo(); location.hash = "#/accueil"; } };
   $("#wipe").onclick = async () => {
-    if (!confirm(syncActif() ? "Effacer toutes les données de cet appareil ? Tes préparations restent dans ton compte et reviendront ici ; les élèves, évaluations, l'appel et « Mes ressources » seront perdus. Exporte une sauvegarde avant si besoin." : "Effacer toutes les données de cet appareil, y compris « Mes ressources » ? Exporte une sauvegarde avant si besoin.")) return;
+    if (!confirm(syncActif() ? "Effacer toutes les données de cet appareil ? Tes préparations restent dans ton compte et reviendront ici ; les élèves, évaluations, l'appel et « Mes documents » seront perdus. Exporte une sauvegarde avant si besoin." : "Effacer toutes les données de cet appareil, y compris « Mes documents » ? Exporte une sauvegarde avant si besoin.")) return;
     const connecte = syncActif();
     await oublier(); await db.clear(); await res.toutSupprimer().catch(() => {}); state = await db.loadAll(); rebuildComp(); backup.handle = null; backup.etat = "off";
     if (connecte) lancerSync();
@@ -812,7 +812,7 @@ function viewAccueil() {
         ${fiches.length ? `<h4>Fiches prévues aujourd'hui</h4>${fiches.map((f) => `<a class="item" href="#/fiches/${f.id}">📝 ${esc(f.titre)}</a>`).join("")}` : ""}
       </section>
       <section class="panel">
-        <div class="panel-head"><h3>En classe</h3><a href="#/outils" class="link">Tous les outils</a></div>
+        <div class="panel-head"><h3>Au tableau</h3><a href="#/outils" class="link">Tous les outils</a></div>
         <div class="tiles small">${OUTILS.slice(0, 6).map((o) => toolTile(o)).join("")}</div>
       </section>
       <section class="panel">
@@ -843,7 +843,7 @@ let toolCleanup = null;
 function viewOutils() {
   const GESTION = ["minuteur", "tirage", "groupes", "voix", "feu", "date"];
   const sections = [
-    ["☀️ Au tableau", "Rituels du matin, cahier, calcul posé, géométrie : à projeter et à manipuler.", OUTILS2],
+    ["☀️ Rituels et manipulations", "Rituels du matin, cahier, calcul posé, géométrie : à projeter et à manipuler.", OUTILS2],
     ["🧑‍🏫 Gérer la classe", "", OUTILS_CLASSE.filter((o) => GESTION.includes(o.id))],
     ["🧮 Maths, mots et dessin", "", OUTILS_CLASSE.filter((o) => !GESTION.includes(o.id))],
     ["✏️ Français", "Du CP au CM2 : étiquettes, homophones, accords, lecture chronométrée. Choisis le niveau dans chaque jeu.", [...FRANCAIS, ...FLUENCE]],
@@ -1106,7 +1106,7 @@ function supportsHTML(c) {
   const sup = c.supports ?? [];
   return `<div class="jt-sup">${sup.map((x) => `<span class="sup">${x.type === "lien"
       ? `<a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.url)}">🔗 ${esc(x.titre || nomLien(x.url))}</a><span class="print-only">${esc(x.url)}</span>`
-      : `<a href="#/ressources/${esc(x.resId)}" title="Ouvrir">${x.genre === "image" ? `<img data-vig="${esc(x.resId)}" alt="">` : res.ICONES[x.genre] ?? "📁"} ${esc(x.nom)}</a>`}<button type="button" class="x no-print" data-rmsup="${esc(x.id)}" aria-label="Retirer" title="Retirer de la séance (le fichier reste dans Mes ressources)">×</button></span>`).join("")}<button type="button" class="ghost small no-print" data-addsup>📎 Support</button></div>`;
+      : `<a href="#/ressources/${esc(x.resId)}" title="Ouvrir">${x.genre === "image" ? `<img data-vig="${esc(x.resId)}" alt="">` : res.ICONES[x.genre] ?? "📁"} ${esc(x.nom)}</a>`}<button type="button" class="x no-print" data-rmsup="${esc(x.id)}" aria-label="Retirer" title="Retirer de la séance (le fichier reste dans Mes documents)">×</button></span>`).join("")}<button type="button" class="ghost small no-print" data-addsup>📎 Support</button></div>`;
 }
 // Ajoute à une séance des fichiers (rangés dans Mes ressources), un fichier existant ou un lien.
 async function ajouterSupports(c, { files = [], url = "", titre = "", resId = "" }, dossier) {
@@ -1135,7 +1135,7 @@ function choisirSupport(c, dossier, apres) {
       <label class="btn ghost">Choisir un fichier<input type="file" id="supFile" multiple hidden></label></div>
     <div class="row sup-lien"><input id="supUrl" placeholder="Lien : https://…" inputmode="url"><input id="supTit" placeholder="Nom (facultatif)"><button type="button" class="primary" id="supOk">Ajouter le lien</button></div>
     <div id="supRes"></div>
-    <p class="hint">Les fichiers sont rangés dans <a href="#/ressources">Mes ressources</a> (dossier « ${esc(dossier)} ») et restent sur cet appareil. Les liens suivent ton compte.</p>
+    <p class="hint">Les fichiers sont rangés dans <a href="#/ressources">Mes documents</a> (dossier « ${esc(dossier)} ») et restent sur cet appareil. Les liens suivent ton compte.</p>
     <p class="err" id="supErr"></p>
     <div class="actions"><button type="button" data-close class="ghost">Fermer</button></div>`, (m) => {
     const fini = (n) => { if (n) { closeModal(true); apres(); } };
@@ -1155,7 +1155,7 @@ function choisirSupport(c, dossier, apres) {
     };
     res.lister().then((liste) => {
       if (!liste.length || !$("#supRes", m)) return;
-      $("#supRes", m).innerHTML = `<label>Ou un fichier déjà dans Mes ressources<select id="supSel"><option value="">— Choisir —</option>${liste.map((f) => `<option value="${esc(f.id)}">${esc((f.dossier ? f.dossier + " · " : "") + f.nom)}</option>`).join("")}</select></label>`;
+      $("#supRes", m).innerHTML = `<label>Ou un fichier déjà dans Mes documents<select id="supSel"><option value="">— Choisir —</option>${liste.map((f) => `<option value="${esc(f.id)}">${esc((f.dossier ? f.dossier + " · " : "") + f.nom)}</option>`).join("")}</select></label>`;
       $("#supSel", m).onchange = async (e) => { if (e.target.value) fini(await ajouterSupports(c, { resId: e.target.value }, dossier)); };
     }).catch(() => {});
   });
@@ -1831,7 +1831,7 @@ async function viewBienvenue(codePre) {
       <p class="bv-lead">Tu fais partie des tout premiers profs à tester l'app. Merci 💜</p>
       <ul class="bv-liste">
         <li><span>🗓️</span><div><b>Préparer</b> : emploi du temps, fiches, programmations, cahier journal.</div></li>
-        <li><span>🧑‍🏫</span><div><b>En classe</b> : des outils à projeter au tableau (minuteur, tirage au sort, calcul…).</div></li>
+        <li><span>🧑‍🏫</span><div><b>Au tableau</b> : des outils à projeter au tableau (minuteur, tirage au sort, calcul…).</div></li>
         <li><span>🖨️</span><div><b>À imprimer</b> : des fiches d'exercices prêtes en un clic.</div></li>
         <li><span>📱</span><div><b>Ordinateur et téléphone</b> : tes préparations te suivent, et le téléphone sert de télécommande.</div></li>
       </ul>
@@ -2133,7 +2133,7 @@ function viewApc(id) {
     const support = (s, i) => {
       if (s.type === "lien") return `<li class="apc-sup"><span class="rs-ico">🔗</span><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.titre || s.url)}</a><button class="ghost small no-print" data-rms="${i}" aria-label="Retirer">×</button></li>`;
       const f = parId[s.resId];
-      if (!f) return `<li class="apc-sup"><span class="rs-ico">⚠️</span><span>${esc(s.nom)} <span class="hint">(fichier supprimé de Mes ressources)</span></span><button class="ghost small no-print" data-rms="${i}" aria-label="Retirer">×</button></li>`;
+      if (!f) return `<li class="apc-sup"><span class="rs-ico">⚠️</span><span>${esc(s.nom)} <span class="hint">(fichier supprimé de Mes documents)</span></span><button class="ghost small no-print" data-rms="${i}" aria-label="Retirer">×</button></li>`;
       const g = res.genre(f); let vig = `<span class="rs-ico">${res.ICONES[g]}</span>`;
       if (g === "image") { const u = URL.createObjectURL(f.blob); urls.push(u); vig = `<img src="${u}" alt="">`; }
       return `<li class="apc-sup"><a class="apc-vig" href="#/ressources/${f.id}">${vig}</a><a href="#/ressources/${f.id}">${esc(f.nom)}</a><button class="ghost small no-print" data-rms="${i}" aria-label="Retirer">×</button></li>`;
@@ -2151,8 +2151,8 @@ function viewApc(id) {
         ${a.compIds.length ? `<ul class="apc-comp">${a.compIds.map((c) => `<li>${esc(compById[c]?.texte ?? "(compétence inconnue)")} <button class="ghost small no-print" data-rmc="${c}" aria-label="Retirer">×</button></li>`).join("")}</ul>` : ""}
         <input name="competence" value="${esc(a.competence)}" placeholder="Ou écris-la toi-même">
         <div class="label-row"><span>Supports utilisés</span>
-          <span class="no-print"><label class="btn ghost small">＋ Fichier ou image<input type="file" id="apcFile" multiple hidden></label><button type="button" class="ghost small" id="addRes">Depuis Mes ressources</button><button type="button" class="ghost small" id="addLien">＋ Lien</button></span></div>
-        ${a.supports.length ? `<ul class="apc-sups">${a.supports.map(support).join("")}</ul>` : `<p class="hint no-print">Tu peux aussi glisser des fichiers ou des images sur cette page. Ils sont rangés dans Mes ressources (dossier APC), sur cet appareil.</p>`}
+          <span class="no-print"><label class="btn ghost small">＋ Fichier ou image<input type="file" id="apcFile" multiple hidden></label><button type="button" class="ghost small" id="addRes">Depuis Mes documents</button><button type="button" class="ghost small" id="addLien">＋ Lien</button></span></div>
+        ${a.supports.length ? `<ul class="apc-sups">${a.supports.map(support).join("")}</ul>` : `<p class="hint no-print">Tu peux aussi glisser des fichiers ou des images sur cette page. Ils sont rangés dans Mes documents (dossier APC), sur cet appareil.</p>`}
         <label>Comment ça s'est passé (facultatif)<textarea name="bilan" rows="3">${esc(a.bilan)}</textarea></label>
       </div>`;
   };
@@ -2182,12 +2182,12 @@ function viewApc(id) {
     else if (t.id === "addRes") {
       const liste = await res.lister().catch(() => []);
       const deja = new Set(a.supports.map((s) => s.resId));
-      openModal(`<h2>Choisir dans Mes ressources</h2>${liste.length ? `<div class="comp-list">${liste.map((f) => `<label class="comp"><input type="checkbox" value="${f.id}" ${deja.has(f.id) ? "checked disabled" : ""}> ${res.ICONES[res.genre(f)]} ${esc(f.nom)} <span class="hint">${esc(f.dossier || "")}</span></label>`).join("")}</div>` : `<p class="hint">Mes ressources est vide.</p>`}
+      openModal(`<h2>Choisir dans Mes documents</h2>${liste.length ? `<div class="comp-list">${liste.map((f) => `<label class="comp"><input type="checkbox" value="${f.id}" ${deja.has(f.id) ? "checked disabled" : ""}> ${res.ICONES[res.genre(f)]} ${esc(f.nom)} <span class="hint">${esc(f.dossier || "")}</span></label>`).join("")}</div>` : `<p class="hint">Mes documents est vide.</p>`}
         <div class="actions"><button type="button" class="ghost" data-close>Annuler</button><button class="primary" id="rok">Ajouter</button></div>`, (m) => {
         $("#rok", m).onclick = () => { for (const c of m.querySelectorAll("input:checked:not(:disabled)")) { const f = liste.find((x) => x.id === c.value); a.supports.push({ type: "fichier", resId: f.id, nom: f.nom }); } save("apc"); closeModal(true); draw(); };
       });
     }
-    else if (t.id === "del" && confirm("Supprimer cette séance d'APC ? (Les fichiers restent dans Mes ressources.)")) { state.apc = state.apc.filter((x) => x.id !== id); save("apc"); location.hash = "#/apc"; }
+    else if (t.id === "del" && confirm("Supprimer cette séance d'APC ? (Les fichiers restent dans Mes documents.)")) { state.apc = state.apc.filter((x) => x.id !== id); save("apc"); location.hash = "#/apc"; }
   };
   toolCleanup = () => urls.forEach((u) => URL.revokeObjectURL(u));
 }
@@ -2247,12 +2247,12 @@ function viewAide() {
     <ol class="aide-steps">
       <li><b>Branche</b> le câble du vidéoprojecteur (HDMI) sur l'ordinateur et allume le vidéoprojecteur.</li>
       <li><b>Affiche le même écran au tableau</b> : sous Windows, appuie sur les touches <kbd>⊞ Windows</kbd> + <kbd>P</kbd> et choisis <b>Dupliquer</b>. Sur Mac : menu  > Réglages Système > Écrans > <b>Recopie vidéo</b>.</li>
-      <li>Ouvre BagaSchool, va dans <b>En classe</b> et choisis un outil.</li>
+      <li>Ouvre BagaSchool, va dans <b>Au tableau</b> et choisis un outil.</li>
       <li>Clique sur <b>⛶</b> en haut à droite de l'outil pour le mettre en <b>plein écran</b> (touche <kbd>Échap</kbd> pour sortir).</li>
       <li>Avec un TBI, tu peux toucher directement le tableau : les boutons sont assez gros pour ça.</li>
     </ol>
     <h3>📱 Utiliser le téléphone comme télécommande (facultatif)</h3>
-    <ol class="aide-steps"><li>Connecte-toi à ton compte sur l'ordinateur, puis Réglages > Mon compte > <b>Connecter un autre appareil</b> : un QR code s'affiche.</li><li>Scanne-le avec le téléphone et tape ton mot de passe.</li><li>En classe, sur le téléphone : <b>Télécommande</b>. Choisis un outil : il s'ouvre au tableau en plein écran, et tous ses boutons sont sur ton téléphone.</li></ol>
+    <ol class="aide-steps"><li>Connecte-toi à ton compte sur l'ordinateur, puis Moi › Réglages et compte › Mon compte › <b>Connecter un autre appareil</b> : un QR code s'affiche.</li><li>Scanne-le avec le téléphone et tape ton mot de passe.</li><li>Sur le téléphone : <b>Au tableau › Télécommande</b>. Choisis un outil : il s'ouvre au tableau en plein écran, et tous ses boutons sont sur ton téléphone.</li></ol>
   </div>`;
   $("#instGo")?.addEventListener("click", async () => { await lancerInstallation(); viewAide(); });
 }
@@ -2565,8 +2565,57 @@ async function viewRessource(id) {
 // ---------- partager ma journée (js/partage.js) ----------
 const ctxPartage = () => ({ app, state, save, esc, $, $$, fmtLong, fmtCourt, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, compte, qrcode, creneauxDuJour, compById });
 
+// ---------- navigation : 5 sections ----------
+// Chaque page appartient à une section. Le menu (PC) et la barre du bas (téléphone) n'affichent que les sections ;
+// les pages de la section active apparaissent dessous (PC) et en onglets en haut de page.
+const SECTIONS = [
+  { id: "aujourdhui", ico: "🏠", nom: "Aujourd'hui", accueil: "accueil", pages: [["accueil", "Ma journée"], ["journal", "Cahier journal"], ["appel", "Appel"], ["devoirs", "Devoirs"]], aussi: ["partager"] },
+  { id: "tableau", ico: "🧑‍🏫", nom: "Au tableau", accueil: "outils", pages: [["outils", "Outils"], ["ressources", "Mes documents"], ["telecommande", "Télécommande"]] },
+  { id: "preparer", ico: "🗓️", nom: "Préparer", accueil: "preparer", pages: [["programmations", "Programmations"], ["edt", "Emploi du temps"], ["fiches", "Fiches de prép"], ["imprimer", "À imprimer"]] },
+  { id: "eleves", ico: "👧", nom: "Mes élèves", accueil: "classe", pages: [["classe", "Élèves"], ["evaluations", "Évaluations"], ["suivi", "Résultats"], ["apc", "APC"]] },
+  { id: "moi", ico: "👤", nom: "Moi", accueil: "moi", pages: [["remplacements", "Mes remplacements"], ["calendrier", "Calendrier scolaire"], ["competences", "Compétences"], ["reglages", "Réglages et compte"], ["aide", "Installer et projeter"]], aussi: ["connexion", "admin"] },
+];
+const sectionDe = (page) => SECTIONS.find((s) => s.accueil === page || s.pages.some(([p]) => p === page) || s.aussi?.includes(page));
+// Pages dont l'identifiant est une date ou un filtre : on garde les onglets de section.
+const AVEC_ONGLETS = ["journal", "appel", "devoirs", "suivi"];
+function majNavigation(page, id) {
+  const sec = sectionDe(page);
+  const lien = (s) => `<a href="#/${s.accueil}" class="${s === sec ? "on" : ""}"><span>${s.ico}</span>${esc(s.nom)}</a>`;
+  $("#sidebar").innerHTML = SECTIONS.map((s) => lien(s) + (s === sec ? `<div class="nav-sub">${s.pages.map(([p, nom]) => `<a href="#/${p}" class="${p === page ? "on" : ""}">${esc(nom)}</a>`).join("")}</div>` : "")).join("");
+  $("#tabbar").innerHTML = SECTIONS.map(lien).join("");
+  // Onglets en haut de page : sur les listes de la section, pas dans un outil ou une fiche ouverte.
+  const sn = $("#subnav");
+  if (sec && sec.pages.some(([p]) => p === page) && (!id || AVEC_ONGLETS.includes(page))) {
+    sn.innerHTML = `<div class="seg">${sec.pages.map(([p, nom]) => `<a class="seg-link ${p === page ? "on" : ""}" href="#/${p}">${esc(nom)}</a>`).join("")}</div>`;
+    sn.hidden = false;
+    const seg = sn.firstChild, on = seg.querySelector(".on"); if (on) seg.scrollLeft = on.offsetLeft - 16;
+  } else { sn.hidden = true; sn.innerHTML = ""; }
+}
+// Pages d'accueil de section, en grandes cartes.
+const bigCard = (href, ico, nom, desc, couleur, n) => `<a class="big-card" href="${href}" style="--tile:${couleur}"><span class="ic">${ico}</span><span><b>${esc(nom)}</b><span class="d">${esc(desc)}</span></span>${n ? `<span class="n">${n}</span>` : ""}</a>`;
+function viewPreparer() {
+  app.innerHTML = `<p class="intro">De l'année à la séance : ta programmation devient une progression semaine par semaine, puis des fiches de préparation.</p>
+    <div class="big-cards">
+      ${bigCard("#/programmations", "🗂️", "Programmations", "L'année, période par période", "#fff0c2", state.programmations.length)}
+      ${bigCard("#/edt", "📅", "Emploi du temps", "Ta semaine type", "#dff1ff")}
+      ${bigCard("#/fiches", "📝", "Fiches de prép", "Séances, objectifs, compétences", "#ffe3ec", state.fiches.length)}
+      ${bigCard("#/imprimer", "🖨️", "À imprimer", "Des exercices prêts en un clic", "#e6f7e3")}
+    </div>`;
+}
+function viewMoi() {
+  app.innerHTML = `<div class="big-cards">
+      ${bigCard("#/remplacements", "🚗", "Mes remplacements", "Écoles, kilomètres, ISSR", "#ffe3ec")}
+      ${bigCard("#/calendrier", "🏖️", "Calendrier scolaire", "Vacances et jours fériés de ta zone", "#dff1ff")}
+      ${bigCard("#/competences", "🎯", "Compétences", "Les programmes officiels", "#f4f1fb")}
+      ${bigCard("#/reglages", "⚙️", "Réglages et compte", "Compte, synchro, sauvegarde, zone", "#e6f7e3")}
+      ${bigCard("#/aide", "📲", "Installer et projeter", "Ordinateur, téléphone, TBI", "#fff0c2")}
+      ${compte.configure() ? `<button type="button" class="big-card" id="moiAvis" style="--tile:#ffe3c7"><span class="ic">💬</span><span><b>Donner mon avis</b><span class="d">Un bug, une idée, une question</span></span></button>` : ""}
+    </div>`;
+  $("#moiAvis")?.addEventListener("click", ouvrirAvis);
+}
+
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Mes élèves", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel et cantine", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
+const TITLES = { accueil: "Aujourd'hui", outils: "Au tableau", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Mes élèves", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel et cantine", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Résultats de la classe", preparer: "Préparer", moi: "Moi", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes documents", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
@@ -2581,11 +2630,12 @@ function route(doux = false) {
   if (id === "new" && name === "apc") { location.replace(`#/apc/${newApc().id}`); return; }
   if (id === "new" && name === "evaluations") { location.replace(`#/evaluations/${newEval().id}`); return; }
   setTitle(TITLES[name] ?? "");
-  $$("[data-route]").forEach((a) => a.classList.toggle("on", a.dataset.route === name));
+  majNavigation(name, id);
   document.body.classList.remove("nav-open");
   window.scrollTo(0, doux ? y : 0);
   const views = {
     accueil: viewAccueil,
+    preparer: viewPreparer, moi: viewMoi,
     outils: () => (id ? viewOutil(id) : viewOutils()),
     imprimer: () => (id ? viewGenerateur(id) : viewImprimer()),
     edt: viewEdt,
@@ -2604,9 +2654,6 @@ function route(doux = false) {
   (views[name] ?? notFound)();
 }
 initInstallation();
-if (compte.configure()) $("#navAvis")?.addEventListener("click", (e) => { e.preventDefault(); ouvrirAvis(); });
-else $("#navAvis")?.remove();
-$("#menuBtn").onclick = () => document.body.classList.toggle("nav-open");
 $("#navBackdrop").onclick = () => document.body.classList.remove("nav-open");
 
 (async () => {
