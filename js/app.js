@@ -23,7 +23,7 @@ import { installerBarre } from "./barre.js";
 import * as res from "./ressources.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.12.1";
+export const VERSION = "0.13.0";
 
 // ---------- état ----------
 let state = {};
@@ -417,11 +417,12 @@ function viewEval(id, tab = "prep") {
           <button type="button" class="ghost small" id="addl">+ Item libre</button></span></div>
         <table class="items"><thead><tr><th>Compétence</th>${CODES.slice(1).map((c) => `<th class="code" title="${c.label}">${c.code}</th>`).join("")}<th class="no-print"></th></tr></thead>
         <tbody>${ev.items.map((it, k) => `<tr>
-          <td>${it.compId ? `<span>${esc(compById[it.compId]?.texte ?? "(compétence inconnue)")}</span>` : `<input data-it="${k}" value="${esc(it.texte)}" placeholder="Intitulé de l'item">`}</td>
+          <td>${it.compId ? `<span>${esc(compById[it.compId]?.texte ?? "(compétence inconnue)")}</span>` : `<input data-it="${k}" value="${esc(it.texte)}" placeholder="Intitulé de l'item"><input class="no-print dom-input" data-dom="${k}" value="${esc(it.domaine ?? "")}" list="domList" placeholder="Domaine (pour les graphiques), ex. Lecture">`}</td>
           ${CODES.slice(1).map(() => `<td class="code box"></td>`).join("")}
           <td class="no-print"><button type="button" class="ghost small" data-rmit="${k}" aria-label="Retirer">×</button></td></tr>`).join("")
           || `<tr><td colspan="6" class="hint">Ajoute des compétences : elles sont insérées telles qu'écrites dans le référentiel.</td></tr>`}</tbody></table>
         <p class="hint">${CODES.slice(1).map((c) => `${c.code} = ${c.label}`).join(" · ")}</p>
+        <datalist id="domList">${domainesConnus(ev.discipline).map((d) => `<option value="${esc(d)}">`).join("")}</datalist>
       </form>` : `
       <div class="sheet">
         <h2>${esc(ev.titre)}</h2>
@@ -444,6 +445,7 @@ function viewEval(id, tab = "prep") {
   app.oninput = (e) => {
     const t = e.target;
     if (t.dataset.it) ev.items[+t.dataset.it].texte = t.value;
+    else if (t.dataset.dom) ev.items[+t.dataset.dom].domaine = t.value;
     else if (t.name) ev[t.name] = t.value;
     save("evaluations");
   };
@@ -473,6 +475,7 @@ function viewEval(id, tab = "prep") {
     else if (t.id === "del" && confirm("Supprimer cette évaluation ?")) { state.evaluations = state.evaluations.filter((x) => x.id !== id); save("evaluations"); location.hash = "#/evaluations"; }
   };
 }
+const domaineItem = (it) => (it.compId ? compById[it.compId]?.domaine : it.domaine?.trim()) || "Non classé";
 const itemText = (it) => (it.compId ? compById[it.compId]?.texte ?? "(compétence inconnue)" : it.texte || "(item sans titre)");
 
 // ---------- CLASSE ----------
@@ -539,7 +542,7 @@ async function viewReglages() {
       <p class="hint">Stockage protégé par le navigateur : ${persisted ? "oui" : "non (le navigateur peut effacer les données s'il manque de place)"}.</p>
       <div class="row"><button class="primary" id="exp">Exporter une sauvegarde</button>
         <label class="btn ghost">Importer une sauvegarde<input type="file" id="imp" accept="application/json,.json" hidden></label></div>
-      <p class="hint">L'import remplace toutes les données actuelles de cet appareil.</p>
+      <p class="hint">L'import remplace toutes les données actuelles de cet appareil. Le fichier de sauvegarde contient aussi tes élèves et leurs fiches (difficultés, bilans) : garde-le en lieu sûr et ne le partage pas.</p>
       <h3>Sauvegarde automatique</h3>
       ${canAutoFile() ? `<p>Sur cet ordinateur, BagaSchool peut écrire tout seul une copie de tes données dans un fichier (par exemple dans ton dossier Google Drive, OneDrive ou Dropbox), à chaque modification.</p>
         <p class="hint">État : ${backup.etat === "on" ? `✅ activée${backup.handle?.name ? ` (fichier « ${esc(backup.handle.name)} »)` : ""}` : backup.etat === "pause" ? "⏸️ en pause : le navigateur demande ton accord après un redémarrage" : "désactivée"}.</p>
@@ -1000,34 +1003,144 @@ function viewAppelBilan() {
 }
 
 // ---------- SUIVI ÉLÈVE ----------
-function viewEleve(id) {
+// Graphiques : dernier résultat de chaque élève pour chaque compétence (comme le tableau de suivi),
+// regroupés par discipline puis par domaine du référentiel (ou domaine saisi pour un item libre).
+const ACQUIS = (c) => c === "A" || c === "D";
+const vide4 = () => ({ NA: 0, PA: 0, A: 0, D: 0 });
+const nb4 = (c) => c.NA + c.PA + c.A + c.D;
+function domainesConnus(discipline) {
+  const s = new Set(ALL_COMP.filter((c) => !discipline || c.discipline === discipline).map((c) => c.domaine));
+  for (const ev of state.evaluations) for (const it of ev.items) if (!it.compId && it.domaine?.trim()) s.add(it.domaine.trim());
+  return [...s].filter(Boolean).sort((a, b) => a.localeCompare(b, "fr"));
+}
+// { discipline: { domaine: { eleveId: {NA,PA,A,D} } } }
+function statsDomaines() {
+  const out = {};
+  for (const c of resultatsParCompetence(null)) for (const [elId, r] of Object.entries(c.res)) {
+    const dom = ((out[c.discipline] ??= {})[c.domaine] ??= {});
+    (dom[elId] ??= vide4())[r.code]++;
+  }
+  return out;
+}
+const somme4 = (list) => list.reduce((t, c) => { for (const k in t) t[k] += c[k]; return t; }, vide4());
+const pctAcquis = (c) => (nb4(c) ? Math.round(((c.A + c.D) / nb4(c)) * 100) : null);
+// Couleur continue rouge → vert selon le pourcentage d'acquis (pas de seuil arbitraire).
+const teinte = (p) => (p == null ? "#f4f1fb" : `hsl(${Math.round(p * 1.2)} 70% 84%)`);
+function barreEleve(c, classePct, label, fort = false) {
+  const t = nb4(c) || 1, p = pctAcquis(c);
+  return `<div class="gline${fort ? " fort" : ""}"><span class="gl">${esc(label)}</span>
+    <div class="gbar" title="${CODES.slice(1).map((x) => `${x.label} : ${c[x.code]}`).join(" · ")}">${["D", "A", "PA", "NA"].map((k) => c[k] ? `<span class="r-${k}" style="width:${(c[k] / t) * 100}%">${c[k]}</span>` : "").join("")}
+      ${classePct != null ? `<i class="gmark" style="left:${classePct}%" title="Classe : ${classePct} % d'acquis"></i>` : ""}</div>
+    <span class="gv"><b>${p} %</b> <small>${c.A + c.D}/${nb4(c)}</small></span></div>`;
+}
+function graphiqueEleve(id) {
+  const st = statsDomaines();
+  const discs = Object.entries(st).filter(([, doms]) => Object.values(doms).some((d) => d[id]));
+  if (!discs.length) return `<p class="hint">Pas encore de résultats saisis pour cet élève.</p>`;
+  return `<div class="graph">${discs.map(([disc, doms]) => {
+    const lignes = Object.entries(doms).filter(([, d]) => d[id]).sort((a, b) => a[0].localeCompare(b[0], "fr"));
+    const elTot = somme4(lignes.map(([, d]) => d[id])), clTot = somme4(lignes.flatMap(([, d]) => Object.values(d)));
+    return `<section class="gdisc"><h4>${esc(disc)}</h4>
+      ${barreEleve(elTot, pctAcquis(clTot), "Ensemble", true)}
+      ${lignes.length > 1 || lignes[0][0] !== "Non classé" ? lignes.map(([dom, d]) => barreEleve(d[id], pctAcquis(somme4(Object.values(d))), dom)).join("") : ""}</section>`;
+  }).join("")}
+  <p class="hint">${CODES.slice(1).reverse().map((c) => `<span class="legend-dot r-${c.code}"></span> ${c.label}`).join(" &nbsp; ")} &nbsp; <i class="gmark-l"></i> moyenne de la classe (% d'atteint ou dépassé). Dernier résultat pour chaque compétence.</p></div>`;
+}
+
+const DISPOSITIFS = ["PPRE", "PAP", "PPS", "PAI", "RASED"];
+const TYPES_NOTE = ["Progrès", "Difficulté", "Remarque", "Échange avec la famille", "Équipe éducative"];
+const TYPES_BILAN = ["Orthophonie", "Neuropsychologie", "Psychologue (Éducation nationale)", "Psychologue (libéral)", "Psychomotricité", "Ergothérapie", "Orthoptie", "Médecin / pédiatre", "Autre"];
+function ficheEleve(el) {
+  return (el.fiche ??= {}), Object.assign(el.fiche, { dispositifs: el.fiche.dispositifs ?? [], dispositifAutre: el.fiche.dispositifAutre ?? "", pointsForts: el.fiche.pointsForts ?? "", difficultes: el.fiche.difficultes ?? "", amenagements: el.fiche.amenagements ?? "", notes: el.fiche.notes ?? [], bilans: el.fiche.bilans ?? [] });
+}
+
+function viewEleve(id, sub) {
   const el = state.eleves.find((x) => x.id === id);
   if (!el) return notFound();
   setTitle(el.prenom);
+  const onglets = `<div class="tabs grow"><a class="${sub !== "fiche" ? "on" : ""}" href="#/classe/${id}">📊 Résultats</a><a class="${sub === "fiche" ? "on" : ""}" href="#/classe/${id}/fiche">📝 Fiche élève</a></div>`;
+  if (sub === "fiche") return viewFicheEleve(el, onglets);
   const evs = state.evaluations.filter((ev) => ev.items.length && ev.resultats[id] && Object.values(ev.resultats[id]).some(Boolean));
-  const counts = { NA: 0, PA: 0, A: 0, D: 0 };
-  const parDisc = {};
-  for (const ev of evs) for (const [k, v] of Object.entries(ev.resultats[id])) if (v) { counts[v]++; const d = ev.discipline || "Autre"; (parDisc[d] ??= { NA: 0, PA: 0, A: 0, D: 0 })[v]++; }
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const counts = vide4();
+  for (const ev of evs) for (const v of Object.values(ev.resultats[id])) if (v) counts[v]++;
+  const total = nb4(counts);
   let absA = 0, absR = 0;
   for (const x of Object.values(state.appel)) for (const k of ["matin", "aprem"]) { if (x[k]?.[id] === "A") absA++; if (x[k]?.[id] === "R") absR++; }
-  const bar = (c) => { const t = c.NA + c.PA + c.A + c.D || 1; return `<div class="sbar">${["NA", "PA", "A", "D"].map((k) => c[k] ? `<span class="r-${k}" style="width:${(c[k] / t) * 100}%">${c[k]}</span>` : "").join("")}</div>`; };
   el.observations ??= "";
   app.innerHTML = `
-    <div class="toolbar no-print"><a class="pill" href="#/classe">← Mes élèves</a><span class="grow"></span><button class="ghost" onclick="print()">🖨️ Imprimer le bilan</button></div>
+    <div class="toolbar no-print"><a class="pill" href="#/classe">← Mes élèves</a>${onglets}<button class="ghost" onclick="print()">🖨️ Imprimer le bilan</button></div>
     <div class="sheet">
       <h2>${esc(el.prenom)}</h2>
       <div class="stats"><div><b>${evs.length}</b><span>évaluation(s)</span></div><div><b>${total ? Math.round(((counts.A + counts.D) / total) * 100) + " %" : "—"}</b><span>items atteints ou dépassés</span></div><div><b>${absA}</b><span>demi-journée(s) d'absence</span></div><div><b>${absR}</b><span>retard(s)</span></div></div>
-      ${total ? `<h3>Par discipline</h3>${Object.entries(parDisc).map(([d, c]) => `<div class="sline"><span>${esc(d)}</span>${bar(c)}</div>`).join("")}
-        <p class="hint">${CODES.slice(1).map((c) => `<span class="legend-dot r-${c.code}"></span> ${c.label}`).join(" &nbsp; ")}</p>` : `<p class="hint">Pas encore de résultats saisis pour cet élève.</p>`}
+      <h3>Où en est ${esc(el.prenom)} ?</h3>
+      ${graphiqueEleve(id)}
       ${evs.map((ev) => `<h4>${esc(ev.titre)} <span class="hint">${esc(ev.discipline)} ${ev.date ? "· " + fmtDate(ev.date) : ""}</span></h4>
         <table class="items"><tbody>${ev.items.map((it, k) => { const v = ev.resultats[id]?.[k]; return v ? `<tr><td>${esc(itemText(it))}</td><td class="code"><span class="res r-${v}">${v}</span></td></tr>` : ""; }).join("")}</tbody></table>`).join("")}
       ${(() => { const comps = resultatsParCompetence(null).filter((c) => c.res[id]); if (!comps.length) return "";
         const parD = {}; for (const c of comps) (parD[c.discipline] ??= []).push(c);
-        return `<h3>Compétences évaluées (dernier résultat)</h3>${Object.entries(parD).map(([dd, cs]) => `<h4>${esc(dd)} <span class="hint">${cs.filter((c) => ["A", "D"].includes(c.res[id].code)).length} acquise(s) sur ${cs.length}</span></h4><table class="items"><tbody>${cs.map((c) => `<tr><td>${esc(c.texte)}</td><td class="code"><span class="res r-${c.res[id].code}">${c.res[id].code}</span></td></tr>`).join("")}</tbody></table>`).join("")}`; })()}
+        return `<h3>Compétences évaluées (dernier résultat)</h3>${Object.entries(parD).map(([dd, cs]) => `<h4>${esc(dd)} <span class="hint">${cs.filter((c) => ACQUIS(c.res[id].code)).length} acquise(s) sur ${cs.length}</span></h4><table class="items"><tbody>${cs.map((c) => `<tr><td>${esc(c.texte)}</td><td class="code"><span class="res r-${c.res[id].code}">${c.res[id].code}</span></td></tr>`).join("")}</tbody></table>`).join("")}`; })()}
       <label>Observations (pour le livret, les rendez-vous avec les parents…)<textarea id="obs" rows="4">${esc(el.observations)}</textarea></label>
     </div>`;
   $("#obs").oninput = (e) => { el.observations = e.target.value; save("eleves"); };
+}
+
+function viewFicheEleve(el, onglets) {
+  const f = ficheEleve(el);
+  const today = localISO(new Date());
+  const draw = () => {
+    const notes = [...f.notes].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const bilans = [...f.bilans].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    app.innerHTML = `
+    <div class="toolbar no-print"><a class="pill" href="#/classe">← Mes élèves</a>${onglets}<button class="ghost" onclick="print()">🖨️ Imprimer la fiche</button></div>
+    <p class="notice no-print">🔒 <b>Informations sensibles.</b> Cette fiche reste sur cet appareil : elle n'est jamais envoyée sur le serveur ni synchronisée. Elle figure en revanche dans le fichier de sauvegarde que tu exportes : range-le en lieu sûr. Note ce qui sert en classe plutôt que des diagnostics détaillés, et évite d'afficher cette page au tableau.</p>
+    <div class="sheet fiche-eleve">
+      <h2>${esc(el.prenom)} <span class="hint print-only">· fiche élève, confidentiel</span></h2>
+      <h3>Dispositifs</h3>
+      <div class="seg wrap disp">${DISPOSITIFS.map((d) => `<button type="button" data-disp="${d}" class="${f.dispositifs.includes(d) ? "on" : ""}">${d}</button>`).join("")}</div>
+      <input data-f="dispositifAutre" value="${esc(f.dispositifAutre)}" placeholder="Autre (ex. AESH 6 h/semaine, ULIS…)">
+      <div class="grid2">
+        <label>Points d'appui, réussites<textarea data-f="pointsForts" rows="4">${esc(f.pointsForts)}</textarea></label>
+        <label>Difficultés observées<textarea data-f="difficultes" rows="4">${esc(f.difficultes)}</textarea></label>
+      </div>
+      <label>Aménagements en classe (place, supports, temps, outils…)<textarea data-f="amenagements" rows="3">${esc(f.amenagements)}</textarea></label>
+
+      <div class="label-row"><h3>Suivi au fil de l'année</h3><button type="button" class="ghost small no-print" id="addNote">+ Ajouter une note</button></div>
+      ${notes.length ? `<ul class="fnotes">${notes.map((n) => `<li><span class="ftag t-${TYPES_NOTE.indexOf(n.type)}">${esc(n.type)}</span><span class="hint">${n.date ? fmtDate(n.date) : ""}</span><p>${esc(n.texte)}</p><span class="no-print"><button class="ghost small" data-enote="${n.id}">Modifier</button></span></li>`).join("")}</ul>` : `<p class="hint">Note ici les progrès, les difficultés repérées, les échanges avec la famille, avec leur date.</p>`}
+
+      <div class="label-row"><h3>Bilans et prises en charge</h3><button type="button" class="ghost small no-print" id="addBilan">+ Ajouter un bilan</button></div>
+      ${bilans.length ? `<div class="fbilans">${bilans.map((b) => `<div class="fbilan"><b>${esc(b.type)}</b> <span class="hint">${b.date ? "bilan du " + fmtDate(b.date) : "date non précisée"}${b.qui ? " · " + esc(b.qui) : ""}${b.enCours ? " · suivi en cours" : ""}${b.suite ? " · à revoir le " + fmtDate(b.suite) : ""}</span>
+        ${b.texte ? `<p>${esc(b.texte)}</p>` : ""}<span class="no-print"><button class="ghost small" data-ebilan="${b.id}">Modifier</button></span></div>`).join("")}</div>` : `<p class="hint">Orthophonie, neuropsychologie, psychologue… Date du bilan, et ce qu'il change pour la classe.</p>`}
+    </div>`;
+  };
+  draw();
+  app.oninput = (e) => { const k = e.target.dataset.f; if (k) { f[k] = e.target.value; save("eleves"); } };
+  const formNote = (n) => openModal(`<h2>${n ? "Modifier la note" : "Nouvelle note"}</h2><form id="fn">
+      <div class="grid2"><label>Date<input type="date" name="date" value="${esc(n?.date ?? today)}"></label>
+      <label>Type<select name="type">${opts(TYPES_NOTE, n?.type ?? "Progrès", null)}</select></label></div>
+      <label>Note<textarea name="texte" rows="4" required>${esc(n?.texte ?? "")}</textarea></label>
+      <div class="actions">${n ? `<button type="button" class="danger" id="rm">Supprimer</button>` : ""}<span class="grow"></span><button type="button" class="ghost" data-close>Annuler</button><button class="primary">Enregistrer</button></div></form>`, (m) => {
+    $("#fn", m).onsubmit = (e) => { e.preventDefault(); const d = formData(e.target); if (n) Object.assign(n, d); else f.notes.push({ id: uid(), ...d }); save("eleves"); closeModal(true); draw(); };
+    $("#rm", m)?.addEventListener("click", () => { if (!confirm("Supprimer cette note ?")) return; f.notes = f.notes.filter((x) => x !== n); save("eleves"); closeModal(true); draw(); });
+  });
+  const formBilan = (b) => openModal(`<h2>${b ? "Modifier le bilan" : "Nouveau bilan"}</h2><form id="fb">
+      <div class="grid2"><label>Type<select name="type">${opts(TYPES_BILAN, b?.type ?? "Orthophonie", null)}</select></label>
+      <label>Date du bilan<input type="date" name="date" value="${esc(b?.date ?? "")}"></label></div>
+      <label>Professionnel (facultatif)<input name="qui" value="${esc(b?.qui ?? "")}" placeholder="ex. orthophoniste de ville"></label>
+      <label>Ce qu'il faut retenir pour la classe<textarea name="texte" rows="5">${esc(b?.texte ?? "")}</textarea></label>
+      <div class="grid2"><label class="check"><input type="checkbox" name="enCours" ${b?.enCours ? "checked" : ""}> Suivi en cours</label>
+      <label>À revoir / renouveler le (facultatif)<input type="date" name="suite" value="${esc(b?.suite ?? "")}"></label></div>
+      <div class="actions">${b ? `<button type="button" class="danger" id="rm">Supprimer</button>` : ""}<span class="grow"></span><button type="button" class="ghost" data-close>Annuler</button><button class="primary">Enregistrer</button></div></form>`, (m) => {
+    $("#fb", m).onsubmit = (e) => { e.preventDefault(); const d = { ...formData(e.target), enCours: e.target.enCours.checked }; if (b) Object.assign(b, d); else f.bilans.push({ id: uid(), ...d }); save("eleves"); closeModal(true); draw(); };
+    $("#rm", m)?.addEventListener("click", () => { if (!confirm("Supprimer ce bilan ?")) return; f.bilans = f.bilans.filter((x) => x !== b); save("eleves"); closeModal(true); draw(); });
+  });
+  app.onclick = (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.disp) { const d = t.dataset.disp; f.dispositifs = f.dispositifs.includes(d) ? f.dispositifs.filter((x) => x !== d) : [...f.dispositifs, d]; save("eleves"); t.classList.toggle("on"); }
+    else if (t.id === "addNote") formNote(null);
+    else if (t.dataset.enote) formNote(f.notes.find((x) => x.id === t.dataset.enote));
+    else if (t.id === "addBilan") formBilan(null);
+    else if (t.dataset.ebilan) formBilan(f.bilans.find((x) => x.id === t.dataset.ebilan));
+  };
 }
 
 // ---------- MODÈLES DE FICHES ----------
@@ -1603,10 +1716,26 @@ function resultatsParCompetence(discipline) {
   const comps = new Map(); // clé -> { texte, discipline, res: { eleveId: { code, ev } } }
   for (const ev of evs) ev.items.forEach((it, k) => {
     const key = it.compId || "t:" + (it.texte || "").trim().toLowerCase();
-    if (!comps.has(key)) comps.set(key, { key, texte: itemText(it), discipline: ev.discipline || "Autre", res: {} });
+    if (!comps.has(key)) comps.set(key, { key, texte: itemText(it), discipline: ev.discipline || "Autre", domaine: domaineItem(it), res: {} });
     for (const el of state.eleves) { const v = ev.resultats[el.id]?.[k]; if (v) comps.get(key).res[el.id] = { code: v, ev }; }
   });
   return [...comps.values()];
+}
+// Carte de la classe : une ligne par élève, une colonne par domaine, % d'atteint ou dépassé.
+function carteDomaines(disc) {
+  const doms = statsDomaines()[disc] ?? {};
+  const cols = Object.keys(doms).sort((a, b) => a.localeCompare(b, "fr"));
+  const cell = (c, lien) => { if (!c || !nb4(c)) return `<td class="hm-v"></td>`; const p = pctAcquis(c);
+    return `<td class="hm-v" style="background:${teinte(p)}" title="${CODES.slice(1).map((x) => `${x.code} ${c[x.code]}`).join(" · ")}">${lien ? `<a href="${lien}">` : ""}<b>${p} %</b><small>${c.A + c.D}/${nb4(c)}</small>${lien ? "</a>" : ""}</td>`; };
+  const rows = state.eleves.map((el) => { const cs = cols.map((k) => doms[k][el.id]); const tot = somme4(cs.filter(Boolean));
+    return { el, cs, tot }; }).filter((r) => nb4(r.tot));
+  if (!rows.length) return "";
+  const clCols = cols.map((k) => somme4(Object.values(doms[k])));
+  return `<h3 class="suivi-h">Où en est chaque élève ? <span class="hint">${esc(disc)}, par domaine</span></h3>
+    <div class="suivi-wrap"><table class="heatmap"><thead><tr><th>Élève</th>${cols.map((k) => `<th>${esc(k)}</th>`).join("")}${cols.length > 1 ? "<th>Ensemble</th>" : ""}</tr></thead>
+    <tbody>${rows.map(({ el, cs, tot }) => `<tr><th><a href="#/classe/${el.id}">${esc(el.prenom)}</a></th>${cs.map((c) => cell(c, `#/classe/${el.id}`)).join("")}${cols.length > 1 ? cell(tot) : ""}</tr>`).join("")}</tbody>
+    <tfoot><tr><th>Classe</th>${clCols.map((c) => cell(c)).join("")}${cols.length > 1 ? cell(somme4(clCols)) : ""}</tr></tfoot></table></div>
+    <p class="hint">Pourcentage de compétences atteintes ou dépassées (dernier résultat), du rouge au vert. Touche un prénom pour voir ses graphiques.</p>`;
 }
 function viewSuivi(disc) {
   const discs = [...new Set(state.evaluations.filter((e) => e.items.length).map((e) => e.discipline || "Autre"))];
@@ -1615,7 +1744,8 @@ function viewSuivi(disc) {
   app.innerHTML = `
     <p class="intro no-print">Le dernier résultat de chaque élève pour chaque compétence évaluée. Pour ajouter des résultats, crée une évaluation (elle peut porter sur n'importe quelle matière) et remplis sa grille.</p>
     <div class="toolbar no-print"><div class="seg wrap">${discs.map((x) => `<a class="${x === d ? "on" : ""} seg-link" href="#/suivi/${encodeURIComponent(x)}">${esc(x)}</a>`).join("") || `<span class="hint">Pas encore d'évaluation avec des résultats.</span>`}</div><span class="grow"></span><a class="primary btn" href="#/evaluations/new">+ Évaluation</a><button class="ghost" onclick="print()">🖨️ Imprimer</button></div>
-    ${comps.length && state.eleves.length ? `<div class="suivi-wrap"><table class="suivi"><thead><tr><th>Élève</th>${comps.map((c, i) => `<th title="${esc(c.texte)}"><span>${i + 1}</span></th>`).join("")}<th>Acquis</th></tr></thead>
+    ${comps.length && state.eleves.length ? carteDomaines(d) : ""}
+    ${comps.length && state.eleves.length ? `<h3 class="suivi-h">Détail par compétence</h3><div class="suivi-wrap"><table class="suivi"><thead><tr><th>Élève</th>${comps.map((c, i) => `<th title="${esc(c.texte)}"><span>${i + 1}</span></th>`).join("")}<th>Acquis</th></tr></thead>
       <tbody>${state.eleves.map((el) => { const vals = comps.map((c) => c.res[el.id]); const ok = vals.filter((v) => v && (v.code === "A" || v.code === "D")).length, n = vals.filter(Boolean).length;
         return `<tr><th><a href="#/classe/${el.id}">${esc(el.prenom)}</a></th>${vals.map((v) => `<td>${v ? `<a class="res r-${v.code}" href="#/evaluations/${v.ev.id}" title="${esc(v.ev.titre)}">${v.code}</a>` : ""}</td>`).join("")}<td class="suivi-tot">${n ? `${ok}/${n}` : ""}</td></tr>`; }).join("")}</tbody></table></div>
       <ol class="suivi-legend">${comps.map((c) => `<li>${esc(c.texte)}</li>`).join("")}</ol>
@@ -1919,7 +2049,7 @@ function route(doux = false) {
   try { toolCleanup?.(); } catch {}
   toolCleanup = null;
   app.onclick = app.oninput = app.onchange = app.ondragover = app.ondragleave = app.ondrop = null;
-  const [, name = "accueil", id] = location.hash.split("/");
+  const [, name = "accueil", id, sub] = location.hash.split("/");
   if (id === "new" && name === "fiches") { location.replace(`#/fiches/${newFiche().id}`); return; }
   if (id === "modele" && name === "fiches") { location.replace("#/fiches"); setTimeout(choisirModele, 0); return; }
   if (id === "new" && name === "evaluations") { location.replace(`#/evaluations/${newEval().id}`); return; }
@@ -1935,7 +2065,7 @@ function route(doux = false) {
     programmations: () => (id ? viewProg(id) : viewProgList()),
     fiches: () => (id ? viewFiche(id) : viewFiches()),
     evaluations: () => (id ? viewEval(id) : viewEvals()),
-    classe: () => (id ? viewEleve(id) : viewClasse()), competences: viewCompetences, reglages: viewReglages,
+    classe: () => (id ? viewEleve(id, sub) : viewClasse()), competences: viewCompetences, reglages: viewReglages,
     telecommande: () => { toolCleanup = viewTelecommande(app, { outils: OUTILS, actif: syncActif() }); },
     lier: () => location.replace("#/connexion"),
     connexion: () => viewConnexion(id), inscription: () => viewInscription(id), bienvenue: () => viewBienvenue(id), admin: viewAdmin,
