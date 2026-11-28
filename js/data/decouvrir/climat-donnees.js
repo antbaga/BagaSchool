@@ -199,6 +199,10 @@ export const ENSEMBLE_MSG = [
 // ---------- 5. Quiz ----------
 // ok = index de la bonne réponse dans r. t = paliers concernés.
 export const QUIZ = [
+  { t: [0, 1], q: "Avoir 39 °C au lieu de 37 °C, ce n'est que 2 degrés de plus. C'est…", r: ["Avoir de la fièvre", "Rien du tout"], ok: 0, e: "2 degrés de plus et on est malade ! Pour la Terre aussi, quelques degrés en moyenne, c'est beaucoup." },
+  { t: [1, 2], q: "Aujourd'hui, la Terre se réchauffe…", r: ["Beaucoup plus vite qu'à la fin de la glaciation", "Plus lentement qu'avant", "Pas du tout"], ok: 0, e: "Environ 10 fois plus vite : les plantes, les animaux et les humains ont du mal à s'adapter." },
+  { t: [2], q: "Pendant la dernière glaciation, il y a 20 000 ans, la Terre était plus froide d'environ…", r: ["6 °C", "60 °C", "0,5 °C"], ok: 0, e: "Environ 6 °C (de 5 à 7 °C) : quelques degrés suffisent à changer complètement le monde." },
+  { t: [2], q: "Une chaleur extrême qui arrivait 1 fois en 50 ans arriverait, à +2 °C, environ…", r: ["14 fois en 50 ans", "1 fois en 50 ans", "1 fois en 500 ans"], ok: 0, e: "Environ 14 fois selon le GIEC : une petite hausse de la moyenne rend les extrêmes beaucoup plus fréquents." },
   { t: [0, 1], q: "Qui chauffe la Terre ?", r: ["Le Soleil", "La Lune", "Les nuages"], ok: 0, e: "C'est le Soleil qui chauffe la Terre. L'air garde une partie de cette chaleur." },
   { t: [0, 1], q: "Sans la « couverture » de gaz autour de la Terre, il ferait…", r: ["Très froid", "Très chaud", "Pareil"], ok: 0, e: "Sans effet de serre, il ferait environ −18 °C : la Terre serait gelée. L'effet de serre naturel est utile !" },
   { t: [0], q: "Quel geste aide la planète ?", r: ["Aller à l'école à pied", "Laisser la lumière allumée", "Jeter son goûter"], ok: 0, e: "Marcher ou faire du vélo ne rejette pas de gaz qui réchauffe la Terre." },
@@ -225,6 +229,7 @@ export const ENSEIGNANT = {
   deroule: [
     ["🏠 Effet de serre", "Partir de ce que savent les élèves (« Pourquoi fait-il chaud sur Terre ? »). Montrer l'animation, puis bouger le curseur. Insister : l'effet de serre est naturel et utile ; c'est son renforcement qui pose problème."],
     ["🏭 Causes", "Faire deviner aux élèves ce qui rejette des gaz avant de toucher les images. Fil rouge : on brûle du charbon, du pétrole, du gaz. En CM, montrer les parts par secteur en France."],
+    ["📈 +2 °C ?", "Pourquoi quelques degrés, c'est beaucoup : la fièvre (même +2 °C), la vitesse (la courbe sur 22 000 ans : glaciation, puis réchauffement actuel environ 10 fois plus rapide), les canicules (une petite hausse de la moyenne multiplie les extrêmes)."],
     ["🌊 Conséquences", "Avancer le curseur du temps, puis toucher les étiquettes. Montrer les deux avenirs : celui-ci dépend de nos choix."],
     ["🌱 Agir", "Trier les gestes en groupe, puis discuter de « Tous ensemble » : finir sur ce qu'on peut faire, à son échelle et collectivement."],
     ["❓ Quiz", "En fin de séance ou à la séance suivante, pour réactiver."],
@@ -254,10 +259,12 @@ export const ENSEIGNANT = {
     "Chiffres datés : ils changent chaque année (température 2025, émissions françaises 2025 provisoires). Voir la date dans les sources.",
     "Les gestes « manger moins de viande rouge » et « fruits de saison » : à présenter sans juger les familles.",
     "Vendanges « plusieurs semaines plus tôt » et canicule 2003 (≈ 15 000 décès) : ordres de grandeur couramment cités, non revérifiés ici.",
+    "Étape « +2 °C ? » : la courbe sur 22 000 ans est simplifiée (forme approximative) ; « environ 10 fois plus vite » est un ordre de grandeur (GIEC, NASA). Les fréquences de canicules sont celles du GIEC pour une chaleur « 1 fois en 50 ans », pas des prévisions pour la France.",
     "L'animation de l'effet de serre est un modèle simplifié : les proportions de flèches renvoyées ne sont pas des mesures.",
   ],
   sources: [
     ["GIEC (IPCC), 6e rapport, Résumé pour les décideurs du rapport de synthèse, 2023", "https://www.ipcc.ch/report/ar6/syr/"],
+    ["GIEC (IPCC), 6e rapport, groupe I (2021) : glaciation, vitesse du réchauffement, extrêmes de chaleur (fig. SPM.6)", "https://www.ipcc.ch/report/ar6/wg1/"],
     ["OMM, État du climat mondial 2025 (mars 2026)", "https://wmo.int/news/media-centre/earths-climate-swings-increasingly-out-of-balance"],
     ["Ministère de la Transition écologique, TRACC : +1,7 °C en France en 2023", "https://www.ecologie.gouv.fr/dossiers/france-sadapte/rechauffement-trajectoire-reference"],
     ["SDES, Chiffres clés du climat : émissions françaises par secteur (2025, provisoire)", "https://www.statistiques.developpement-durable.gouv.fr/edition-numerique/chiffres-cles-du-climat/fr/10-panorama-francais-des-gaz-a"],
@@ -265,3 +272,69 @@ export const ENSEIGNANT = {
     ["ADEME, Agir pour la transition écologique (gestes, chauffage à 19 °C)", "https://agirpourlatransition.ademe.fr/particuliers/"],
   ],
 };
+
+// ---------- Effet de serre : bulles d'info des éléments de l'image ----------
+export const INFOS_SERRE = {
+  soleil: { ico: "☀️", nom: "Le Soleil", txt: [
+    "Le Soleil envoie de la lumière et de la chaleur. C'est lui qui chauffe la Terre.",
+    "Le Soleil envoie sa lumière vers la Terre. Elle traverse l'air et chauffe le sol, la mer et les plantes.",
+    "Le Soleil envoie surtout de la lumière visible. Elle traverse l'atmosphère et chauffe le sol et les océans. Environ 30 % de cette lumière est directement renvoyée vers l'espace par les nuages, la glace et la neige."] },
+  atm: { ico: "🌫️", nom: ["L'air autour de la Terre", "L'atmosphère", "L'atmosphère"], txt: [
+    "La Terre est entourée d'air. Cet air garde un peu de chaleur, comme une couverture sur ton lit.",
+    "L'atmosphère, c'est la couche d'air qui entoure la Terre. Quelques gaz, en petite quantité, retiennent la chaleur : ce sont les gaz à effet de serre, comme le CO₂.",
+    "L'air est surtout fait d'azote et d'oxygène, qui ne retiennent pas la chaleur. Les gaz à effet de serre (vapeur d'eau, CO₂, méthane…) ne sont qu'une toute petite partie de l'air, mais ils absorbent l'infrarouge et en renvoient une partie vers le sol."] },
+  co2: { ico: "⚫", nom: "Une molécule de CO₂", txt: "Le dioxyde de carbone : un atome de carbone (noir) et deux atomes d'oxygène (rouges). Il y en a environ 420 sur un million de molécules d'air. C'est très peu, mais assez pour changer le climat. Une partie du CO₂ rejeté reste dans l'air pendant des siècles." },
+  sol: { ico: "🌍", nom: ["Le sol", "Le sol et la mer", "Le sol et les océans"], txt: [
+    "Le sol chauffé par le Soleil renvoie de la chaleur vers le ciel, comme une route chaude en été.",
+    "Le sol et la mer, chauffés par le Soleil, renvoient de la chaleur vers le ciel (flèches rouges). On ne la voit pas, mais on la sent, comme la chaleur d'un mur resté au soleil.",
+    "Le sol et les océans chauffés émettent un rayonnement infrarouge, invisible (flèches rouges). Les océans stockent plus de 90 % de la chaleur en trop due à l'effet de serre renforcé."] },
+  thermo: { ico: "🌡️", nom: ["Le thermomètre de la Terre", "La température moyenne", "La température moyenne de la Terre"], txt: [
+    "Il montre si la Terre a chaud ou froid. Bouge le curseur pour voir ce qui se passe !",
+    "C'est la moyenne de toutes les températures de la Terre : le jour et la nuit, l'été et l'hiver, partout. Elle change très lentement… sauf aujourd'hui.",
+    "C'est une moyenne sur toute la planète et toute l'année. Quelques dixièmes de degré de plus sur cette moyenne, c'est déjà beaucoup : voir l'étape « +2 °C ? »."] },
+};
+
+// ---------- +2 °C ? Pourquoi quelques degrés, c'est beaucoup ----------
+export const DEG_VUES = [["fievre", "🤒", "Comme une fièvre"], ["vitesse", "🚀", "Trop vite"], ["canicules", "🔥", "Les canicules"]];
+
+// Fièvre : le même nombre de degrés en plus, pour un enfant (37 °C) et pour la Terre (≈ 14 °C avant 1850).
+export const FIEVRE_CORPS = [[0, "🧒", "Tout va bien"], [1, "🧒", "Un peu chaud"], [2.5, "🤒", "Fièvre : on est malade"], [3.5, "🤒", "Forte fièvre : on voit le médecin"], [9, "🚑", "Très forte fièvre : c'est grave"]];
+export const FIEVRE_TERRE = [[0, "🙂", "Le climat d'avant 1850"], [1, "😐", "Déjà des changements"], [1.5, "😓", "≈ aujourd'hui (+1,4 °C)"], [2, "🥵", "Limite de l'Accord de Paris"], [3, "🥵", "Beaucoup de dégâts"], [9, "🔥", "Si on ne fait rien"]];
+export const FIEVRE_TXT = [
+  "Quand tu as 39 °C, tu n'as que 2 degrés de plus que d'habitude, et pourtant tu es malade ! Pour la Terre, c'est pareil : quelques degrés de plus en moyenne, c'est déjà beaucoup.",
+  "Ton corps reste toujours vers 37 °C : avec 2 degrés de plus, tu as de la fièvre. La Terre aussi a gardé une température moyenne presque stable pendant des milliers d'années, environ 14 °C. 2 degrés de plus en moyenne, c'est comme une fièvre pour la planète.",
+  "Le corps humain reste à 37 °C : +2 °C, c'est déjà la fièvre. La température moyenne de la Terre a très peu varié depuis 10 000 ans, la période où sont apparues l'agriculture et les villes. Une moyenne, c'est très stable : +2 °C partout et toute l'année, c'est une énorme quantité de chaleur en plus.",
+];
+
+// Vitesse : courbe simplifiée de la température moyenne (écart à 1850-1900, °C) sur 22 000 ans.
+// Forme approximative d'après les reconstructions citées par le GIEC (AR6) ; dernier point : OMM 2025.
+export const COURBE = [[-22000, -6], [-19000, -6], [-17500, -5.7], [-16000, -5], [-14700, -4], [-13000, -3.5], [-12000, -3.7], [-11000, -2.4], [-10000, -1.3], [-8500, -0.5], [-7000, -0.1], [-4000, 0.1], [-1000, -0.1], [1850, 0], [2025, 1.4]];
+export const ZOOM = [[1850, 0], [1900, 0], [1940, 0.3], [1960, 0.25], [1980, 0.45], [2000, 0.75], [2015, 1.05], [2025, 1.4]];
+export const DEG_POINTS = [
+  { id: "glaciation", ico: "🦣", an: -20000, T: -6, t: 0, nom: ["Au temps des mammouths", "La dernière glaciation", "La dernière glaciation"], txt: [
+    "Il y a très longtemps, au temps des mammouths, il faisait beaucoup plus froid. De la glace recouvrait le nord de l'Europe.",
+    "Il y a 20 000 ans, la Terre était environ 6 °C plus froide qu'avant 1850. Une énorme couche de glace recouvrait le nord de l'Europe, et la mer était bien plus basse.",
+    "Il y a 20 000 ans, la Terre était environ 5 à 7 °C plus froide. Une calotte de glace couvrait le nord de l'Europe, et la mer était plus de 100 m plus bas. Seulement 6 °C d'écart : c'est la différence entre une glaciation et notre climat."] },
+  { id: "lent", ico: "🐌", an: -11000, T: -2.4, t: 0, nom: ["Un réchauffement très lent", "Un réchauffement très lent", "La fin de la glaciation"], txt: [
+    "Ensuite, la Terre s'est réchauffée tout doucement, pendant des milliers d'années. Les plantes et les animaux avaient le temps de s'habituer.",
+    "La Terre a mis environ 10 000 ans pour se réchauffer de 6 °C. C'est très lent : les forêts et les animaux avaient le temps de se déplacer.",
+    "Sortir de la glaciation a pris environ 10 000 ans, soit en moyenne moins de 0,1 °C par siècle. Les écosystèmes avaient le temps de migrer et de s'adapter."] },
+  { id: "stable", ico: "🌾", an: -4000, T: 0.1, t: 0, nom: ["Un climat calme", "Un climat stable", "10 000 ans de climat stable"], txt: [
+    "Puis le climat est resté calme très longtemps. Les humains ont pu cultiver des champs et construire des villages.",
+    "Pendant des milliers d'années, la température moyenne a très peu changé. Les humains ont inventé l'agriculture, construit des villes : notre monde s'est construit dans ce climat stable.",
+    "Depuis 10 000 ans, la température moyenne est restée stable. Agriculture, villes, écriture : toute notre civilisation s'est développée dans ce climat."] },
+  { id: "vite", ico: "🚀", an: 2025, T: 1.4, t: 0, nom: ["Aujourd'hui : très vite !", "Aujourd'hui : très vite", "Aujourd'hui : environ 10 fois plus vite"], txt: [
+    "Aujourd'hui, la Terre se réchauffe très, très vite, à cause des gaz que nous rejetons. Les plantes et les animaux n'ont pas le temps de s'habituer.",
+    "Depuis 150 ans, la Terre a déjà gagné 1,4 °C. C'est environ 10 fois plus vite qu'à la fin de la glaciation. Les forêts, les animaux et les humains ont du mal à s'adapter aussi vite.",
+    "La Terre a gagné 1,4 °C en 150 ans, environ 10 fois plus vite qu'à la sortie de la glaciation. Selon le GIEC, un réchauffement aussi rapide n'a pas eu lieu depuis au moins 2 000 ans. +2 ou +3 °C en un ou deux siècles, c'est la moitié d'une glaciation à l'envers, en un clin d'œil."] },
+];
+
+// Canicules : chaleur extrême qui arrivait 1 fois en 50 ans dans le climat de 1850-1900 (GIEC AR6, RID, figure SPM.6 : ×4,8 à +1 °C, ×8,6 à +1,5 °C, ×13,9 à +2 °C, ×39,2 à +4 °C).
+export const CANICULES = [
+  { nom: "Avant 1900", n: 1 }, { nom: "+1 °C", n: 5 }, { nom: "+1,5 °C", n: 9 }, { nom: "+2 °C", n: 14 }, { nom: "+4 °C", n: 39 },
+];
+export const CANICULES_TXT = [
+  "Chaque case, c'est une année. 🔥, c'est une chaleur très, très forte. Autrefois, elle arrivait 1 seule fois en 50 ans. Bouge le curseur : avec quelques degrés de plus, elle arrive bien plus souvent !",
+  "Une chaleur extrême, qui arrivait environ 1 fois en 50 ans avant 1900, arrive déjà environ 5 fois en 50 ans. À +2 °C, ce serait environ 14 fois. La moyenne monte un peu, mais les jours extrêmes deviennent beaucoup plus fréquents.",
+  "Une chaleur extrême qui arrivait 1 fois en 50 ans dans le climat de 1850-1900 arrive environ 5 fois à +1 °C, 9 fois à +1,5 °C, 14 fois à +2 °C et 39 fois à +4 °C (GIEC). Et la moyenne mondiale cache des écarts : les continents se réchauffent plus que les océans (la France est déjà à +1,7 °C) et l'Arctique se réchauffe environ 4 fois plus vite que la moyenne.",
+];

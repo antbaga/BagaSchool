@@ -1,27 +1,49 @@
 // À découvrir · Sciences : « Le climat change » (CP → CM2).
-// Une seule activité en 5 étapes (effet de serre, causes, conséquences, agir, quiz) et une fiche enseignant.
+// Une seule activité en 6 étapes (effet de serre, causes, +2 °C ?, conséquences, agir, quiz) et une fiche enseignant.
+// Dans les images, toucher un élément ouvre une bulle d'info à côté de lui.
 // Trois versions de texte : CP-CE1, CE2, CM1-CM2 (palier 0, 1, 2). Contenus : js/data/decouvrir/climat-donnees.js.
 import { NIVEAUX, esc, shuffle, niveauxHTML, niveauMemo, bravo, dragEtiquettes, clicApresDrag, scoreHTML } from "./kit.js";
-import { SERRE, SERRE_INTRO, CAUSES, CAUSES_INTRO, SECTEURS_FR, EPOQUES, EPOQUES_TXT, CONSEQUENCES, GESTES, ENSEMBLE, ENSEMBLE_MSG, QUIZ, ENSEIGNANT } from "../data/decouvrir/climat-donnees.js";
+import { SERRE, SERRE_INTRO, CAUSES, CAUSES_INTRO, SECTEURS_FR, EPOQUES, EPOQUES_TXT, CONSEQUENCES, GESTES, ENSEMBLE, ENSEMBLE_MSG, QUIZ, ENSEIGNANT, INFOS_SERRE, DEG_VUES, FIEVRE_CORPS, FIEVRE_TERRE, FIEVRE_TXT, COURBE, ZOOM, DEG_POINTS, CANICULES, CANICULES_TXT } from "../data/decouvrir/climat-donnees.js";
 
 const palier = (n) => (n === "CP" || n === "CE1" ? 0 : n === "CE2" ? 1 : 2);
 // Texte selon le palier : chaîne commune, ou tableau [CP-CE1, CE2, CM] (case vide = celle d'avant).
 const P = (v, t) => { if (!Array.isArray(v)) return v ?? ""; for (let i = Math.min(t, v.length - 1); i >= 0; i--) if (v[i]) return v[i]; return ""; };
 const reduit = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-const ETAPES = [["serre", "🏠", "Effet de serre"], ["causes", "🏭", "Causes"], ["consequences", "🌊", "Conséquences"], ["agir", "🌱", "Agir"], ["quiz", "❓", "Quiz"]];
+const ETAPES = [["serre", "🏠", "Effet de serre"], ["causes", "🏭", "Causes"], ["degres", "📈", "+2 °C ?"], ["consequences", "🌊", "Conséquences"], ["agir", "🌱", "Agir"], ["quiz", "❓", "Quiz"]];
 const NS = "http://www.w3.org/2000/svg";
-// Lecture à voix haute (utile en CP-CE1) : synthèse vocale du navigateur, si elle existe.
-const VOIX = typeof window !== "undefined" && "speechSynthesis" in window;
-const lire = (txt) => { if (!VOIX) return; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(txt); u.lang = "fr-FR"; u.rate = 0.9; speechSynthesis.speak(u); };
-const ecouterHTML = VOIX ? `<button class="pill cl-lire" data-act="lire-carte">🔊 Écouter</button>` : "";
 const mix = (a, b, k) => { const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, "0")).join(""); };
 // Pseudo-hasard stable (positions des molécules, des arbres) : même dessin à chaque affichage.
 const alea = (s) => { let x = s; return () => { x = (x * 16807) % 2147483647; return (x - 1) / 2147483646; }; };
+const melange = (n, graine) => { const r = alea(graine), a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// Bulle d'info posée dans la scène, à côté du point (x, y) de l'image (viewBox 800 × 460). r = rayon de l'élément visé.
+function bulle(scene, x, y, html, r = 36) {
+  scene.querySelector(".cl-bulle")?.remove();
+  const svg = scene.querySelector("svg"), rs = scene.getBoundingClientRect(), rv = svg.getBoundingClientRect(), k = rv.width / 800;
+  const px = rv.left - rs.left + x * k, py = rv.top - rs.top + y * k, d = r * k + 12;
+  const b = document.createElement("div");
+  b.className = "cl-bulle"; b.setAttribute("role", "dialog");
+  b.innerHTML = `<button class="cl-bulle-x" data-act="bulle-x" aria-label="Fermer">✕</button>${html}`;
+  scene.appendChild(b);
+  // Au-dessus si ça tient, sinon en dessous, sinon à côté : la bulle reste dans la scène et ne cache pas l'élément.
+  const w = b.offsetWidth, h = b.offsetHeight, H = rs.height, W = rs.width;
+  const haut = py - d - h >= 4, bas = !haut && py + d + h <= H - 4;
+  let left, top, cote;
+  if (haut || bas) { cote = haut ? "haut" : "bas"; left = Math.max(6, Math.min(W - w - 6, px - w / 2)); top = haut ? py - d - h : py + d; }
+  else { cote = px > W / 2 ? "gauche" : "droite"; left = cote === "gauche" ? Math.max(4, px - d - w) : Math.min(W - w - 4, px + d); top = Math.max(4, Math.min(H - h - 4, py - h / 2)); }
+  b.classList.add(cote);
+  b.style.left = `${left}px`; b.style.top = `${top}px`;
+  b.style.setProperty("--fx", `${Math.max(18, Math.min(w - 18, px - left))}px`);
+  b.style.setProperty("--fy", `${Math.max(18, Math.min(h - 18, py - top))}px`);
+}
+const bulleHTML = (ico, titre, txt, plus = "") => `<h4>${ico} ${esc(titre)}</h4><p>${esc(txt)}</p>${plus}`;
+// Point de l'image (viewBox) sous un clic.
+const ptSVG = (svg, e) => { const r = svg.getBoundingClientRect(), k = 800 / r.width; return [(e.clientX - r.left) * k, (e.clientY - r.top) * k]; };
 
 // Point cliquable dans une scène SVG (cause ou conséquence).
 const spot = (s, t, sel, vu) => `<g class="cl-spot ${sel ? "on" : ""} ${vu ? "vu" : ""}" data-spot="${s.id}" transform="translate(${s.x},${s.y})" role="button" tabindex="0" aria-label="${esc(P(s.nom, t))}">
   <circle r="34" class="cl-halo"/><text class="cl-emo" y="2">${s.ico}</text>${vu && !sel ? `<circle cx="24" cy="-24" r="10" class="cl-vu"/><text x="24" y="-23" class="cl-vu-t">✓</text>` : ""}
-  ${sel ? `<text y="54" class="cl-lbl">${esc(P(s.nom, t))}</text>` : ""}</g>`;
+</g>`;
 
 export function mountClimat(el) {
   const niv = niveauMemo("climat", NIVEAUX, "CE2");
@@ -32,11 +54,19 @@ export function mountClimat(el) {
       <button class="round-btn cl-prof-b" data-act="prof" aria-label="Fiche enseignant" title="Fiche enseignant">📖</button></div>
     <div class="cl-corps"></div></div>`;
   const corps = el.querySelector(".cl-corps");
+  let surFermeture = null; // remet à zéro la sélection de l'étape quand on ferme la bulle
+  // Remplace le contenu de l'étape. partiel : garde le curseur en place (on ne casse pas un glisser en cours).
+  const remplacer = (html, partiel) => {
+    if (!partiel || !corps.querySelector(".cl-scene")) { corps.innerHTML = html; return; }
+    const tmp = document.createElement("div"); tmp.innerHTML = html;
+    for (const sel of [".cl-scene", "#clCard", ".cl-crans", ".cl-cur-l"]) { const a = corps.querySelector(sel), b = tmp.querySelector(sel); if (a && b) a.replaceWith(b); }
+  };
+  const fermerBulle = () => { corps.querySelector(".cl-bulle")?.remove(); surFermeture?.(); };
 
   const rendu = () => {
-    fin?.(); fin = null; clic = null; saisie = null; if (VOIX) speechSynthesis.cancel();
+    fin?.(); fin = null; clic = null; saisie = null; surFermeture = null;
     el.querySelectorAll("[data-etape]").forEach((b) => b.classList.toggle("on", b.dataset.etape === etape));
-    ({ serre, causes, consequences, agir, quiz })[etape]();
+    ({ serre, causes, degres, consequences, agir, quiz })[etape]();
   };
 
   // ---------- 1. Effet de serre ----------
@@ -55,19 +85,20 @@ export function mountClimat(el) {
           ${[[300, 20], [420, 50], [520, 18], [690, 40], [610, 70], [240, 62]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" fill="#fff" opacity=".8"/>`).join("")}
           <text x="790" y="22" class="cl-zone d">${t ? "Espace" : "L'espace"}</text>
           <rect y="${ATM[0]}" width="800" height="${G - ATM[0]}" fill="url(#clCiel)"/>
-          <rect y="${ATM[0]}" width="800" height="${ATM[1] - ATM[0]}" class="cl-atm" id="clAtm"/>
+          <rect y="${ATM[0]}" width="800" height="${ATM[1] - ATM[0]}" class="cl-atm cl-info" id="clAtm" data-info="atm"/>
           <text x="790" y="${ATM[0] + 20}" class="cl-zone">${["L'air autour de la Terre", "Atmosphère", "Atmosphère"][t]}</text>
-          <g id="clMol"></g>
-          <circle cx="86" cy="46" r="38" fill="url(#clSol)"/><text x="86" y="104" class="cl-zone c d">Soleil</text>
-          <path d="M0,${G} C150,${G - 12} 300,${G + 6} 460,${G - 8} S700,${G + 4} 800,${G - 6} L800,460 L0,460Z" fill="#6fbf5f"/>
-          <rect y="${G + 14}" width="800" height="${460 - G}" fill="#a8743f"/><rect y="${G + 6}" width="800" height="10" fill="#5fa84f"/>
+          <g id="clMol" class="cl-info" data-info="${t === 2 ? "co2" : "atm"}"></g>
+          <circle cx="86" cy="46" r="38" fill="url(#clSol)" class="cl-info" data-info="soleil"/><text x="86" y="104" class="cl-zone c d">Soleil</text>
+          <g class="cl-info" data-info="sol"><path d="M0,${G} C150,${G - 12} 300,${G + 6} 460,${G - 8} S700,${G + 4} 800,${G - 6} L800,460 L0,460Z" fill="#6fbf5f"/>
+          <rect y="${G + 14}" width="800" height="${460 - G}" fill="#a8743f"/><rect y="${G + 6}" width="800" height="10" fill="#5fa84f"/></g>
           ${arbres}${maisons}
           <rect y="${G - 60}" width="800" height="${460 - G + 60}" class="cl-chaud" id="clChaud"/>
           <text x="400" y="${G + 52}" class="cl-zone c">${["Le sol", "Le sol se réchauffe", "Le sol chauffé émet des infrarouges"][t]}</text>
           <g id="clPh"></g>
-          <g transform="translate(735,232)" class="cl-thermo"><rect x="-13" y="0" width="26" height="128" rx="13" fill="#fff" stroke="#c9c2dc" stroke-width="3"/>
+          <g transform="translate(735,232)" class="cl-thermo cl-info" data-info="thermo"><rect x="-13" y="0" width="26" height="128" rx="13" fill="#fff" stroke="#c9c2dc" stroke-width="3"/>
             <rect x="-6" id="clTf" width="12" rx="6"/><circle cy="140" r="20" id="clTb" stroke="#c9c2dc" stroke-width="3"/>
             <text y="-34" class="cl-visage" id="clVis"></text><text y="-8" class="cl-temp" id="clTv"></text></g>
+          ${[["soleil", 128, 22], ["atm", 28, 150], ["sol", 28, 432], ["thermo", 772, 300]].map(([k, x, y]) => `<g class="cl-i" data-info="${k}" transform="translate(${x},${y})" role="button" tabindex="0" aria-label="${esc(P(INFOS_SERRE[k].nom, t))}"><circle r="15"/><text>i</text></g>`).join("")}
         </svg></div>
       <div class="tool-top cl-curseur">
         <div class="cl-cur"><label class="cl-cur-l" for="clGes">${["Épaisseur de la couverture", "Gaz à effet de serre", "Quantité de gaz à effet de serre"][t]}</label><input type="range" id="clGes" min="0" max="3" step="1" value="${cran}" class="wide-range" aria-label="${["Épaisseur de la couverture", "Gaz à effet de serre", "Quantité de gaz à effet de serre"][t]}">
@@ -91,7 +122,7 @@ export function mountClimat(el) {
       corps.querySelectorAll("[data-cran]").forEach((x) => x.classList.toggle("on", +x.dataset.cran === cran));
       corps.querySelector("#clCard").innerHTML = `<p class="cl-intro">${esc(SERRE_INTRO[t])}</p>
         <h3>${s.visage} ${esc(P(s.nom, t))}</h3>${t ? `<p class="cl-gros">${s.affiche} <span class="muted">en moyenne sur Terre</span></p>` : ""}<p>${esc(s.txt[t])}</p>
-        <div class="cl-legende"><span><i class="j"></i>${t === 2 ? "Lumière du Soleil" : "Chaleur du Soleil"}</span><span><i class="r"></i>${t === 2 ? "Infrarouge (chaleur) émis par le sol" : "Chaleur renvoyée par le sol"}</span></div>${ecouterHTML}`;
+        <div class="cl-legende"><span><i class="j"></i>${t === 2 ? "Lumière du Soleil" : "Chaleur du Soleil"}</span><span><i class="r"></i>${t === 2 ? "Infrarouge (chaleur) émis par le sol" : "Chaleur renvoyée par le sol"}</span></div><p class="muted cl-petit">👆 Touche le Soleil, l'air, le sol ou le thermomètre pour en savoir plus.</p>`;
     };
     // Flèches de lumière et de chaleur : modèle simplifié (pas une mesure).
     let ph = [], acc = 0, play = true;
@@ -120,6 +151,8 @@ export function mountClimat(el) {
     const choisir = (v) => { cran = Math.max(0, Math.min(3, v)); corps.querySelector("#clGes").value = cran; maj(); if (reduit()) figer(); };
     saisie = (e) => { if (e.target.id === "clGes") choisir(+e.target.value); };
     clic = (e) => {
+      const z = e.target.closest("[data-info]");
+      if (z) { const inf = INFOS_SERRE[z.dataset.info], [x, y] = z.classList.contains("cl-i") ? z.getAttribute("transform").match(/[\d.]+/g).map(Number) : ptSVG(svg, e); return bulle(corps.querySelector(".cl-scene"), x, y, bulleHTML(inf.ico, P(inf.nom, t), P(inf.txt, t)), 14); }
       const c = e.target.closest("[data-cran]"); if (c) return choisir(+c.dataset.cran);
       const b = e.target.closest("[data-act='pause']"); if (b) { play = !play; b.textContent = play ? "⏸ Pause" : "▶ Animer"; }
     };
@@ -158,14 +191,14 @@ export function mountClimat(el) {
           <div class="cl-barres rc-board">${SECTEURS_FR.map((s, i) => `<button class="cl-barre ${reveles.has(i) ? "vue" : ""}" data-barre="${i}"><span class="cl-b-n">${s.ico} ${esc(s.nom)}</span><span class="cl-b-t"><i style="width:${reveles.has(i) ? (s.p / max) * 100 : 0}%"></i></span><b>${reveles.has(i) ? `${s.p} %` : "?"}</b></button>`).join("")}</div>
           <p class="dk-source">Émissions 2025, estimation provisoire (SDES, d'après le Citepa).</p>
           <div class="tool-top"><button class="pill" data-act="tout">👀 Tout montrer</button><button class="pill" data-act="graphe">← Le paysage</button></div>`;
-      } else if (c) {
-        h = `<h3>${c.ico} ${esc(P(c.nom, t))}</h3><p>${esc(P(c.txt, t))}</p>${t ? `<p><span class="dk-tag">${c.gaz === "CO₂" ? "dioxyde de carbone (CO₂)" : c.gaz}</span></p>` : ""}`;
       } else h = `<h3>🔎 Qu'est-ce qui réchauffe la Terre ?</h3><p>${esc(CAUSES_INTRO[t])}</p>`;
-      if (!graphe) h += ecouterHTML;
       if (!graphe) h += `<p class="cl-compte">${n === liste.length ? "🎉 Tout est découvert !" : `Découvert : <b>${n}</b> / ${liste.length}`}</p>${t === 2 ? `<button class="pill" data-act="graphe">📊 Qui émet le plus en France ?</button>` : ""}`;
       corps.querySelector("#clCard").innerHTML = h;
     };
     carte();
+    const sel = CAUSES.find((x) => x.id === causeSel);
+    if (sel) bulle(corps.querySelector(".cl-scene"), sel.x, sel.y, bulleHTML(sel.ico, P(sel.nom, t), P(sel.txt, t), t ? `<p><span class="dk-tag">${sel.gaz === "CO₂" ? "dioxyde de carbone (CO₂)" : sel.gaz}</span></p>` : ""));
+    surFermeture = () => { causeSel = null; corps.querySelectorAll(".cl-spot.on").forEach((x) => x.classList.remove("on")); };
     clic = (e) => {
       const s = e.target.closest("[data-spot]");
       if (s) { causeSel = s.dataset.spot; causesVues.add(causeSel); graphe = false; return causes(); }
@@ -176,9 +209,89 @@ export function mountClimat(el) {
     };
   }
 
+  // ---------- +2 °C ? Pourquoi quelques degrés, c'est beaucoup ----------
+  let vueDeg = "fievre", degPlus = 2, canic = 1, degSel = null, ptsVitesse = [];
+  function degres(partiel = false) {
+    const seuil = (l, v) => l.find(([s]) => v <= s);
+    let scene = "", curseur = "", carteH = "";
+    if (vueDeg === "fievre") {
+      const [, vC, eC] = seuil(FIEVRE_CORPS, degPlus), [, vT, eT] = seuil(FIEVRE_TERRE, degPlus);
+      const fmt = (v) => String(v).replace(".", ",");
+      // Deux thermomètres gradués de 0 à +5 degrés, même échelle.
+      const thermo = (x, base, coul) => { const h = 250, y0 = 360, k = degPlus / 5;
+        return `<g transform="translate(${x},0)"><rect x="-16" y="${y0 - h - 10}" width="32" height="${h + 20}" rx="16" fill="#fff" stroke="#c9c2dc" stroke-width="3"/>
+          <rect x="-8" y="${(y0 - 30 - k * (h - 40)).toFixed(0)}" width="16" height="${(30 + k * (h - 40) + 8).toFixed(0)}" rx="8" fill="${coul}" class="cl-fill"/><circle cy="${y0 + 22}" r="26" fill="${coul}" stroke="#c9c2dc" stroke-width="3"/>
+          ${[0, 1, 2, 3, 4, 5].map((d) => { const y = y0 - 30 - (d / 5) * (h - 40); return `<line x1="16" x2="28" y1="${y}" y2="${y}" stroke="#8a829c" stroke-width="2"/><text x="34" y="${y + 5}" class="cl-grad">${fmt(base + d)} °C</text>`; }).join("")}</g>`; };
+      scene = `<svg viewBox="0 0 800 460" class="cl-svg" aria-label="Comparaison avec la fièvre">
+        <rect width="800" height="460" fill="#fdf7ef"/><line x1="400" y1="30" x2="400" y2="430" stroke="#e8dccb" stroke-width="3" stroke-dasharray="8 8"/>
+        <text x="160" y="80" class="cl-grand-emo">${vC}</text><text x="160" y="150" class="cl-titre-s">Toi</text>
+        <text x="160" y="196" class="cl-val">${fmt(37 + degPlus)} °C</text><text x="160" y="226" class="cl-etat">${esc(eC)}</text>
+        ${thermo(300, 37, degPlus >= 3 ? "#e0463c" : degPlus >= 1.5 ? "#f08a3d" : "#f5b83d")}
+        <text x="545" y="80" class="cl-grand-emo">🌍</text><text x="595" y="60" class="cl-petit-emo">${vT}</text><text x="545" y="150" class="cl-titre-s">La Terre</text>
+        <text x="545" y="196" class="cl-val">${t ? `${fmt(14 + degPlus)} °C` : `+${fmt(degPlus)} °C`}</text><text x="545" y="226" class="cl-etat">${esc(eT)}</text>
+        ${thermo(710, 14, degPlus >= 3 ? "#e0463c" : degPlus >= 1.5 ? "#f08a3d" : "#f5b83d")}
+        <text x="400" y="452" class="cl-zone c fin">${t ? "Température normale du corps : 37 °C · Terre avant 1850 : environ 14 °C" : "Le même nombre de degrés en plus"}</text></svg>`;
+      curseur = `<div class="tool-top cl-curseur"><div class="cl-cur"><label class="cl-cur-l" for="clDeg">🌡️ Degrés en plus : <b>+${fmt(degPlus)} °C</b></label><input type="range" id="clDeg" min="0" max="4" step="0.5" value="${degPlus}" class="wide-range" aria-label="Degrés en plus">
+        <div class="cl-crans">${[0, 1, 2, 3, 4].map((d) => `<span data-deg="${d}" class="${d === degPlus ? "on" : ""}">+${d} °C</span>`).join("")}</div></div></div>`;
+      carteH = `<h3>🤒 Comme une fièvre</h3><p>${esc(FIEVRE_TXT[t])}</p>`;
+    } else if (vueDeg === "vitesse") {
+      const X = (an) => 70 + ((an + 22000) / 24100) * 690, Y = (T) => 50 + ((5 - T) / 12) * 340;
+      const chemin = COURBE.map(([a, T], i) => `${i ? "L" : "M"}${X(a).toFixed(1)},${Y(T).toFixed(1)}`).join("");
+      const ZX = (an) => 110 + ((an - 1850) / 250) * 250, ZY = (T) => 196 - ((T + 0.2) / 4.8) * 92;
+      const zoom = ZOOM.map(([a, T], i) => `${i ? "L" : "M"}${ZX(a).toFixed(1)},${ZY(T).toFixed(1)}`).join("");
+      const pts = (ptsVitesse = DEG_POINTS.map((p) => ({ ...p, x: p.id === "vite" ? 720 : X(p.an), y: p.id === "vite" ? 150 : Y(p.T) })));
+      scene = `<svg viewBox="0 0 800 460" class="cl-svg" aria-label="Température de la Terre sur 22 000 ans">
+        <rect width="800" height="460" fill="#f7f9ff"/>
+        ${[4, 2, 0, -2, -4, -6].map((T) => `<line x1="70" x2="770" y1="${Y(T)}" y2="${Y(T)}" class="cl-grille ${T === 0 ? "zero" : ""}"/>${t ? `<text x="62" y="${Y(T) + 5}" class="cl-ax e">${T > 0 ? "+" : T < 0 ? "−" : ""}${Math.abs(T)} °C</text>` : ""}`).join("")}
+        ${t ? "" : `<text x="62" y="${Y(4) + 5}" class="cl-ax e">🥵</text><text x="62" y="${Y(-6) + 5}" class="cl-ax e">🥶</text>`}
+        ${[[-20000, t ? "il y a 20 000 ans" : "il y a très longtemps"], [-10000, t ? "il y a 10 000 ans" : ""], [2025, "aujourd'hui"]].map(([a, l]) => l ? `<text x="${X(a)}" y="420" class="cl-ax ${a > 0 ? "e" : "c"}">${l}</text>` : "").join("")}
+        <path d="${chemin}" class="cl-courbe ${reduit() ? "" : "anim"}" pathLength="1"/>
+        <path d="M${X(2025)},${Y(1.4)} L${X(2100)},${Y(4.4)}" class="cl-futur haut"/><path d="M${X(2025)},${Y(1.4)} L${X(2100)},${Y(1.8)}" class="cl-futur bas"/>
+        <g class="cl-zoom"><rect x="96" y="56" width="284" height="166" rx="12"/><text x="110" y="78" class="cl-zoom-t">🔍 ${t ? "Zoom sur 1850 → 2100" : "Zoom sur la fin"}</text>
+          <path d="${zoom}" class="cl-courbe z"/><path d="M${ZX(2025)},${ZY(1.4)} L${ZX(2100)},${ZY(4.4)}" class="cl-futur haut"/><path d="M${ZX(2025)},${ZY(1.4)} L${ZX(2100)},${ZY(1.8)}" class="cl-futur bas"/>
+          <text x="${ZX(2100) - 8}" y="${ZY(4.4) + 2}" class="cl-ax e r">${t ? "+4,4 °C" : "🔥"}</text><text x="${ZX(2100) - 4}" y="${ZY(1.8) + 20}" class="cl-ax e v">${t ? "+1,8 °C" : "🌱"}</text>
+          <text x="110" y="210" class="cl-ax">1850</text><text x="${ZX(2025)}" y="210" class="cl-ax c">2025</text></g>
+        ${pts.map((p) => spot(p, t, p.id === degSel, false)).join("")}
+        <text x="770" y="452" class="cl-zone fin">Courbe simplifiée · moyenne mondiale par rapport à 1850-1900</text></svg>`;
+      curseur = `<div class="tool-top cl-legende-l"><span><i class="cl-l-h"></i>${t ? "2100 si les émissions augmentent" : "Si on ne fait rien"}</span><span><i class="cl-l-b"></i>${t ? "2100 si on les réduit vite" : "Si on agit vite"}</span>${reduit() ? "" : `<button class="pill" data-act="retracer">↺ Retracer la courbe</button>`}</div>`;
+      carteH = `<h3>🐌 → 🚀 Trop vite</h3><p>${esc(DEG_POINTS.find((p) => p.id === "vite").txt[t])}</p><p class="muted">👆 Touche les images sur la courbe pour lire son histoire.</p>`;
+    } else {
+      const c = CANICULES[canic], ordre = melange(50, 5), chaud = new Set(ordre.slice(0, c.n));
+      scene = `<svg viewBox="0 0 800 460" class="cl-svg" aria-label="Canicules extrêmes en 50 ans">
+        <rect width="800" height="460" fill="#fff8f0"/>
+        <text x="400" y="40" class="cl-titre-s">${t ? `🔥 ${c.n} chaleur${c.n > 1 ? "s" : ""} extrême${c.n > 1 ? "s" : ""} en 50 ans` : `🔥 × ${c.n}`}</text>
+        ${Array.from({ length: 50 }, (_, i) => { const x = 50 + (i % 10) * 71, y = 64 + Math.floor(i / 10) * 72, on = chaud.has(i); return `<g transform="translate(${x},${y})"><rect width="62" height="62" rx="12" class="cl-an ${on ? "on" : ""}"/>${on ? `<text x="31" y="33" class="cl-an-f">🔥</text>` : `<text x="31" y="36" class="cl-an-n">${i + 1}</text>`}</g>`; }).join("")}
+        <text x="400" y="440" class="cl-zone c fin">${t ? "Chaque case = 1 année · chaleur extrême qui arrivait 1 fois en 50 ans avant 1900 (GIEC)" : "Chaque case = 1 année"}</text></svg>`;
+      curseur = `<div class="tool-top cl-curseur"><div class="cl-cur"><label class="cl-cur-l" for="clCan">🌍 Réchauffement de la Terre</label><input type="range" id="clCan" min="0" max="4" step="1" value="${canic}" class="wide-range" aria-label="Réchauffement">
+        <div class="cl-crans">${CANICULES.map((x, i) => `<span data-can="${i}" class="${i === canic ? "on" : ""}">${esc(x.nom)}</span>`).join("")}</div></div></div>`;
+      carteH = `<h3>🔥 Les canicules</h3>${t ? `<p class="cl-gros">${c.nom} : ${c.n} fois en 50 ans</p>` : ""}<p>${esc(CANICULES_TXT[t])}</p>`;
+    }
+    remplacer(`<div class="explore cl-explore"><div class="cl-gauche">
+        <div class="tool-top"><div class="seg cl-vues" role="group" aria-label="Explication">${DEG_VUES.map(([id, ico, nom]) => `<button data-vue="${id}" class="${id === vueDeg ? "on" : ""}">${ico} ${nom}</button>`).join("")}</div></div>
+        <div class="explore-main cl-scene rc-board">${scene}</div>${curseur}</div>
+      <aside class="explore-card" id="clCard"><p class="cl-intro">${esc(["Pourquoi quelques degrés, c'est beaucoup ?", "Pourquoi 2 ou 3 degrés de plus, c'est beaucoup ?", "Pourquoi +2 ou +3 °C, c'est énorme ?"][t])}</p>${carteH}</aside></div>`, partiel);
+    surFermeture = () => { degSel = null; corps.querySelectorAll(".cl-spot.on").forEach((x) => x.classList.remove("on")); };
+    saisie = (e) => {
+      if (e.target.id === "clDeg") { degPlus = +e.target.value; degres(true); }
+      if (e.target.id === "clCan") { canic = +e.target.value; degres(true); }
+    };
+    clic = (e) => {
+      const v = e.target.closest("[data-vue]"); if (v) { vueDeg = v.dataset.vue; degSel = null; return degres(); }
+      const d = e.target.closest("[data-deg]"); if (d) { degPlus = +d.dataset.deg; return degres(); }
+      const c = e.target.closest("[data-can]"); if (c) { canic = +c.dataset.can; return degres(); }
+      const s = e.target.closest("[data-spot]");
+      if (s) { // pas de nouveau rendu : la courbe animée reste tracée
+        degSel = s.dataset.spot; const p = ptsVitesse.find((x) => x.id === degSel);
+        corps.querySelectorAll(".cl-spot").forEach((x) => x.classList.toggle("on", x === s));
+        return bulle(corps.querySelector(".cl-scene"), p.x, p.y, bulleHTML(p.ico, P(p.nom, t), P(p.txt, t)));
+      }
+      if (e.target.closest("[data-act='retracer']")) { degSel = null; degres(); }
+    };
+  }
+
   // ---------- 3. Conséquences ----------
   let epoque = 1, consSel = null, consVues = new Set();
-  function consequences() {
+  function consequences(partiel = false) {
     const liste = CONSEQUENCES.filter((c) => c.t <= t);
     if (consSel && !liste.some((c) => c.id === consSel)) consSel = null;
     const ep = EPOQUES[epoque], mer = 330 - ep.mer;
@@ -187,7 +300,7 @@ export function mountClimat(el) {
     const [gl, dr] = [pt(gauche, f), pt(droite, f)];
     const glacier = ep.glacier > 0.05 ? `M${peak.join(",")} L${dr.join(",")} L${(dr[0] - 18).toFixed(0)},${(dr[1] - 12).toFixed(0)} L${(peak[0] + 12).toFixed(0)},${(dr[1] - 2).toFixed(0)} L${(peak[0] - 16).toFixed(0)},${(gl[1] - 10).toFixed(0)} L${gl.join(",")}Z` : "";
     const herbe = mix("#8bcf7a", "#d8b866", ep.sec), feuilles = mix("#4fae5b", "#c79a3d", ep.sec * 0.8);
-    corps.innerHTML = `<div class="explore cl-explore"><div class="cl-gauche">
+    remplacer(`<div class="explore cl-explore"><div class="cl-gauche">
         <div class="explore-main cl-scene rc-board"><svg viewBox="0 0 800 460" class="cl-svg" aria-label="Paysage : conséquences du réchauffement">
           <defs><linearGradient id="clC3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix("#9fd6ff", "#ffd59a", ep.sec * 0.7)}"/><stop offset="1" stop-color="#f2fbff"/></linearGradient></defs>
           <rect width="800" height="460" fill="url(#clC3)"/>
@@ -211,14 +324,14 @@ export function mountClimat(el) {
       <div class="tool-top cl-curseur">
         <div class="cl-cur"><label class="cl-cur-l" for="clEp">⏳ Le temps</label><input type="range" id="clEp" min="0" max="3" step="1" value="${epoque}" class="wide-range" aria-label="Époque">
           <div class="cl-crans">${EPOQUES.map((x, i) => `<span data-ep="${i}" class="${i === epoque ? "on" : ""}">${esc(P(x.nom, t))}</span>`).join("")}</div></div></div></div>
-        <aside class="explore-card" id="clCard"></aside></div>`;
+        <aside class="explore-card" id="clCard"></aside></div>`, partiel);
     const c = CONSEQUENCES.find((x) => x.id === consSel), n = liste.filter((x) => consVues.has(x.id)).length;
-    corps.querySelector("#clCard").innerHTML = (c
-      ? `<h3>${c.ico} ${esc(P(c.nom, t))}</h3><p>${esc(P(c.txt, t))}</p><p class="muted cl-petit">⏳ ${esc(P(ep.nom, t))} : ${esc(EPOQUES_TXT[epoque][t])}</p>`
-      : `<h3>⏳ ${esc(P(ep.nom, t))}</h3><p>${esc(EPOQUES_TXT[epoque][t])}</p><p class="muted">Bouge le curseur du temps, puis touche les images pour découvrir les conséquences.</p>`)
-      + ecouterHTML + `<p class="cl-compte">${n === liste.length ? "🎉 Tout est découvert !" : `Découvert : <b>${n}</b> / ${liste.length}`}</p>`;
-    const choisir = (v) => { epoque = Math.max(0, Math.min(3, v)); consequences(); };
-    saisie = (e) => { if (e.target.id === "clEp") choisir(+e.target.value); };
+    corps.querySelector("#clCard").innerHTML = `<h3>⏳ ${esc(P(ep.nom, t))}</h3>${t && P(ep.degre, t) ? `<p class="cl-gros">${esc(P(ep.degre, t))}</p>` : ""}<p>${esc(EPOQUES_TXT[epoque][t])}</p><p class="muted">👆 Bouge le curseur du temps, puis touche les images pour découvrir les conséquences.</p>`
+      + `<p class="cl-compte">${n === liste.length ? "🎉 Tout est découvert !" : `Découvert : <b>${n}</b> / ${liste.length}`}</p>`;
+    if (c) bulle(corps.querySelector(".cl-scene"), c.x, c.y, bulleHTML(c.ico, P(c.nom, t), P(c.txt, t)));
+    surFermeture = () => { consSel = null; corps.querySelectorAll(".cl-spot.on").forEach((x) => x.classList.remove("on")); };
+    const choisir = (v, partiel = false) => { epoque = Math.max(0, Math.min(3, v)); consSel = null; consequences(partiel); };
+    saisie = (e) => { if (e.target.id === "clEp") choisir(+e.target.value, true); };
     clic = (e) => {
       const s = e.target.closest("[data-spot]"); if (s) { consSel = s.dataset.spot; consVues.add(consSel); return consequences(); }
       const x = e.target.closest("[data-ep]"); if (x) choisir(+x.dataset.ep);
@@ -286,7 +399,7 @@ export function mountClimat(el) {
       if (qz.ok === qz.l.length) bravo(el);
     } else {
       const q = qz.l[qz.i], rep = qz.rep;
-      corps.innerHTML = `<div class="cl-quiz rc-board"><p class="cl-q-n">Question ${qz.i + 1} / ${qz.l.length}</p><h3 class="cl-q">${esc(q.q)}</h3>${VOIX ? `<div class="tool-top"><button class="pill" data-act="lire-q">🔊 Écouter la question</button></div>` : ""}
+      corps.innerHTML = `<div class="cl-quiz rc-board"><p class="cl-q-n">Question ${qz.i + 1} / ${qz.l.length}</p><h3 class="cl-q">${esc(q.q)}</h3>
         <div class="cl-reps">${q.ordre.map((k) => `<button class="cl-rep ${rep == null ? "" : k === q.ok ? "good" : k === rep ? "bad" : "off"}" data-rep="${k}" ${rep == null ? "" : "disabled"}>${esc(q.r[k])}</button>`).join("")}</div>
         ${rep == null ? "" : `<p class="cl-expl ${rep === q.ok ? "ok" : "ko"}">${rep === q.ok ? "✅ Oui !" : "❌ Non."} ${esc(q.e)}</p><div class="tool-top"><button class="big-btn" data-act="suivant">${qz.i + 1 < qz.l.length ? "Suivant →" : "Voir mon score"}</button></div>`}
         <p class="muted center">Score : ${qz.ok}</p></div>`;
@@ -295,7 +408,6 @@ export function mountClimat(el) {
       const r = e.target.closest("[data-rep]");
       if (r && qz.rep == null) { qz.rep = +r.dataset.rep; if (qz.rep === qz.l[qz.i].ok) qz.ok++; return quiz(); }
       const a = e.target.closest("[data-act]")?.dataset.act;
-      if (a === "lire-q") { const q = qz.l[qz.i]; lire(`${q.q} ${q.ordre.map((k) => q.r[k]).join(" ? ")} ?`); }
       if (a === "suivant") { qz.i++; qz.rep = null; quiz(); }
       if (a === "rejouer") { qz = null; quiz(); }
     };
@@ -325,13 +437,13 @@ export function mountClimat(el) {
     if (b?.dataset.act === "prof") return ouvrirProf();
     if (b?.dataset.act === "prof-x" || e.target.classList.contains("cl-prof")) return el.querySelector(".cl-prof")?.remove();
     if (e.target.closest(".cl-prof")) return;
-    if (b?.dataset.act === "lire-carte") { const c = b.closest(".explore-card").cloneNode(true); c.querySelectorAll("button, .cl-compte").forEach((x) => x.remove()); return lire(c.textContent.replace(/\s+/g, " ")); }
+    if (b?.dataset.act === "bulle-x" || (e.target.closest(".cl-scene") && !e.target.closest("[data-spot],[data-info],.cl-bulle"))) fermerBulle();
     clic?.(e);
   };
   el.oninput = (e) => saisie?.(e);
-  el.onkeydown = (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.closest?.("[data-spot]")) { e.preventDefault(); clic?.(e); } };
+  el.onkeydown = (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.closest?.("[data-spot],.cl-i")) { e.preventDefault(); clic?.(e); } };
   rendu();
-  return () => { fin?.(); if (VOIX) speechSynthesis.cancel(); };
+  return () => fin?.();
 }
 
 export const CLIMAT = [
