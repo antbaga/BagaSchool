@@ -19,7 +19,7 @@
 | liberte | La Liberté guidant le peuple | La_Liberté_guidant_le_peuple_-_Eugène_Delacroix_-_Musée_du_Louvre_Peintures_RF_129_-_après_restauration_2024.jpg | Public domain · Eugène Delacroix | 1280×1024, 183 Ko |
 | glaneuses | Des glaneuses | Jean-François_Millet_-_Gleaners_-_Google_Art_Project_2.jpg | Public domain · Jean-François Millet | 1280×958, 243 Ko |
 | impression | Impression, soleil levant | Claude_Monet,_Impression,_soleil_levant.jpg | Public domain · Claude Monet | 1280×996, 357 Ko |
-| nuit-etoilee | en:The Starry Night | Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg | Public domain · Vincent van Gogh | 1280×1013, 462 Ko |
+| nuit-etoilee | en:The Starry Night | Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg | Public domain · Vincent van Gogh | 1280×1014, 478 Ko |
 | vague | La Grande Vague de Kanagawa | Tsunami_by_hokusai_19th_century.jpg | Public domain · Katsushika Hokusai | 1280×860, 314 Ko |
 | tour-eiffel | Tour Eiffel | Tour_Eiffel_Wikimedia_Commons.jpg | Public domain · Benh LIEU SONG | 1280×2369, 385 Ko |
 | penseur | Le Penseur | Le_Penseur_in_the_Jardin_du_Musée_Rodin,_Paris_March_2014.jpg | Public domain · Thibsweb | 1280×1920, 332 Ko |

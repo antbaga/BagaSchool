@@ -169,7 +169,7 @@ export const IMAGES_OEUVRES = {
 "nuit-etoilee": {
 "src": "img/arts/nuit-etoilee.webp",
 "w": 1280,
-"h": 1013,
+"h": 1014,
 "fichier": "Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
 "page": "https://commons.wikimedia.org/wiki/File:Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
 "licence": "Public domain",
