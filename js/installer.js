@@ -53,6 +53,8 @@ function fermer(retenir = true) {
 
 function afficher() {
   if (estInstallee() || document.getElementById("instBan") || location.hash.startsWith("#/bienvenue")) return; // le parcours d'accueil a sa propre étape
+  if (!/^(#\/?(accueil)?)?$/.test(location.hash)) return; // seulement sur l'accueil, pour ne pas couvrir un outil ou une page en cours
+  if (document.querySelector(".demarrage")) return; // la carte « Pour bien démarrer » propose déjà l'installation
 
   const html = contenuInstallation(); if (!html) return;
   const ban = document.createElement("aside");
@@ -77,6 +79,7 @@ export function initInstallation() {
   window.addEventListener("appinstalled", () => { invite = null; fermer(false); });
   // Laisse au navigateur le temps d'envoyer beforeinstallprompt avant d'afficher un tuto.
   setTimeout(() => { if (!fermeRecent()) afficher(); }, 1500);
+  window.addEventListener("hashchange", () => { if (fermeRecent()) return; if (/^(#\/?(accueil)?)?$/.test(location.hash)) setTimeout(afficher, 1500); else document.getElementById("instBan")?.remove(); });
 }
 const fermeRecent = () => Date.now() - (+localStorage.getItem(CLE) || 0) < DELAI;
 export const ouvrirInstallation = () => { localStorage.removeItem(CLE); afficher(); };

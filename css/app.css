@@ -430,6 +430,17 @@ p.comp{margin:6px 0 6px 8px}
   .page{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 /* ===== Découvrir ===== */
+/* Accueil : carte « Pour bien démarrer » */
+.demarrage{background:linear-gradient(120deg,#ffe3ec,#e5f1ff);border-radius:24px;padding:16px 20px;margin-bottom:16px}
+.dm-tete{display:flex;align-items:center;justify-content:space-between;gap:10px}.dm-tete h3{margin:0}
+.demarrage ol{list-style:none;padding:0;margin:12px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.dm-go{display:flex;justify-content:flex-start;gap:10px;align-items:center;width:100%;height:100%;background:#fff;border:0;border-radius:18px;padding:12px 14px;font:700 16px var(--font);color:var(--ink);text-decoration:none;text-align:left;cursor:pointer;min-height:0}
+.dm-go small{display:block;color:var(--muted);font-weight:600;font-size:13px}
+.dm-n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--primary-soft);color:var(--primary);flex:none}
+.demarrage li.fait .dm-go{opacity:.7}.demarrage li.fait .dm-n{background:#c9f2d6;color:#18794e}
+.dm-pied{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 2px 0;font-weight:700;font-size:14px}.dm-pied:empty{display:none}
+.dm-pied a{color:var(--primary);text-decoration:none}
+@media (max-width:820px){.demarrage{padding:14px}.demarrage ol{grid-template-columns:1fr 1fr;gap:8px}.dm-go{padding:10px;font-size:14px;gap:8px}.dm-go small{display:none}.dm-n{width:26px;height:26px}}
 .section-title{font-size:20px;margin:22px 0 4px}.section-desc{margin:0 0 10px}
 /* Au tableau : recherche, niveau, catégories, favoris */
 .outils-filtres{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:4px 0 12px}
@@ -672,6 +683,7 @@ body.projection,body.remote-mode{padding-top:0!important;padding-bottom:0!import
 
 /* Invitation à installer l'app */
 .inst-ban{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));width:min(460px,calc(100% - 24px));background:var(--panel,#fff);border-radius:22px;padding:16px 18px 14px;box-shadow:0 16px 50px #3b335540;z-index:60;animation:instIn .3s ease-out}
+.modal-backdrop:not([hidden])~.inst-ban{display:none}
 @keyframes instIn{from{opacity:0;transform:translate(-50%,20px)}}
 .inst-x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:18px;cursor:pointer;color:#776;padding:6px}
 .inst-tete{display:flex;gap:12px;align-items:center;margin-bottom:8px}
