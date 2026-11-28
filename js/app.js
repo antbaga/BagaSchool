@@ -25,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.19.0";
+export const VERSION = "0.19.1";
 
 // ---------- état ----------
 let state = {};
@@ -1266,6 +1266,7 @@ function viewEleve(id, sub) {
       <div class="stats"><div><b>${evs.length}</b><span>évaluation(s)</span></div><div><b>${total ? Math.round(((counts.A + counts.D) / total) * 100) + " %" : "—"}</b><span>items atteints ou dépassés</span></div><div><b>${absA}</b><span>demi-journée(s) d'absence</span></div><div><b>${absR}</b><span>retard(s)</span></div></div>
       <h3>Où en est ${esc(el.prenom)} ?</h3>
       ${graphiqueEleve(id)}
+      ${apcEleve(id)}
       ${evs.map((ev) => `<h4>${esc(ev.titre)} <span class="hint">${esc(ev.discipline)} ${ev.date ? "· " + fmtDate(ev.date) : ""}</span></h4>
         <table class="items"><tbody>${ev.items.map((it, k) => { const v = ev.resultats[id]?.[k]; return v ? `<tr><td>${esc(itemText(it))}</td><td class="code"><span class="res r-${v}">${v}</span></td></tr>` : ""; }).join("")}</tbody></table>`).join("")}
       ${(() => { const comps = resultatsParCompetence(null).filter((c) => c.res[id]); if (!comps.length) return "";
@@ -1501,7 +1502,7 @@ async function remplirCompte(box) {
   box.innerHTML = `<p>Connectée avec <b>${esc(u.email)}</b>. <span class="hint" id="syEtat">${texteEtatSync()}</span></p>
     <div class="row"><button class="primary" id="cQR">📱 Connecter un autre appareil (QR code)</button><button class="ghost" id="cScan">📷 Scanner un QR code</button><a class="btn ghost" href="#/telecommande">Télécommande</a></div>
     <div class="row"><button class="ghost" id="cMdp">Changer de mot de passe</button><button class="ghost" id="cOut">Se déconnecter</button>${admin ? `<a class="btn ghost" href="#/admin">🛠️ Administration</a>` : ""}</div>
-    <p class="hint">Synchronisé : emploi du temps, programmations, fiches, modèles, cahier journal, devoirs, cahier au tableau, flashcards, remplacements, réglages. Jamais envoyé : élèves, évaluations, appel.</p>
+    <p class="hint">Synchronisé : emploi du temps, programmations, fiches, modèles, cahier journal, devoirs, cahier au tableau, flashcards, remplacements, réglages. Jamais envoyé : élèves, fiches élèves, évaluations, appel, APC.</p>
     <details class="hint"><summary>Supprimer mon compte</summary><p>Supprime ton compte et toutes les données copiées sur le serveur. Les données de cet appareil restent ici.</p><button class="danger" id="cDel">Supprimer définitivement mon compte</button></details>`;
 }
 function texteEtatSync() {
@@ -1915,6 +1916,105 @@ function resultatsParCompetence(discipline) {
   });
   return [...comps.values()];
 }
+// ---------- APC (activités pédagogiques complémentaires) ----------
+// Collection « apc » : contient des identifiants d'élèves, donc jamais synchronisée (comme eleves).
+// Supports : liens, ou fichiers rangés dans « Mes ressources » (dossier APC) et référencés par id.
+const minutesTxt = (min) => { const h = Math.floor(min / 60), m = min % 60; return h ? `${h} h${m ? " " + String(m).padStart(2, "0") : ""}` : `${m} min`; };
+function newApc() {
+  const a = { id: uid(), date: isoLocal(new Date()), duree: 30, eleves: [], objectif: "", compIds: [], competence: "", supports: [], bilan: "" };
+  state.apc.unshift(a); save("apc"); return a;
+}
+function viewApcList() {
+  const liste = [...state.apc].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const total = liste.reduce((t, a) => t + (+a.duree || 0), 0);
+  const nom = (id) => state.eleves.find((e) => e.id === id)?.prenom;
+  app.innerHTML = `
+    <p class="intro no-print">Note chaque séance d'APC : le jour, les élèves présents, l'objectif, la compétence travaillée et les supports utilisés. Tout reste sur cet appareil.</p>
+    <div class="toolbar no-print"><button class="primary" id="add">+ Nouvelle séance</button><span class="grow"></span><span class="hint">${liste.length} séance(s) · ${minutesTxt(total)} au total</span><button class="ghost" onclick="print()">🖨️ Imprimer</button></div>
+    <div class="list">${liste.map((a) => `
+      <a class="item" href="#/apc/${a.id}"><strong>${a.date ? capit(fmtLong(a.date)) : "Date à préciser"} <span class="hint">· ${minutesTxt(+a.duree || 0)}</span></strong>
+      <span>${esc(a.objectif || "Objectif à préciser")}</span>
+      <span class="hint">${a.eleves.map(nom).filter(Boolean).map(esc).join(", ") || "Aucun élève"}${a.supports.length ? ` · 📎 ${a.supports.length} support(s)` : ""}</span></a>`).join("") || `<div class="empty"><span>🤝</span><p>Aucune séance d'APC pour l'instant.</p></div>`}</div>`;
+  $("#add").onclick = () => { location.hash = `#/apc/${newApc().id}`; };
+}
+function viewApc(id) {
+  const a = state.apc.find((x) => x.id === id);
+  if (!a) return notFound();
+  setTitle("Séance d'APC");
+  const urls = [];
+  const draw = async () => {
+    const fichiers = await Promise.all(a.supports.filter((s) => s.type === "fichier").map((s) => res.lire(s.resId).catch(() => null)));
+    const parId = Object.fromEntries(fichiers.filter(Boolean).map((f) => [f.id, f]));
+    urls.splice(0).forEach((u) => URL.revokeObjectURL(u));
+    const support = (s, i) => {
+      if (s.type === "lien") return `<li class="apc-sup"><span class="rs-ico">🔗</span><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.titre || s.url)}</a><button class="ghost small no-print" data-rms="${i}" aria-label="Retirer">×</button></li>`;
+      const f = parId[s.resId];
+      if (!f) return `<li class="apc-sup"><span class="rs-ico">⚠️</span><span>${esc(s.nom)} <span class="hint">(fichier supprimé de Mes ressources)</span></span><button class="ghost small no-print" data-rms="${i}" aria-label="Retirer">×</button></li>`;
+      const g = res.genre(f); let vig = `<span class="rs-ico">${res.ICONES[g]}</span>`;
+      if (g === "image") { const u = URL.createObjectURL(f.blob); urls.push(u); vig = `<img src="${u}" alt="">`; }
+      return `<li class="apc-sup"><a class="apc-vig" href="#/ressources/${f.id}">${vig}</a><a href="#/ressources/${f.id}">${esc(f.nom)}</a><button class="ghost small no-print" data-rms="${i}" aria-label="Retirer">×</button></li>`;
+    };
+    app.innerHTML = `
+      <div class="toolbar no-print"><a href="#/apc" class="ghost btn">← Séances d'APC</a><span class="grow"></span><button class="ghost" onclick="print()">Imprimer</button><button class="danger" id="del">Supprimer</button></div>
+      <div class="sheet apc" id="apcDrop">
+        <h2>APC <span class="hint">${a.date ? capit(fmtLong(a.date)) : ""}</span></h2>
+        <div class="grid2"><label>Date<input type="date" name="date" value="${esc(a.date)}"></label>
+          <label>Durée (minutes)<input type="number" name="duree" min="5" step="5" value="${esc(a.duree)}"></label></div>
+        <div class="label-row"><span>Élèves présents (${a.eleves.length})</span></div>
+        ${state.eleves.length ? `<div class="apc-eleves">${state.eleves.map((e) => `<button type="button" data-el="${e.id}" class="${a.eleves.includes(e.id) ? "on" : ""}">${esc(e.prenom)}</button>`).join("")}</div>` : `<p class="hint">Ajoute d'abord tes élèves dans <a href="#/classe">Mes élèves</a>.</p>`}
+        <label>Objectif de la séance<input name="objectif" value="${esc(a.objectif)}" placeholder="ex. Lire plus vite les mots fréquents"></label>
+        <div class="label-row"><span>Compétences travaillées</span><button type="button" class="ghost small no-print" id="addc">+ Depuis les programmes</button></div>
+        ${a.compIds.length ? `<ul class="apc-comp">${a.compIds.map((c) => `<li>${esc(compById[c]?.texte ?? "(compétence inconnue)")} <button class="ghost small no-print" data-rmc="${c}" aria-label="Retirer">×</button></li>`).join("")}</ul>` : ""}
+        <input name="competence" value="${esc(a.competence)}" placeholder="Ou écris-la toi-même">
+        <div class="label-row"><span>Supports utilisés</span>
+          <span class="no-print"><label class="btn ghost small">＋ Fichier ou image<input type="file" id="apcFile" multiple hidden></label><button type="button" class="ghost small" id="addRes">Depuis Mes ressources</button><button type="button" class="ghost small" id="addLien">＋ Lien</button></span></div>
+        ${a.supports.length ? `<ul class="apc-sups">${a.supports.map(support).join("")}</ul>` : `<p class="hint no-print">Tu peux aussi glisser des fichiers ou des images sur cette page. Ils sont rangés dans Mes ressources (dossier APC), sur cet appareil.</p>`}
+        <label>Comment ça s'est passé (facultatif)<textarea name="bilan" rows="3">${esc(a.bilan)}</textarea></label>
+      </div>`;
+  };
+  draw();
+  const ajouterFichiers = async (files) => {
+    for (const file of files) {
+      try { const f = { id: uid(), nom: file.name, type: file.type, taille: file.size, dossier: "APC", ajoute: new Date().toISOString(), blob: file }; await res.enregistrer(f); a.supports.push({ type: "fichier", resId: f.id, nom: f.nom }); }
+      catch (e) { alert(`« ${file.name} » n'a pas pu être enregistré (${/quota/i.test(e?.name + e?.message) ? "plus assez de place sur l'appareil" : e?.message || e}).`); }
+    }
+    save("apc"); draw();
+  };
+  app.oninput = (e) => { const t = e.target; if (t.name && t.name in a) { a[t.name] = t.name === "duree" ? Math.max(0, +t.value || 0) : t.value; save("apc"); } };
+  app.onchange = (e) => { if (e.target.id === "apcFile") ajouterFichiers([...e.target.files]); else if (e.target.name === "date") draw(); };
+  app.ondragover = (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { e.preventDefault(); $("#apcDrop")?.classList.add("survol"); } };
+  app.ondragleave = (e) => { if (!app.contains(e.relatedTarget)) $("#apcDrop")?.classList.remove("survol"); };
+  app.ondrop = (e) => { if (!e.dataTransfer?.files?.length) return; e.preventDefault(); $("#apcDrop")?.classList.remove("survol"); ajouterFichiers([...e.dataTransfer.files]); };
+  app.onclick = async (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.el) { const i = t.dataset.el; a.eleves = a.eleves.includes(i) ? a.eleves.filter((x) => x !== i) : [...a.eleves, i]; save("apc"); draw(); }
+    else if (t.id === "addc") pickCompetences(a.compIds, (ids) => { a.compIds = ids; save("apc"); draw(); });
+    else if (t.dataset.rmc) { a.compIds = a.compIds.filter((x) => x !== t.dataset.rmc); save("apc"); draw(); }
+    else if (t.dataset.rms) { a.supports.splice(+t.dataset.rms, 1); save("apc"); draw(); }
+    else if (t.id === "addLien") openModal(`<h2>Ajouter un lien</h2><form id="fl"><label>Adresse<input name="url" required placeholder="https://… ou monsite.fr"></label><label>Titre (facultatif)<input name="titre"></label>
+        <div class="actions"><button type="button" class="ghost" data-close>Annuler</button><button class="primary">Ajouter</button></div></form>`, (m) => {
+      $("#fl", m).onsubmit = (ev) => { ev.preventDefault(); const d = formData(ev.target); if (!/^https?:\/\//i.test(d.url)) d.url = "https://" + d.url; a.supports.push({ type: "lien", ...d }); save("apc"); closeModal(true); draw(); };
+    });
+    else if (t.id === "addRes") {
+      const liste = await res.lister().catch(() => []);
+      const deja = new Set(a.supports.map((s) => s.resId));
+      openModal(`<h2>Choisir dans Mes ressources</h2>${liste.length ? `<div class="comp-list">${liste.map((f) => `<label class="comp"><input type="checkbox" value="${f.id}" ${deja.has(f.id) ? "checked disabled" : ""}> ${res.ICONES[res.genre(f)]} ${esc(f.nom)} <span class="hint">${esc(f.dossier || "")}</span></label>`).join("")}</div>` : `<p class="hint">Mes ressources est vide.</p>`}
+        <div class="actions"><button type="button" class="ghost" data-close>Annuler</button><button class="primary" id="rok">Ajouter</button></div>`, (m) => {
+        $("#rok", m).onclick = () => { for (const c of m.querySelectorAll("input:checked:not(:disabled)")) { const f = liste.find((x) => x.id === c.value); a.supports.push({ type: "fichier", resId: f.id, nom: f.nom }); } save("apc"); closeModal(true); draw(); };
+      });
+    }
+    else if (t.id === "del" && confirm("Supprimer cette séance d'APC ? (Les fichiers restent dans Mes ressources.)")) { state.apc = state.apc.filter((x) => x.id !== id); save("apc"); location.hash = "#/apc"; }
+  };
+  toolCleanup = () => urls.forEach((u) => URL.revokeObjectURL(u));
+}
+// Pour la page d'un élève
+function apcEleve(id) {
+  const l = state.apc.filter((a) => a.eleves.includes(id)).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  if (!l.length) return "";
+  return `<h3>APC <span class="hint">${l.length} séance(s) · ${minutesTxt(l.reduce((t, a) => t + (+a.duree || 0), 0))}</span></h3>
+    <ul class="apc-el">${l.map((a) => `<li><a href="#/apc/${a.id}">${a.date ? fmtDate(a.date) : "—"}</a> ${esc(a.objectif || "")}${a.compIds.length || a.competence ? ` <span class="hint">· ${[...a.compIds.map((c) => compById[c]?.texte ?? ""), a.competence].filter(Boolean).map(esc).join(" ; ")}</span>` : ""}</li>`).join("")}</ul>`;
+}
+
 // Carte de la classe : une ligne par élève, une colonne par domaine, % d'atteint ou dépassé.
 function carteDomaines(disc) {
   const doms = statsDomaines()[disc] ?? {};
@@ -1937,7 +2037,7 @@ function viewSuivi(disc) {
   const comps = d ? resultatsParCompetence(d) : [];
   app.innerHTML = `
     <p class="intro no-print">Le dernier résultat de chaque élève pour chaque compétence évaluée. Pour ajouter des résultats, crée une évaluation (elle peut porter sur n'importe quelle matière) et remplis sa grille.</p>
-    <div class="toolbar no-print"><div class="seg wrap">${discs.map((x) => `<a class="${x === d ? "on" : ""} seg-link" href="#/suivi/${encodeURIComponent(x)}">${esc(x)}</a>`).join("") || `<span class="hint">Pas encore d'évaluation avec des résultats.</span>`}</div><span class="grow"></span><a class="primary btn" href="#/evaluations/new">+ Évaluation</a><button class="ghost" onclick="print()">🖨️ Imprimer</button></div>
+    <div class="toolbar no-print"><div class="seg wrap">${discs.map((x) => `<a class="${x === d ? "on" : ""} seg-link" href="#/suivi/${encodeURIComponent(x)}">${esc(x)}</a>`).join("") || `<span class="hint">Pas encore d'évaluation avec des résultats.</span>`}</div><span class="grow"></span><a class="ghost btn" href="#/apc">🤝 APC</a><a class="primary btn" href="#/evaluations/new">+ Évaluation</a><button class="ghost" onclick="print()">🖨️ Imprimer</button></div>
     ${comps.length && state.eleves.length ? carteDomaines(d) : ""}
     ${comps.length && state.eleves.length ? `<h3 class="suivi-h">Détail par compétence</h3><div class="suivi-wrap"><table class="suivi"><thead><tr><th>Élève</th>${comps.map((c, i) => `<th title="${esc(c.texte)}"><span>${i + 1}</span></th>`).join("")}<th>Acquis</th></tr></thead>
       <tbody>${state.eleves.map((el) => { const vals = comps.map((c) => c.res[el.id]); const ok = vals.filter((v) => v && (v.code === "A" || v.code === "D")).length, n = vals.filter(Boolean).length;
@@ -2237,7 +2337,7 @@ async function viewRessource(id) {
 const ctxPartage = () => ({ app, state, save, esc, $, $$, fmtLong, fmtCourt, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, compte, qrcode, creneauxDuJour, compById });
 
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", apc: "APC", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
@@ -2249,6 +2349,7 @@ function route(doux = false) {
   const [, name = "accueil", id, sub] = location.hash.split("/");
   if (id === "new" && name === "fiches") { location.replace(`#/fiches/${newFiche().id}`); return; }
   if (id === "modele" && name === "fiches") { location.replace("#/fiches"); setTimeout(choisirModele, 0); return; }
+  if (id === "new" && name === "apc") { location.replace(`#/apc/${newApc().id}`); return; }
   if (id === "new" && name === "evaluations") { location.replace(`#/evaluations/${newEval().id}`); return; }
   setTitle(TITLES[name] ?? "");
   $$("[data-route]").forEach((a) => a.classList.toggle("on", a.dataset.route === name));
@@ -2266,7 +2367,7 @@ function route(doux = false) {
     telecommande: () => { toolCleanup = viewTelecommande(app, { outils: OUTILS, actif: syncActif() }); },
     lier: () => location.replace("#/connexion"),
     connexion: () => viewConnexion(id), inscription: () => viewInscription(id), bienvenue: () => viewBienvenue(id), admin: viewAdmin,
-    devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), aide: viewAide,
+    devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), apc: () => (id ? viewApc(id) : viewApcList()), aide: viewAide,
     journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements, partager: () => viewPartager(ctxPartage(), id), voir: () => viewVoir(ctxPartage(), location.hash.slice("#/voir/".length)), ressources: () => (id ? viewRessource(id) : viewRessources()),
   };
   document.body.dataset.view = name;
