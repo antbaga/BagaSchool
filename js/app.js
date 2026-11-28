@@ -21,9 +21,10 @@ import { chercherAdresse, distanceRoute, lienGeoportail } from "./distance.js";
 import { installerAnnotation, tapFiable } from "./annoter.js";
 import { installerBarre } from "./barre.js";
 import * as res from "./ressources.js";
+import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.12.0";
+export const VERSION = "0.13.0";
 
 // ---------- état ----------
 let state = {};
@@ -632,7 +633,7 @@ function viewAccueil() {
           const cls = s.fin <= hm ? "past" : s.debut <= hm ? "now" : "";
           return `<li class="${cls}" style="--c:${s.couleur}"><span class="today-time">${esc(s.debut)}</span><span class="today-what"><b>${esc(s.discipline)}</b>${s.libelle ? ` · ${esc(s.libelle)}` : ""}</span>${cls === "now" ? `<span class="badge">en cours</span>` : ""}</li>`;
         }).join("")}</ol>` : `<div class="empty"><span>🌤️</span><p>${state.edt.length ? `Pas de cours prévu ce ${jour.toLowerCase()}.` : "Ton emploi du temps est vide."}</p>${state.edt.length ? "" : `<a class="primary btn" href="#/edt">Remplir mon emploi du temps</a>`}</div>`}
-        <div class="quick" style="margin-top:12px"><a class="quick-btn" href="#/journal"><span>📒</span>Cahier journal</a>${state.eleves.length ? `<a class="quick-btn" href="#/appel"><span>🙋</span>${state.appel[localISO(now)] ? "Appel fait ✓" : "Faire l'appel"}</a>` : ""}</div>
+        <div class="quick" style="margin-top:12px"><a class="quick-btn" href="#/journal"><span>📒</span>Cahier journal</a><a class="quick-btn" href="#/partager/${localISO(now)}"><span>👥</span>Partager ma journée</a>${state.eleves.length ? `<a class="quick-btn" href="#/appel"><span>🙋</span>${state.appel[localISO(now)] ? "Appel fait ✓" : "Faire l'appel"}</a>` : ""}</div>
         ${fiches.length ? `<h4>Fiches prévues aujourd'hui</h4>${fiches.map((f) => `<a class="item" href="#/fiches/${f.id}">📝 ${esc(f.titre)}</a>`).join("")}` : ""}
       </section>
       <section class="panel">
@@ -886,7 +887,7 @@ function viewJournal(dateISO) {
       <a class="round-btn ghost" href="#/journal/${addDays(date, 1)}" aria-label="Jour suivant">›</a>
       <a class="pill" href="#/journal/${isoLocal(new Date())}">Aujourd'hui</a>
       <span class="grow"></span>
-      <button class="ghost" id="pday">🖨️ Imprimer le jour</button><button class="ghost" id="pweek">🖨️ Imprimer la semaine</button>
+      <a class="btn ghost" href="#/partager/${date}">👥 Partager la journée</a><button class="ghost" id="pday">🖨️ Imprimer le jour</button><button class="ghost" id="pweek">🖨️ Imprimer la semaine</button>
     </div>
     <div class="sheet journal">
       <h2 class="journal-date">${capit(fmtLong(date))}</h2>
@@ -1909,8 +1910,11 @@ async function viewRessource(id) {
   toolCleanup = () => { finBarre(); finAnnot(); finTap(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
 }
 
+// ---------- partager ma journée (js/partage.js) ----------
+const ctxPartage = () => ({ app, state, save, esc, $, $$, fmtLong, fmtCourt, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, compte, qrcode });
+
 // ---------- routeur ----------
-const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
+const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
 function setTitle(t) { $("#viewTitle").textContent = t; document.title = `${t} · BagaSchool`; }
 function notFound() { app.innerHTML = `<p>Élément introuvable. <a href="#/accueil">Retour</a></p>`; }
 function route(doux = false) {
@@ -1940,7 +1944,7 @@ function route(doux = false) {
     lier: () => location.replace("#/connexion"),
     connexion: () => viewConnexion(id), inscription: () => viewInscription(id), bienvenue: () => viewBienvenue(id), admin: viewAdmin,
     devoirs: () => viewDevoirs(id), suivi: () => viewSuivi(id), aide: viewAide,
-    journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements, ressources: () => (id ? viewRessource(id) : viewRessources()),
+    journal: () => viewJournal(id), appel: () => (id === "bilan" ? viewAppelBilan() : viewAppel(id)), calendrier: viewCalendrier, remplacements: viewRemplacements, partager: () => viewPartager(ctxPartage(), id), voir: () => viewVoir(ctxPartage(), location.hash.slice("#/voir/".length)), ressources: () => (id ? viewRessource(id) : viewRessources()),
   };
   document.body.dataset.view = name;
   if (name !== "outils" && ecran.actif) surveiller();

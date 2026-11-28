@@ -1,0 +1,37 @@
+/* Partager ma journée (enseignant) et vue du lien reçu */
+.partage h3{margin:22px 0 8px}
+.partage .row.wrap{align-items:flex-end}
+.pt-inclure{display:grid;gap:6px}
+.pt-check{display:flex;gap:8px;align-items:center;font-weight:700;margin:0}
+.pt-check input{width:auto;min-height:0}
+.pt-eleve{background:#fffaf0;border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.pt-eleve textarea{margin-top:6px}
+.pt-lien{background:#eefaf1;border-radius:16px;padding:14px 16px;margin-top:16px}
+.pt-lien input{font-size:13px}
+.pt-qr{width:min(220px,70vw)}
+.pt-miens{list-style:none;padding:0;margin:0}
+.pt-miens li{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f0ecf7}
+.pt-miens li>span{flex:1}
+
+body[data-view="voir"] .sidebar,body[data-view="voir"] .tabbar,body[data-view="voir"] .nav-backdrop{display:none}
+body[data-view="voir"] main{margin:0 auto!important;max-width:860px;padding-bottom:40px!important}
+.voir h2{margin:2px 0 10px}
+.voir-pour{color:var(--muted);font-weight:800;margin:0}
+.voir-bloc{margin:18px 0}
+.voir-bloc h3{margin:0 0 8px;font-size:19px}
+.voir-bloc p{margin:0}
+.voir-jour{background:#fff4d6;border-radius:14px;padding:12px 14px}
+.voir-besoins{background:#fff0f4;border-radius:14px;padding:12px 14px}
+.voir-besoins ul{margin:0;padding-left:20px}.voir-besoins li{margin:4px 0}
+.voir-edt{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.voir-edt>li{display:flex;gap:12px;border-left:6px solid var(--c);background:#fbfaff;border-radius:12px;padding:10px 12px}
+.voir-h{font-weight:800;min-width:52px}
+.voir-edt p{margin:6px 0 0}
+.voir-fiche{margin-top:4px}
+.voir-details{margin-top:6px}.voir-details summary{cursor:pointer;font-weight:700;color:var(--primary)}
+.voir-classe{line-height:1.8}
+.voir-pied{margin-top:24px}
+@media print{
+  .voir-details{display:block}.voir-details summary{display:none}
+  .voir-edt>li{break-inside:avoid}
+}
