@@ -25,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.17.1";
+export const VERSION = "0.18.0";
 
 // ---------- état ----------
 let state = {};
@@ -887,7 +887,7 @@ const lundiDe = (date) => addDays(date, -((new Date(date + "T12:00").getDay() + 
 function jourRempli(J) {
   if (!J) return false;
   if (J.slots || J.notes?.trim()) return true;
-  return Object.values(J.creneaux ?? {}).some((c) => c.ficheId || c.fait || c.notes?.trim() || c.objectif?.trim() || c.differenciation?.trim() || c.competences?.length);
+  return Object.values(J.creneaux ?? {}).some((c) => c.ficheId || c.fait || c.notes?.trim() || c.objectif?.trim() || c.differenciation?.trim() || c.competences?.length || c.supports?.length);
 }
 // Copie un jour du cahier journal vers une autre date (remplace son contenu). Les cases « Fait » repartent vides.
 function copierJour(src, dst) {
@@ -931,8 +931,71 @@ function dupliquerJournal(date) {
     maj();
   });
 }
+// Supports d'une séance (c.supports) : liens (synchronisés) et fichiers rangés dans « Mes ressources » (restent sur l'appareil).
+let urlsJournal = [];
+const lienPropre = (u) => { u = String(u || "").trim(); if (/^www\./i.test(u)) u = "https://" + u; try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ""; } catch { return ""; } };
+const nomLien = (u) => { try { const x = new URL(u); return x.hostname.replace(/^www\./, "") + (x.pathname.length > 1 ? x.pathname.replace(/\/$/, "").slice(0, 30) : ""); } catch { return u; } };
+function supportsHTML(c) {
+  const sup = c.supports ?? [];
+  return `<div class="jt-sup">${sup.map((x) => `<span class="sup">${x.type === "lien"
+      ? `<a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.url)}">🔗 ${esc(x.titre || nomLien(x.url))}</a><span class="print-only">${esc(x.url)}</span>`
+      : `<a href="#/ressources/${esc(x.resId)}" title="Ouvrir">${x.genre === "image" ? `<img data-vig="${esc(x.resId)}" alt="">` : res.ICONES[x.genre] ?? "📁"} ${esc(x.nom)}</a>`}<button type="button" class="x no-print" data-rmsup="${esc(x.id)}" aria-label="Retirer" title="Retirer de la séance (le fichier reste dans Mes ressources)">×</button></span>`).join("")}<button type="button" class="ghost small no-print" data-addsup>📎 Support</button></div>`;
+}
+// Ajoute à une séance des fichiers (rangés dans Mes ressources), un fichier existant ou un lien.
+async function ajouterSupports(c, { files = [], url = "", titre = "", resId = "" }, dossier) {
+  const sup = (c.supports ??= []);
+  let n = 0;
+  for (const file of files) {
+    const f = { id: uid(), nom: file.name || "image.png", type: file.type, taille: file.size, dossier, ajoute: new Date().toISOString(), blob: file };
+    try { await res.enregistrer(f); sup.push({ id: uid(), type: "fichier", resId: f.id, nom: f.nom, genre: res.genre(f) }); n++; }
+    catch (e) { alert(`« ${f.nom} » n'a pas pu être enregistré (${/quota/i.test(e?.name + e?.message) ? "plus assez de place sur l'appareil" : e?.message || e}).`); }
+  }
+  if (resId) { const f = await res.lire(resId); if (f) { sup.push({ id: uid(), type: "fichier", resId, nom: f.nom, genre: res.genre(f) }); n++; } }
+  const u = lienPropre(url); if (u) { sup.push({ id: uid(), type: "lien", url: u, titre: titre.trim() }); n++; }
+  return n;
+}
+const depuisTransfert = (dt) => {
+  const files = [...(dt?.files || [])];
+  if (files.length) return { files };
+  const uri = (dt?.getData("text/uri-list") || "").split(/\r?\n/).find((l) => l && !l.startsWith("#")) || "";
+  const txt = dt?.getData("text/plain") || "";
+  return { url: uri || (lienPropre(txt) ? txt : "") };
+};
+function choisirSupport(c, dossier, apres) {
+  openModal(`
+    <h2>Ajouter un support</h2>
+    <div class="sup-drop" id="supDrop"><p>Glisse ici un fichier ou une image, ou colle une capture (Ctrl+V).</p>
+      <label class="btn ghost">Choisir un fichier<input type="file" id="supFile" multiple hidden></label></div>
+    <div class="row sup-lien"><input id="supUrl" placeholder="Lien : https://…" inputmode="url"><input id="supTit" placeholder="Nom (facultatif)"><button type="button" class="primary" id="supOk">Ajouter le lien</button></div>
+    <div id="supRes"></div>
+    <p class="hint">Les fichiers sont rangés dans <a href="#/ressources">Mes ressources</a> (dossier « ${esc(dossier)} ») et restent sur cet appareil. Les liens suivent ton compte.</p>
+    <p class="err" id="supErr"></p>
+    <div class="actions"><button type="button" data-close class="ghost">Fermer</button></div>`, (m) => {
+    const fini = (n) => { if (n) { closeModal(true); apres(); } };
+    $("#supFile", m).onchange = async (e) => fini(await ajouterSupports(c, { files: [...e.target.files] }, dossier));
+    $("#supOk", m).onclick = async () => {
+      if (!lienPropre($("#supUrl", m).value)) { $("#supErr", m).textContent = "Ce lien n'est pas valide (il doit commencer par http:// ou https://)."; return; }
+      fini(await ajouterSupports(c, { url: $("#supUrl", m).value, titre: $("#supTit", m).value }, dossier));
+    };
+    const z = $("#supDrop", m);
+    z.ondragover = (e) => { e.preventDefault(); z.classList.add("survol"); };
+    z.ondragleave = () => z.classList.remove("survol");
+    z.ondrop = async (e) => { e.preventDefault(); e.stopPropagation(); z.classList.remove("survol"); fini(await ajouterSupports(c, depuisTransfert(e.dataTransfer), dossier)); };
+    m.onpaste = async (e) => { // la modale est réutilisée : on se débranche dès qu'elle affiche autre chose
+      if (!$("#supDrop", m)) { m.onpaste = null; return; }
+      const files = [...(e.clipboardData?.files || [])];
+      if (files.length) { e.preventDefault(); fini(await ajouterSupports(c, { files }, dossier)); }
+    };
+    res.lister().then((liste) => {
+      if (!liste.length || !$("#supRes", m)) return;
+      $("#supRes", m).innerHTML = `<label>Ou un fichier déjà dans Mes ressources<select id="supSel"><option value="">— Choisir —</option>${liste.map((f) => `<option value="${esc(f.id)}">${esc((f.dossier ? f.dossier + " · " : "") + f.nom)}</option>`).join("")}</select></label>`;
+      $("#supSel", m).onchange = async (e) => { if (e.target.value) fini(await ajouterSupports(c, { resId: e.target.value }, dossier)); };
+    }).catch(() => {});
+  });
+}
 function viewJournal(dateISO) {
   const date = dateISO || isoLocal(new Date());
+  urlsJournal.forEach((u) => URL.revokeObjectURL(u)); urlsJournal = [];
   if (!dateISO) { location.replace(`#/journal/${date}`); return; }
   const jour = jourDe(date);
   const slots = creneauxDuJour(date);
@@ -979,6 +1042,7 @@ function viewJournal(dateISO) {
             <td><div class="row no-print"><select data-fiche="${s.id}">${ficheOpts(c.ficheId, s.discipline)}</select>${f ? `<a class="pill" href="#/fiches/${f.id}">Ouvrir</a>` : `<button class="pill" data-newfiche="${s.id}">+ Créer</button>`}</div>
               ${f ? `<div class="print-only"><b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? ` — ${esc(f.objectif)}` : ""}</div>` : ""}
               <textarea data-note="${s.id}" rows="2" placeholder="Contenu, remarques…">${esc(c.notes ?? "")}</textarea>
+              ${supportsHTML(c)}
               ${peda(c)}</td>
             <td class="no-print jt-done"><input type="checkbox" data-fait="${s.id}" ${c.fait ? "checked" : ""} aria-label="Fait"></td></tr>`; }).join("")}
         </tbody></table>` : `<div class="empty"><span>📅</span><p>${st?.type === "weekend" && !perso ? "C'est le week-end !" : `Aucun créneau ${perso ? "pour ce jour" : `le ${jour.toLowerCase()} dans ton emploi du temps`}.`}</p>${st?.type === "weekend" || perso ? "" : `<a class="primary btn" href="#/edt">Compléter l'emploi du temps</a>`}</div>`}
@@ -996,6 +1060,25 @@ function viewJournal(dateISO) {
   const adapter = () => { if (!J.slots) J.slots = structuredClone(slots); }; // copie les créneaux du jour depuis l'emploi du temps
   const cibleJour = { jourFixe: true, liste: () => (adapter(), J.slots), apres: () => { persist(); redraw(); } };
   brancherDevoirs(app, redraw);
+  // vignettes des images jointes (fichier absent sur un autre appareil : ⚠️)
+  $$("img[data-vig]", app).forEach((img) => res.lire(img.dataset.vig).then((f) => {
+    if (!f) { img.closest("a")?.setAttribute("title", "Fichier absent de cet appareil"); img.replaceWith("⚠️"); return; }
+    const u = URL.createObjectURL(f.blob); urlsJournal.push(u); img.src = u;
+  }).catch(() => {}));
+  toolCleanup = () => { urlsJournal.forEach((u) => URL.revokeObjectURL(u)); urlsJournal = []; };
+  const dossierDe = (sid) => slots.find((x) => x.id === sid)?.discipline || "Cahier journal";
+  const zoneDe = (e) => e.target.closest?.("tr[data-s]");
+  app.ondragover = (e) => {
+    const tr = zoneDe(e), ty = [...(e.dataTransfer?.types || [])];
+    if (!tr || !(ty.includes("Files") || ty.includes("text/uri-list"))) return;
+    e.preventDefault(); $$("tr.survol", app).forEach((x) => x !== tr && x.classList.remove("survol")); tr.classList.add("survol");
+  };
+  app.ondragleave = (e) => { const tr = zoneDe(e); if (tr && !tr.contains(e.relatedTarget)) tr.classList.remove("survol"); };
+  app.ondrop = async (e) => {
+    const tr = zoneDe(e); if (!tr) return;
+    e.preventDefault(); tr.classList.remove("survol");
+    if (await ajouterSupports(C(tr.dataset.s), depuisTransfert(e.dataTransfer), dossierDe(tr.dataset.s))) { persist(); redraw(); }
+  };
   app.oninput = (e) => {
     const t = e.target;
     if (t.dataset.dv !== undefined) return;
@@ -1039,6 +1122,8 @@ function viewJournal(dateISO) {
     if (t.dataset.slot) editSlot(J.slots.find((s) => s.id === t.dataset.slot), cibleJour);
     if (t.id === "addslot") editSlot({ jour }, cibleJour);
     if (t.id === "dup") dupliquerJournal(date);
+    if (t.dataset.addsup !== undefined) choisirSupport(C(sid), dossierDe(sid), () => { persist(); redraw(); });
+    if (t.dataset.rmsup) { const c = C(sid); c.supports = (c.supports ?? []).filter((x) => x.id !== t.dataset.rmsup); persist(); redraw(); }
     if (t.id === "pday") { $("#weekPrint").innerHTML = ""; window.print(); }
     if (t.id === "pweek") { $("#weekPrint").innerHTML = semaineHTML(date); document.body.classList.add("print-week-mode"); window.print(); setTimeout(() => document.body.classList.remove("print-week-mode"), 500); }
   };
@@ -1050,7 +1135,7 @@ function semaineHTML(date) {
     const st = statutJour(x);
     return `<section class="pw-day"><h2>${capit(fmtLong(x))}</h2>${st && st.type !== "weekend" ? `<p><b>${esc(st.nom)}</b></p>` : `<table class="jtable"><tbody>${creneauxDuJour(x).map((s) => { const c = J[s.id] ?? {}; const f = state.fiches.find((y) => y.id === c.ficheId);
       const comp = (c.competences ?? []).map((id) => compById[id]?.texte).filter(Boolean);
-      return `<tr><td class="jt-time">${esc(s.debut)}–${esc(s.fin)}</td><td class="jt-disc"><b>${esc(s.discipline)}</b> ${esc(s.libelle ?? "")}</td><td>${f ? `<b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? " — " + esc(f.objectif) : ""}<br>` : ""}${c.objectif?.trim() ? `🎯 ${esc(c.objectif)}<br>` : ""}${comp.length ? `<span class="hint">${comp.map(esc).join(" · ")}</span><br>` : ""}${esc(c.notes ?? "")}${c.differenciation?.trim() ? `<br><i>Différenciation : ${esc(c.differenciation)}</i>` : ""}</td></tr>`; }).join("")}</tbody></table>`}${state.journal[x]?.notes ? `<p>${esc(state.journal[x].notes)}</p>` : ""}</section>`;
+      return `<tr><td class="jt-time">${esc(s.debut)}–${esc(s.fin)}</td><td class="jt-disc"><b>${esc(s.discipline)}</b> ${esc(s.libelle ?? "")}</td><td>${f ? `<b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? " — " + esc(f.objectif) : ""}<br>` : ""}${c.objectif?.trim() ? `🎯 ${esc(c.objectif)}<br>` : ""}${comp.length ? `<span class="hint">${comp.map(esc).join(" · ")}</span><br>` : ""}${esc(c.notes ?? "")}${c.differenciation?.trim() ? `<br><i>Différenciation : ${esc(c.differenciation)}</i>` : ""}${c.supports?.length ? `<br>📎 ${c.supports.map((x) => esc(x.type === "lien" ? `${x.titre ? x.titre + " : " : ""}${x.url}` : x.nom)).join(" · ")}` : ""}</td></tr>`; }).join("")}</tbody></table>`}${state.journal[x]?.notes ? `<p>${esc(state.journal[x].notes)}</p>` : ""}</section>`;
   }).join("");
 }
 

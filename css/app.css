@@ -1183,3 +1183,14 @@ body.projection .ec-space{max-height:calc(100vh - 120px)}
 .jt-peda .label-row{margin-top:6px}
 #addslot{margin-top:4px}
 @media print{.jt-peda summary,.jt-peda.vide{display:none}}
+/* ===== supports des séances (cahier journal) ===== */
+.jt-sup{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.jt-sup .sup{display:inline-flex;align-items:center;gap:4px;background:#fff;border-radius:10px;padding:3px 4px 3px 8px;box-shadow:var(--shadow);font-size:14px;max-width:100%}
+.jt-sup .sup a{color:var(--ink);text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.jt-sup .sup img{width:32px;height:32px;object-fit:cover;border-radius:6px}
+.jt-sup .x{min-height:0;padding:2px 6px;font-size:15px;color:var(--muted)}
+.jtable tr.survol{outline:3px dashed var(--primary);outline-offset:-3px;background:var(--primary-soft)}
+.sup-drop{border:3px dashed #d9d2f5;border-radius:16px;padding:16px;text-align:center;margin-bottom:12px}
+.sup-drop p{margin:0 0 8px}.sup-drop.survol{background:var(--primary-soft);border-color:var(--primary)}
+.sup-lien{gap:6px;flex-wrap:wrap}.sup-lien input{flex:1;min-width:160px}
+@media print{.jt-sup .sup{box-shadow:none;padding:0}.jt-sup .sup a{white-space:normal}}
