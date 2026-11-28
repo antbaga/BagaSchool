@@ -100,6 +100,17 @@ export const IMAGES_OEUVRES = {
 "photo": "Benh LIEU SONG",
 "article": "Château de Chambord"
 },
+"chasseurs": {
+"src": "img/arts/chasseurs.webp",
+"w": 1280,
+"h": 911,
+"fichier": "Pieter_Bruegel_the_Elder_-_Hunters_in_the_Snow_(Winter)_-_Google_Art_Project.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Pieter_Bruegel_the_Elder_-_Hunters_in_the_Snow_(Winter)_-_Google_Art_Project.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Pieter Bruegel the Elder",
+"article": "en:The Hunters in the Snow"
+},
 "versailles": {
 "src": "img/arts/versailles.webp",
 "w": 1280,
@@ -155,6 +166,17 @@ export const IMAGES_OEUVRES = {
 "photo": "Claude Monet",
 "article": "Impression, soleil levant"
 },
+"nuit-etoilee": {
+"src": "img/arts/nuit-etoilee.webp",
+"w": 1280,
+"h": 1013,
+"fichier": "Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Vincent van Gogh",
+"article": "en:The Starry Night"
+},
 "vague": {
 "src": "img/arts/vague.webp",
 "w": 1280,
@@ -187,30 +209,41 @@ export const IMAGES_OEUVRES = {
 "licenceUrl": "",
 "photo": "Thibsweb",
 "article": "Le Penseur"
+},
+"danse": {
+"src": "img/arts/danse.webp",
+"w": 1280,
+"h": 859,
+"fichier": "Henri_Matisse_-_Dance_II_(Hermitage_Museum).jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Henri_Matisse_-_Dance_II_(Hermitage_Museum).jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Henri Matisse",
+"article": "en:Dance (Matisse)"
 }
 };
 export const IMAGES_MOTS = {
 "autoportrait": {
 "src": "img/arts/mots/autoportrait.webp",
 "w": 900,
-"h": 1084,
-"fichier": "De_mulieribus_claris_-_Marcia.png",
-"page": "https://commons.wikimedia.org/wiki/File:De_mulieribus_claris_-_Marcia.png",
+"h": 1268,
+"fichier": "Dürer_Alte_Pinakothek.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:D%C3%BCrer_Alte_Pinakothek.jpg",
 "licence": "Public domain",
 "licenceUrl": "",
-"photo": "Master of the Coronation of the Virgin",
-"article": "Autoportrait"
+"photo": "Albrecht Dürer",
+"article": "en:Self-Portrait (Dürer, Munich)"
 },
 "nature-morte": {
 "src": "img/arts/mots/nature-morte.webp",
 "w": 900,
-"h": 1125,
-"fichier": "Vincent_Willem_van_Gogh_128.jpg",
-"page": "https://commons.wikimedia.org/wiki/File:Vincent_Willem_van_Gogh_128.jpg",
+"h": 720,
+"fichier": "Paul_Cézanne_-_The_Basket_of_Apples_-_1926.252_-_Art_Institute_of_Chicago.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Paul_C%C3%A9zanne_-_The_Basket_of_Apples_-_1926.252_-_Art_Institute_of_Chicago.jpg",
 "licence": "Public domain",
 "licenceUrl": "",
-"photo": "Vincent van Gogh",
-"article": "Nature morte"
+"photo": "Paul Cézanne",
+"article": "en:The Basket of Apples"
 },
 "chaudes": {
 "src": "img/arts/mots/chaudes.webp",
@@ -322,6 +355,17 @@ export const IMAGES_MOTS = {
 "photo": "Photo et montage : fr:User:Roby",
 "article": "Vitrail"
 },
+"rosace": {
+"src": "img/arts/mots/rosace.webp",
+"w": 900,
+"h": 900,
+"fichier": "Rozeta_Paryż_notre-dame_chalger.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:Rozeta_Pary%C5%BC_notre-dame_chalger.jpg",
+"licence": "CC BY-SA 4.0",
+"licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+"photo": "Krzysztof Mizera",
+"article": "Rosace (architecture)"
+},
 "bas-relief": {
 "src": "img/arts/mots/bas-relief.webp",
 "w": 900,
@@ -380,12 +424,12 @@ export const IMAGES_MOTS = {
 "tympan": {
 "src": "img/arts/mots/tympan.webp",
 "w": 900,
-"h": 600,
-"fichier": "0_Venise,_mosaïque_'La_descente_de_Croix'_-_Basilique_St-Marc.JPG",
-"page": "https://commons.wikimedia.org/wiki/File:0_Venise,_mosa%C3%AFque_%27La_descente_de_Croix%27_-_Basilique_St-Marc.JPG",
-"licence": "CC BY 4.0",
-"licenceUrl": "https://creativecommons.org/licenses/by/4.0",
-"photo": "Jean-Pol GRANDMONT",
-"article": "Tympan (architecture)"
+"h": 621,
+"fichier": "Vézelay_Narthex_Tympan_central_220608_01.jpg",
+"page": "https://commons.wikimedia.org/wiki/File:V%C3%A9zelay_Narthex_Tympan_central_220608_01.jpg",
+"licence": "Public domain",
+"licenceUrl": "",
+"photo": "Vassil",
+"article": "en:Tympanum (architecture)"
 }
 };
