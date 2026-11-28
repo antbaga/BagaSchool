@@ -3,6 +3,7 @@
 // Les textes s'en tiennent à des faits simples et établis. Les schémas ne sont pas à l'échelle sauf mention.
 import { REGIONS, TERRES } from "./data/geo.js";
 import { chargerImage, dessinerSphere, figer, disqueAnneaux, dessinerAnneaux } from "./sphere.js";
+import { CLIMAT } from "./decouvrir/climat.js";
 
 const TAU = Math.PI * 2;
 const rad = (d) => (d * Math.PI) / 180;
@@ -679,6 +680,7 @@ export const DECOUVRIR = [
   { id: "lune", nom: "Phases de la Lune", icone: "🌙", couleur: "#cfe6ff", desc: "Pourquoi la Lune change de forme", cat: "decouvrir", mount: lune },
   { id: "cycle-eau", nom: "Cycle de l'eau", icone: "🌧️", couleur: "#c9ecd4", desc: "Le voyage de l'eau, étape par étape", cat: "decouvrir", mount: cycleEau },
   { id: "etats-eau", nom: "États de l'eau", icone: "🧊", couleur: "#ffe3a3", desc: "Glace, eau, vapeur", cat: "decouvrir", mount: etatsEau },
+  ...CLIMAT,
   { id: "globe", nom: "Globe", icone: "🌍", couleur: "#c9ecd4", desc: "Continents et océans, avec quiz", cat: "decouvrir", mount: globe },
   { id: "regions", nom: "Régions de France", icone: "🗺️", couleur: "#ffd0dc", desc: "Les 13 régions, avec quiz", cat: "decouvrir", mount: regions },
 ];

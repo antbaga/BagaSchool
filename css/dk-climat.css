@@ -1,0 +1,106 @@
+/* À découvrir : « Le climat change » · js/decouvrir/climat.js */
+.cl-root{position:relative;display:flex;flex-direction:column;gap:12px;flex:1;min-height:0}
+.cl-top{justify-content:center}
+.cl-etapes button{display:inline-flex;align-items:center;gap:5px;font-weight:800;padding:6px 9px}
+.cl-n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#e6e0f7;color:var(--primary);font-size:13px}
+.cl-etapes button.on .cl-n{background:var(--primary);color:#fff}
+.cl-corps{display:flex;flex-direction:column;gap:12px;flex:1;min-height:0}
+.cl-explore{grid-template-columns:minmax(0,1fr) minmax(260px,340px);align-items:start}
+.cl-gauche{display:flex;flex-direction:column;gap:10px;min-width:0}
+.cl-prof-b{font-size:22px}
+.cl-scene{background:#e6f6ff;padding:0;min-height:0}
+.cl-svg{width:100%;height:auto;max-height:max(320px,calc(100vh - 330px));display:block;user-select:none;-webkit-user-select:none}
+.cl-zone{font:800 15px var(--font);text-anchor:end;fill:#2b4a7a;paint-order:stroke;stroke:#ffffffaa;stroke-width:3px}
+.cl-zone.d{fill:#fff;stroke:none}.cl-zone.c{text-anchor:middle}.cl-zone.fin{font-size:12px;fill:#5a5270}.cl-zone.g{text-anchor:start;fill:#fff;stroke:none}
+.cl-atm{fill:#7fb8ff;transition:opacity .5s}
+.cl-chaud{fill:#ff5a2e;pointer-events:none;transition:opacity .5s}
+.cl-gaz{fill:#fff;stroke:#7a8db0;stroke-width:2;opacity:.85}
+.cl-co2 circle{fill:#e0463c;stroke:#fff;stroke-width:1.5}.cl-co2 circle.c{fill:#2b2b2b}
+.cl-co2 text{font:900 13px var(--font);text-anchor:middle;fill:#1d2a4a;paint-order:stroke;stroke:#fff;stroke-width:3px}
+.cl-ph{stroke-width:5;stroke-linecap:round}.cl-ph.j{stroke:#ffc21a}.cl-ph.r{stroke:#ef4b3c;stroke-dasharray:7 5}
+.cl-visage{font-size:34px;text-anchor:middle}
+.cl-temp{font:900 20px var(--font);text-anchor:middle;fill:#26222f;paint-order:stroke;stroke:#fff;stroke-width:4px}
+.cl-curseur{gap:14px}
+.cl-cur-l{font-weight:900;font-size:clamp(16px,1.5vw,20px);text-align:center}
+.cl-cur{display:flex;flex-direction:column;flex:1;min-width:240px;max-width:720px}
+.cl-cur .wide-range{max-width:none;width:100%}
+.cl-crans{display:flex;justify-content:space-between;gap:6px;font-size:13px;font-weight:700;color:var(--muted)}
+.cl-crans span{flex:1;text-align:center;cursor:pointer;line-height:1.15}
+.cl-crans span:first-child{text-align:left}.cl-crans span:last-child{text-align:right}
+.cl-crans span.on{color:var(--primary);font-weight:900}
+.cl-intro{background:#fff;border-radius:12px;padding:8px 10px;font-size:.92em}
+.cl-gros{font-size:1.4em;font-weight:900;margin:4px 0}
+.cl-gros .muted{font-size:.6em;font-weight:700}
+.cl-legende{display:flex;flex-direction:column;gap:4px;font-size:.9em;font-weight:700;margin-top:10px}
+.cl-legende i{display:inline-block;width:26px;height:5px;border-radius:3px;margin-right:8px;vertical-align:middle}
+.cl-legende i.j{background:#ffc21a}.cl-legende i.r{background:repeating-linear-gradient(90deg,#ef4b3c 0 7px,transparent 7px 12px)}
+/* Points à toucher dans les scènes */
+.cl-spot{cursor:pointer;outline:none}
+.cl-halo{fill:#ffffffd9;stroke:#7a6cf0;stroke-width:3;transition:r .2s}
+.cl-spot:not(.vu):not(.on) .cl-halo{animation:clPouls 2s ease-in-out infinite}
+.cl-spot.vu .cl-halo{stroke:#6fb985}
+.cl-spot.on .cl-halo{fill:#fff;stroke:#ff6a3d;stroke-width:5}
+.cl-spot:focus-visible .cl-halo{stroke:#ff6a3d;stroke-width:5}
+.cl-emo{font-size:36px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.cl-vu{fill:#2fa35a;stroke:#fff;stroke-width:2}.cl-vu-t{font:900 13px var(--font);fill:#fff;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.cl-lbl{font:900 17px var(--font);text-anchor:middle;fill:#26222f;paint-order:stroke;stroke:#fff;stroke-width:5px;pointer-events:none}
+@keyframes clPouls{50%{stroke-width:7;stroke:#b3a8ff}}
+.cl-fumee circle{fill:#9aa0aa;opacity:0;animation:clFumee 2.7s ease-out infinite}
+@keyframes clFumee{0%{opacity:.7;transform:translate(0,0) scale(.6)}100%{opacity:0;transform:translate(14px,-46px) scale(1.4)}}
+.cl-fumee circle{transform-box:fill-box;transform-origin:center}
+.cl-goutte{animation:clPluie 1s linear infinite}
+@keyframes clPluie{0%{opacity:0;transform:translateY(-6px)}30%{opacity:1}100%{opacity:0;transform:translateY(14px)}}
+.cl-epoque rect{fill:#ffffffe6;stroke:#e0dbef;stroke-width:2}
+.cl-ep-n{font:900 18px var(--font);fill:#26222f}.cl-ep-d{font:900 20px var(--font);fill:#e0463c}
+.cl-compte{font-weight:800;margin-top:12px}
+.cl-lire{margin-top:6px}
+.cl-petit{font-size:.88em}
+/* Barres « En France » */
+.cl-barres{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.cl-barre{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 46px;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:6px 8px;text-align:left;font-weight:800;font-size:.9em;box-shadow:0 2px 0 #e6e0f2}
+.cl-b-t{height:14px;background:#f1edf9;border-radius:7px;overflow:hidden}.cl-b-t i{display:block;height:100%;background:#ef7b3c;border-radius:7px;transition:width .6s}
+.cl-barre b{text-align:right}.cl-barre.vue{background:#fff8ef}
+/* Tri des gestes */
+.cl-tri{display:flex;flex-direction:column;gap:10px;min-width:0}
+.cl-cons{margin:0;font-weight:800;font-size:clamp(17px,1.6vw,22px)}
+.cl-banque{background:#faf8ff;border-radius:18px;min-height:70px}
+.cl-geste{display:inline-flex;align-items:center;gap:8px;font-size:clamp(15px,1.15vw,18px);text-align:left;max-width:290px;line-height:1.2}
+.cl-g-i{font-size:1.5em;flex:none}
+.cl-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cl-col{background:#fff;border-radius:18px;border:3px dashed #cfc8e8;padding:10px;min-height:150px;cursor:pointer}
+.cl-col.oui{border-color:#9fd8b0}.cl-col.non{border-color:#f3b0b8}
+.cl-col h4{margin:0;font-size:clamp(18px,1.6vw,23px)}
+.cl-col-l{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.cl-ensemble{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.cl-ensemble li{display:flex;gap:10px;align-items:flex-start;background:#fff;border-radius:14px;padding:8px 10px}
+.cl-ensemble li span{font-size:28px;line-height:1;flex:none}.cl-ensemble p{margin:0;font-size:.92em}
+.cl-espoir{background:#e3f6e8;border-radius:14px;padding:10px 12px;font-weight:800}
+/* Quiz */
+.cl-quiz{max-width:900px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px;align-items:stretch}
+.cl-q-n{margin:0;text-align:center;color:var(--muted);font-weight:800}
+.cl-q{margin:0;text-align:center;font-size:clamp(24px,3vw,40px);line-height:1.2}
+.cl-reps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.cl-rep{font:inherit;font-size:clamp(18px,2vw,26px);font-weight:800;padding:18px;border-radius:20px;background:#fff;box-shadow:0 4px 0 #ded8f0;min-height:76px;color:var(--ink)}
+.cl-rep.good{background:#c9ecd4;box-shadow:0 4px 0 #6fb985}.cl-rep.bad{background:#ffd0d6;box-shadow:0 4px 0 #e0556a}.cl-rep.off{opacity:.5}
+.cl-rep:disabled{cursor:default;opacity:1}.cl-rep.off:disabled{opacity:.45}
+.cl-expl{margin:0;border-radius:16px;padding:12px 16px;font-size:clamp(17px,1.7vw,22px);font-weight:700}
+.cl-expl.ok{background:#e3f6e8}.cl-expl.ko{background:#fff1e0}
+.cl-quiz .score{align-self:center}
+/* Fiche enseignant */
+.cl-prof{position:absolute;inset:0;z-index:20;background:#3b335555;display:flex;align-items:flex-start;justify-content:center;padding:12px;border-radius:20px}
+.cl-prof-box{position:relative;background:#fff;border-radius:22px;padding:18px 22px;max-width:780px;width:100%;box-shadow:0 20px 50px #0004;max-height:100%;overflow:auto;font-size:16px}
+.cl-prof-box h3{margin:0 44px 8px 0;font-size:24px}
+.cl-prof-box h4{margin:16px 0 6px;font-size:18px}
+.cl-prof-box ol,.cl-prof-box ul{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
+.cl-x{position:absolute;right:12px;top:12px}
+.cl-dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;margin:0}.cl-dl dt{font-weight:800}.cl-dl dd{margin:0}
+.cl-verif li{background:#fff8e1;border-radius:10px;padding:4px 8px;list-style-position:inside;margin-left:-22px}
+.cl-sources a{color:var(--primary)}
+body.projection #tool .cl-prof .cl-x{display:inline-flex!important}
+/* TBI / plein écran : textes plus grands */
+.board:fullscreen .cl-svg{max-height:calc(100vh - 230px)}
+body.projection .cl-svg{max-height:calc(100vh - 60px)}
+@media (min-width:1280px){.cl-explore{grid-template-columns:minmax(0,1fr) minmax(320px,420px)}.cl-crans{font-size:15px}}
+@media (max-width:820px){.cl-explore{grid-template-columns:1fr}.cl-etapes{display:grid;grid-template-columns:repeat(5,1fr);width:100%}.cl-etapes button{justify-content:center}.cl-etapes span{display:none}}
+@media (max-width:520px){.cl-cols{grid-template-columns:1fr}.cl-crans{font-size:11px}.cl-geste{font-size:15px}.cl-dl{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.cl-spot .cl-halo,.cl-fumee circle,.cl-goutte{animation:none!important}.cl-fumee circle{opacity:.5}}
