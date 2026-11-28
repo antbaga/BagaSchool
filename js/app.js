@@ -25,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.19.1";
+export const VERSION = "0.20.0";
 
 // ---------- état ----------
 let state = {};
@@ -387,27 +387,51 @@ const CODES = [
   { code: "A", label: "Atteint" },
   { code: "D", label: "Dépassé" },
 ];
+let filtreEvals = "";
+let evalJusteCree = null;
 function viewEvals() {
+  const discs = [...new Set(state.evaluations.map((e) => e.discipline || "Autre"))].sort((a, b) => DISCIPLINES.indexOf(a) - DISCIPLINES.indexOf(b));
+  if (filtreEvals && !discs.includes(filtreEvals)) filtreEvals = "";
+  const vus = state.evaluations.filter((e) => !filtreEvals || (e.discipline || "Autre") === filtreEvals);
+  const parD = {};
+  for (const ev of [...vus].sort((a, b) => (b.date || "9999").localeCompare(a.date || "9999"))) (parD[ev.discipline || "Autre"] ??= []).push(ev);
+  const saisie = (ev) => { const tot = ev.items.length * state.eleves.length; if (!tot) return ""; let n = 0; for (const el of state.eleves) for (let k = 0; k < ev.items.length; k++) if (ev.resultats[el.id]?.[k]) n++; return n === tot ? " · ✅ résultats saisis" : n ? ` · résultats ${Math.round((n / tot) * 100)} %` : " · résultats à saisir"; };
   app.innerHTML = `
-    <div class="toolbar"><button class="primary" id="add">+ Nouvelle évaluation</button></div>
-    <div class="list">${state.evaluations.map((ev) => `
+    <div class="toolbar"><button class="primary" id="add">+ Nouvelle évaluation</button><span class="grow"></span><a class="ghost btn" href="#/suivi">📊 Suivi de la classe</a></div>
+    ${discs.length > 1 ? `<div class="seg wrap ev-filtres"><button data-fd="" class="${!filtreEvals ? "on" : ""}">Toutes (${state.evaluations.length})</button>${discs.map((d) => `<button data-fd="${esc(d)}" class="${filtreEvals === d ? "on" : ""}">${esc(d)} (${state.evaluations.filter((e) => (e.discipline || "Autre") === d).length})</button>`).join("")}</div>` : ""}
+    ${Object.entries(parD).sort((a, b) => DISCIPLINES.indexOf(a[0]) - DISCIPLINES.indexOf(b[0])).map(([d, evs]) => `<h3 class="ev-groupe">${esc(d)}</h3>
+    <div class="list">${evs.map((ev) => `
       <a class="item" href="#/evaluations/${ev.id}"><strong>${esc(ev.titre)}</strong>
-      <span class="hint">${esc(ev.discipline)} ${esc(ev.niveau)} ${ev.date ? "· " + fmtDate(ev.date) : ""} · ${ev.items.length} item(s)</span></a>`).join("") || `<p class="hint">Aucune évaluation.</p>`}</div>`;
+      <span class="hint">${ev.niveau ? esc(ev.niveau) + " · " : ""}${ev.date ? fmtDate(ev.date) + " · " : ""}${ev.items.length} compétence(s)${saisie(ev)}</span></a>`).join("")}</div>`).join("") || `<p class="hint">Aucune évaluation.</p>`}`;
   $("#add").onclick = () => { location.hash = `#/evaluations/${newEval().id}`; };
+  app.onclick = (e) => { const t = e.target.closest("[data-fd]"); if (t) { filtreEvals = t.dataset.fd; viewEvals(); } };
 }
 function newEval() {
-  const ev = { id: uid(), titre: "Nouvelle évaluation", discipline: "Français", niveau: "", date: "", consigne: "", items: [], resultats: {} };
-  state.evaluations.unshift(ev); save("evaluations"); return ev;
+  const ev = { id: uid(), titre: "Nouvelle évaluation", discipline: filtreEvals && DISCIPLINES.includes(filtreEvals) ? filtreEvals : "Français", niveau: "", date: isoLocal(new Date()), consigne: "", items: [], resultats: {} };
+  state.evaluations.unshift(ev); save("evaluations"); evalJusteCree = ev.id; return ev;
 }
+// Les résultats sont indexés par position d'item : après un changement de la liste, on les déplace.
+function reindexer(ev, anciens) {
+  const pos = new Map(ev.items.map((it, i) => [it, i]));
+  for (const [el, r] of Object.entries(ev.resultats)) {
+    const n = {};
+    anciens.forEach((it, i) => { if (r[i] && pos.has(it)) n[pos.get(it)] = r[i]; });
+    ev.resultats[el] = n;
+  }
+}
+let pinceau = ""; // "" = faire défiler ; sinon code posé à chaque touche
 function viewEval(id, tab = "prep") {
   const ev = state.evaluations.find((x) => x.id === id);
   if (!ev) return notFound();
   setTitle("Évaluation");
+  if (ev.items.length && state.eleves.length && evalJusteCree !== id && tab === "prep" && !viewEval._vu?.has(id)) tab = "res";
+  (viewEval._vu ??= new Set()).add(id);
   const draw = () => {
     const eleves = state.eleves;
+    const sx = $(".scroll-x", app)?.scrollLeft ?? 0;
     app.innerHTML = `
       <div class="toolbar no-print"><a href="#/evaluations" class="ghost btn">← Évaluations</a>
-        <div class="tabs grow"><button class="${tab === "prep" ? "on" : ""}" data-tab="prep">Préparer</button><button class="${tab === "res" ? "on" : ""}" data-tab="res">Résultats</button></div>
+        <div class="tabs grow"><button class="${tab === "prep" ? "on" : ""}" data-tab="prep">1. Compétences</button><button class="${tab === "res" ? "on" : ""}" data-tab="res">2. Saisir les résultats</button></div>
         <button class="ghost" onclick="print()">Imprimer</button><button class="danger" id="del">Supprimer</button></div>
       ${tab === "prep" ? `
       <form class="sheet" id="f">
@@ -420,36 +444,54 @@ function viewEval(id, tab = "prep") {
         <p class="print-only">Prénom : ............................................ &nbsp; Date : ...................</p>
         <label class="no-print">Consigne générale<textarea name="consigne" rows="2">${esc(ev.consigne)}</textarea></label>
         <p class="print-only">${esc(ev.consigne)}</p>
-        <div class="label-row"><span>Compétences évaluées</span>
-          <span class="no-print"><button type="button" class="ghost small" id="addc">+ Insérer depuis les programmes</button>
-          <button type="button" class="ghost small" id="addl">+ Item libre</button></span></div>
+        <div class="label-row"><span>Compétences évaluées (une ou plusieurs)</span>
+          <span class="no-print"><button type="button" class="ghost small" id="addc">+ Choisir dans les programmes</button>
+          <button type="button" class="ghost small" id="addl">+ Écrire une compétence</button></span></div>
         <table class="items"><thead><tr><th>Compétence</th>${CODES.slice(1).map((c) => `<th class="code" title="${c.label}">${c.code}</th>`).join("")}<th class="no-print"></th></tr></thead>
         <tbody>${ev.items.map((it, k) => `<tr>
-          <td>${it.compId ? `<span>${esc(compById[it.compId]?.texte ?? "(compétence inconnue)")}</span>` : `<input data-it="${k}" value="${esc(it.texte)}" placeholder="Intitulé de l'item"><input class="no-print dom-input" data-dom="${k}" value="${esc(it.domaine ?? "")}" list="domList" placeholder="Domaine (pour les graphiques), ex. Lecture">`}</td>
+          <td>${it.compId ? `<span>${esc(compById[it.compId]?.texte ?? "(compétence inconnue)")}</span>` : `<input data-it="${k}" value="${esc(it.texte)}" placeholder="Intitulé de la compétence"><input class="no-print dom-input" data-dom="${k}" value="${esc(it.domaine ?? "")}" list="domList" placeholder="Domaine (pour les graphiques), ex. Lecture">`}</td>
           ${CODES.slice(1).map(() => `<td class="code box"></td>`).join("")}
           <td class="no-print"><button type="button" class="ghost small" data-rmit="${k}" aria-label="Retirer">×</button></td></tr>`).join("")
-          || `<tr><td colspan="6" class="hint">Ajoute des compétences : elles sont insérées telles qu'écrites dans le référentiel.</td></tr>`}</tbody></table>
+          || `<tr><td colspan="6" class="hint">Ajoute une ou plusieurs compétences : elles sont insérées telles qu'écrites dans le référentiel.</td></tr>`}</tbody></table>
         <p class="hint">${CODES.slice(1).map((c) => `${c.code} = ${c.label}`).join(" · ")}</p>
+        ${ev.items.length && eleves.length ? `<div class="row no-print"><button type="button" class="primary" data-tab="res">Saisir les résultats →</button></div>` : ""}
         <datalist id="domList">${domainesConnus(ev.discipline).map((d) => `<option value="${esc(d)}">`).join("")}</datalist>
       </form>` : `
       <div class="sheet">
-        <h2>${esc(ev.titre)}</h2>
+        <h2>${esc(ev.titre)} <span class="hint">${esc(ev.discipline)}${ev.date ? " · " + fmtDate(ev.date) : ""}</span></h2>
         ${!eleves.length ? `<p class="hint">Ajoute d'abord tes élèves dans <a href="#/classe">Ma classe</a>.</p>` :
-        !ev.items.length ? `<p class="hint">Ajoute des compétences dans l'onglet Préparer.</p>` : `
-        <p class="hint no-print">Touche une case pour faire défiler : — → NA → PA → A → D.</p>
-        <div class="scroll-x"><table class="results"><thead><tr><th>Élève</th>${ev.items.map((it, k) => `<th title="${esc(itemText(it))}">${k + 1}</th>`).join("")}</tr></thead>
-        <tbody>${eleves.map((el) => `<tr><th>${esc(el.prenom)}</th>${ev.items.map((_, k) => {
-          const v = ev.resultats[el.id]?.[k] ?? "";
-          return `<td><button class="res r-${v || "x"}" data-r="${el.id}:${k}">${v || "—"}</button></td>`;
-        }).join("")}</tr>`).join("")}</tbody>
+        !ev.items.length ? `<p class="hint">Ajoute des compétences dans l'onglet 1.</p>` : `
+        <div class="pinceau no-print"><span>À chaque touche :</span><div class="seg">
+          <button data-p="" class="${!pinceau ? "on" : ""}" title="Chaque touche fait défiler — NA PA A D">↻ Défiler</button>
+          ${CODES.slice(1).map((c) => `<button data-p="${c.code}" class="r-${c.code} ${pinceau === c.code ? "on" : ""}" title="${c.label}">${c.code}</button>`).join("")}
+          <button data-p="x" class="${pinceau === "x" ? "on" : ""}" title="Effacer">Effacer</button></div></div>
+        <p class="hint no-print">${pinceau ? `Touche une case pour mettre <b>${pinceau === "x" ? "rien" : pinceau}</b>. Touche le titre d'une compétence pour le mettre à tous les élèves qui n'ont encore rien, ou un prénom pour toute sa ligne.` : "Touche une case pour faire défiler : — → NA → PA → A → D. Choisis un code ci-dessus pour aller plus vite."}</p>
+        <div class="scroll-x"><table class="results"><thead><tr><th>Élève</th>${ev.items.map((it, k) => `<th class="res-h"><button data-col="${k}" title="${esc(itemText(it))}"><b>${k + 1}</b><span>${esc(itemText(it))}</span></button></th>`).join("")}<th>Acquis</th></tr></thead>
+        <tbody>${eleves.map((el) => { const r = ev.resultats[el.id] ?? {}; const n = ev.items.filter((_, k) => r[k]).length, ok = ev.items.filter((_, k) => ACQUIS(r[k])).length;
+          return `<tr><th><button class="res-nom" data-row="${el.id}">${esc(el.prenom)}</button></th>${ev.items.map((_, k) => { const v = r[k] ?? "";
+          return `<td><button class="res r-${v || "x"}" data-r="${el.id}:${k}">${v || "—"}</button></td>`; }).join("")}<td class="suivi-tot">${n ? `${ok}/${n}` : ""}</td></tr>`; }).join("")}</tbody>
         <tfoot><tr><th>Atteint ou +</th>${ev.items.map((_, k) => {
-          const n = eleves.filter((el) => ["A", "D"].includes(ev.resultats[el.id]?.[k])).length;
+          const n = eleves.filter((el) => ACQUIS(ev.resultats[el.id]?.[k])).length;
           return `<td>${n}/${eleves.length}</td>`;
-        }).join("")}</tr></tfoot></table></div>
+        }).join("")}<td></td></tr></tfoot></table></div>
         <ol class="legend">${ev.items.map((it) => `<li>${esc(itemText(it))}</li>`).join("")}</ol>`}
       </div>`}`;
+    const sc = $(".scroll-x", app); if (sc) sc.scrollLeft = sx;
+  };
+  const choisir = () => {
+    if (DISCIPLINES.includes(ev.discipline) && ALL_COMP.some((c) => c.discipline === ev.discipline)) pickCompetences.disc = ev.discipline;
+    if (ev.niveau && ALL_COMP.some((c) => c.niveau === ev.niveau)) pickCompetences.niveau = ev.niveau;
+    pickCompetences(ev.items.filter((i) => i.compId).map((i) => i.compId), (ids) => {
+      const anciens = [...ev.items];
+      const keep = ev.items.filter((i) => !i.compId || ids.includes(i.compId));
+      const have = new Set(keep.map((i) => i.compId));
+      ev.items = [...keep, ...ids.filter((x) => !have.has(x)).map((compId) => ({ compId, texte: "" }))];
+      reindexer(ev, anciens);
+      save("evaluations"); draw();
+    });
   };
   draw();
+  if (evalJusteCree === id) { evalJusteCree = null; if (!ev.items.length) setTimeout(choisir, 0); }
   app.oninput = (e) => {
     const t = e.target;
     if (t.dataset.it) ev.items[+t.dataset.it].texte = t.value;
@@ -458,28 +500,26 @@ function viewEval(id, tab = "prep") {
     save("evaluations");
   };
   app.onchange = app.oninput;
+  const poser = (el, k, v) => { const r = (ev.resultats[el] ??= {}); if (v) r[k] = v; else delete r[k]; };
   app.onclick = (e) => {
-    const t = e.target;
+    const t = e.target.closest("button"); if (!t) return;
+    const code = pinceau === "x" ? "" : pinceau;
     if (t.dataset.tab) { tab = t.dataset.tab; draw(); }
-    else if (t.id === "addc") pickCompetences(ev.items.filter((i) => i.compId).map((i) => i.compId), (ids) => {
-      const keep = ev.items.filter((i) => !i.compId || ids.includes(i.compId));
-      const have = new Set(keep.map((i) => i.compId));
-      ev.items = [...keep, ...ids.filter((x) => !have.has(x)).map((compId) => ({ compId, texte: "" }))];
-      ev.resultats = {}; // les index changent : on repart d'une grille vide (prototype)
-      save("evaluations"); draw();
-    });
+    else if (t.dataset.p != null) { pinceau = t.dataset.p; draw(); }
+    else if (t.id === "addc") choisir();
     else if (t.id === "addl") { ev.items.push({ compId: null, texte: "" }); save("evaluations"); draw(); }
     else if (t.dataset.rmit) {
-      const k = +t.dataset.rmit; ev.items.splice(k, 1);
-      for (const r of Object.values(ev.resultats)) { for (let i = k; i < ev.items.length + 1; i++) r[i] = r[i + 1]; delete r[ev.items.length]; }
+      const anciens = [...ev.items]; ev.items.splice(+t.dataset.rmit, 1); reindexer(ev, anciens);
       save("evaluations"); draw();
     }
     else if (t.dataset.r) {
       const [el, k] = t.dataset.r.split(":");
       const cur = ev.resultats[el]?.[k] ?? "";
-      const next = CODES[(CODES.findIndex((c) => c.code === cur) + 1) % CODES.length].code;
-      (ev.resultats[el] ??= {})[k] = next; save("evaluations"); draw();
+      poser(el, k, pinceau ? code : CODES[(CODES.findIndex((c) => c.code === cur) + 1) % CODES.length].code);
+      save("evaluations"); draw();
     }
+    else if (t.dataset.col && pinceau) { const k = t.dataset.col; for (const el of state.eleves) if (!code || !ev.resultats[el.id]?.[k]) poser(el.id, k, code); save("evaluations"); draw(); }
+    else if (t.dataset.row && pinceau) { ev.items.forEach((_, k) => poser(t.dataset.row, k, code)); save("evaluations"); draw(); }
     else if (t.id === "del" && confirm("Supprimer cette évaluation ?")) { state.evaluations = state.evaluations.filter((x) => x.id !== id); save("evaluations"); location.hash = "#/evaluations"; }
   };
 }
