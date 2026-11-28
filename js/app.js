@@ -10,6 +10,7 @@ import { FRANCAIS } from "./francais.js";
 import { FLUENCE } from "./fluence.js";
 import { MESURES } from "./mesures.js";
 import { GEO } from "./geo.js";
+import { choisirNiveau } from "./niveau.js";
 const OUTILS = [...OUTILS_CLASSE, ...OUTILS2, ...FRANCAIS, ...FLUENCE, ...MESURES, ...GEO, ...ANGLAIS, ...DECOUVRIR, ...DECOUVRIR_PLUS, ...JEUX];
 import { GENERATEURS, seeded } from "./imprimer.js";
 import { CALENDRIERS, ZONES, joursFeries } from "./data/calendrier.js";
@@ -25,7 +26,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.23.1";
+export const VERSION = "0.24.1";
 
 // ---------- état ----------
 let state = {};
@@ -786,7 +787,6 @@ async function loadDemo() {
 
 // ---------- AUJOURD'HUI ----------
 const JOURS_JS = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-const toolTile = (o, desc = false) => `<a class="tile" href="#/outils/${o.id}" style="--tile:${o.couleur}"><span class="tile-ico">${o.icone}</span><span class="tile-name">${esc(o.nom)}</span>${desc ? `<span class="tile-desc">${esc(o.desc)}</span>` : ""}</a>`;
 const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 function viewAccueil() {
   const now = new Date();
@@ -812,8 +812,8 @@ function viewAccueil() {
         ${fiches.length ? `<h4>Fiches prévues aujourd'hui</h4>${fiches.map((f) => `<a class="item" href="#/fiches/${f.id}">📝 ${esc(f.titre)}</a>`).join("")}` : ""}
       </section>
       <section class="panel">
-        <div class="panel-head"><h3>Au tableau</h3><a href="#/outils" class="link">Tous les outils</a></div>
-        <div class="tiles small">${OUTILS.slice(0, 6).map((o) => toolTile(o)).join("")}</div>
+        <div class="panel-head"><h3>Au tableau</h3><a href="#/outils" class="link">${favOutils().length ? "Tous les outils" : "Choisir mes outils"}</a></div>
+        <div class="tiles small">${(() => { const favs = favOutils().map((id) => OUTILS.find((o) => o.id === id)).filter(Boolean); return (favs.length ? favs.slice(0, 9) : OUTILS.slice(0, 6)).map((o) => toolTile(o)).join(""); })()}</div>
       </section>
       <section class="panel">
         <div class="panel-head"><h3>Préparer</h3></div>
@@ -838,23 +838,95 @@ async function carteCompte() {
   $("#accX").onclick = () => { localStorage.setItem("bagaschool-carte-compte", "1"); box.innerHTML = ""; };
 }
 
-// ---------- EN CLASSE (outils) ----------
+// ---------- AU TABLEAU (outils) ----------
 let toolCleanup = null;
+// Catégories d'outils. Un outil sans catégorie connue (ajouté plus tard) tombe dans celle de sa liste, sinon dans « Autres ».
+const CATS_OUTILS = [
+  ["gestion", "🧑‍🏫", "Gérer la classe"], ["rituels", "☀️", "Rituels et tableau"], ["francais", "✏️", "Français"], ["maths", "🔢", "Maths"],
+  ["anglais", "🇬🇧", "Anglais"], ["decouvrir", "🌍", "Découvrir le monde"], ["jeux", "🎲", "Jeux"], ["autres", "🧰", "Autres"],
+];
+const CAT_PAR_ID = {
+  minuteur: "gestion", tirage: "gestion", groupes: "gestion", voix: "gestion", feu: "gestion",
+  date: "rituels", rituels: "rituels", cahier: "rituels", ardoise: "rituels",
+  pendu: "francais", des: "maths", calcul: "maths", horloge: "maths", cadre: "maths", droite: "maths", fractions: "maths",
+  pose: "maths", "fractions-img": "maths", geometrie: "maths",
+};
+const catOutil = (() => {
+  const parListe = new Map();
+  for (const [liste, cat] of [[FRANCAIS, "francais"], [FLUENCE, "francais"], [MESURES, "maths"], [GEO, "maths"], [ANGLAIS, "anglais"], [JEUX, "jeux"], [DECOUVRIR, "decouvrir"], [DECOUVRIR_PLUS, "decouvrir"]])
+    for (const o of liste) parListe.set(o.id, cat);
+  return (o) => CAT_PAR_ID[o.id] ?? parListe.get(o.id) ?? "autres";
+})();
+// Sous-titres dans « Découvrir le monde » : sciences de base puis les thèmes (géographie, histoire…).
+const SOUS_DECOUVRIR = [["🔭 Sciences et Terre", DECOUVRIR], ...DECOUVRIR_THEMES.map(([t, , l]) => [t, l])];
+const sansAccents = (t) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const CLE_NIV_OUTILS = "bagaschool-niveau-outils";
+const filtreOutils = { cat: null, q: "" };
+const favOutils = () => (state.reglages.favOutils ??= []);
+const toolTile = (o, desc = false, etoile = false) => {
+  const a = `<a class="tile" href="#/outils/${o.id}" style="--tile:${o.couleur}"><span class="tile-ico">${o.icone}</span><span class="tile-name">${esc(o.nom)}</span>${desc ? `<span class="tile-desc">${esc(o.desc)}</span>` : ""}</a>`;
+  if (!etoile) return a;
+  const fav = favOutils().includes(o.id);
+  return `<div class="tile-wrap">${a}<button type="button" class="tile-star ${fav ? "on" : ""}" data-fav="${o.id}" aria-pressed="${fav}" aria-label="${fav ? "Retirer de mes outils" : "Ajouter à mes outils"}" title="${fav ? "Retirer de mes outils" : "Ajouter à mes outils"}">${fav ? "★" : "☆"}</button></div>`;
+};
 function viewOutils() {
-  const GESTION = ["minuteur", "tirage", "groupes", "voix", "feu", "date"];
-  const sections = [
-    ["☀️ Rituels et manipulations", "Rituels du matin, cahier, calcul posé, géométrie : à projeter et à manipuler.", OUTILS2],
-    ["🧑‍🏫 Gérer la classe", "", OUTILS_CLASSE.filter((o) => GESTION.includes(o.id))],
-    ["🧮 Maths, mots et dessin", "", OUTILS_CLASSE.filter((o) => !GESTION.includes(o.id))],
-    ["✏️ Français", "Du CP au CM2 : étiquettes, homophones, accords, lecture chronométrée. Choisis le niveau dans chaque jeu.", [...FRANCAIS, ...FLUENCE]],
-    ["🔢 Maths", "Du CP au CM2 : mesures et conversions, problèmes, géométrie.", [...MESURES, ...GEO]],
-    ["🇬🇧 Anglais", "Images et son pour les petits, mots écrits pour les CM.", ANGLAIS],
-    ["🎲 Jeux", "Pour réviser en s'amusant, au tableau ou en petits groupes.", JEUX],
-    ["🔭 Découvrir", "Sciences et géographie, à explorer ensemble.", DECOUVRIR],
-    ...DECOUVRIR_THEMES,
-  ];
-  app.innerHTML = `<p class="intro">Des outils à projeter au tableau ou à utiliser sur ton téléphone pendant la classe.</p>
-    ${sections.map(([t, d, list]) => `<h2 class="section-title">${t}</h2>${d ? `<p class="hint section-desc">${d}</p>` : ""}<div class="tiles">${list.map((o) => toolTile(o, true)).join("")}</div>`).join("")}`;
+  const niv = () => localStorage.getItem(CLE_NIV_OUTILS) || "";
+  if (filtreOutils.cat === null) filtreOutils.cat = favOutils().length ? "fav" : "tout";
+  const pourNiveau = (o) => !niv() || !o.niveaux?.length || o.niveaux.includes(niv());
+  const grille = (list) => `<div class="tiles">${list.map((o) => toolTile(o, true, true)).join("")}</div>`;
+  const section = (titre, list, desc = "") => list.length ? `<h2 class="section-title">${titre}</h2>${desc ? `<p class="hint section-desc">${desc}</p>` : ""}${grille(list)}` : "";
+  const contenuCat = (c, list) => c === "decouvrir"
+    ? SOUS_DECOUVRIR.map(([t, l]) => section(t, l.filter((o) => list.includes(o)))).join("")
+    : grille(list);
+  const dessiner = () => {
+    const q = sansAccents(filtreOutils.q.trim());
+    const visibles = OUTILS.filter(pourNiveau);
+    let html;
+    if (q) {
+      const r = OUTILS.filter((o) => sansAccents(`${o.nom} ${o.desc ?? ""}`).includes(q));
+      html = r.length ? section(`🔎 ${r.length} outil${r.length > 1 ? "s" : ""}`, r) : `<div class="empty"><span>🔎</span><p>Aucun outil ne correspond à « ${esc(filtreOutils.q.trim())} ».</p></div>`;
+    } else if (filtreOutils.cat === "fav") {
+      const favs = favOutils().map((id) => OUTILS.find((o) => o.id === id)).filter(Boolean);
+      html = favs.length ? section("⭐ Mes outils", favs, "Tes outils préférés, aussi sur l'accueil. Touche l'étoile d'un outil pour l'ajouter ou le retirer.")
+        : `<div class="empty"><span>⭐</span><p>Touche l'étoile ☆ d'un outil pour le retrouver ici et sur l'accueil.</p><button class="primary" data-cat="tout">Voir tous les outils</button></div>`;
+    } else if (filtreOutils.cat === "tout") {
+      html = CATS_OUTILS.map(([c, ico, nom]) => { const l = visibles.filter((o) => catOutil(o) === c); return l.length ? `<h2 class="section-title">${ico} ${nom}</h2>${c === "decouvrir" ? SOUS_DECOUVRIR.map(([t, ll]) => { const x = ll.filter((o) => l.includes(o)); return x.length ? `<h3 class="sub-title">${t}</h3>${grille(x)}` : ""; }).join("") : grille(l)}` : ""; }).join("");
+    } else {
+      const [c, ico, nom] = CATS_OUTILS.find(([x]) => x === filtreOutils.cat) ?? CATS_OUTILS[0];
+      const l = visibles.filter((o) => catOutil(o) === c);
+      html = c === "decouvrir" ? contenuCat(c, l) || `<p class="hint">Rien pour ce niveau.</p>` : section(`${ico} ${nom}`, l) || `<p class="hint">Rien pour ce niveau.</p>`;
+    }
+    $("#outilsListe").innerHTML = html + (niv() && !q && filtreOutils.cat !== "fav" ? `<p class="hint">Les outils sans niveau précisé (jeux de français, de maths…) restent affichés : on choisit le niveau dans chaque outil.</p>` : "");
+    $$("#outilsCats [data-cat]").forEach((b) => b.classList.toggle("on", !q && b.dataset.cat === filtreOutils.cat));
+    $$("#outilsNiv [data-n]").forEach((b) => b.classList.toggle("on", b.dataset.n === niv()));
+  };
+  const presentes = new Set(OUTILS.map(catOutil));
+  app.innerHTML = `
+    <div class="outils-filtres">
+      <input type="search" id="outilsQ" placeholder="🔎 Chercher un outil : minuteur, frise, conjugaison…" value="${esc(filtreOutils.q)}" autocomplete="off">
+      <div class="seg" id="outilsNiv" role="group" aria-label="Niveau">${["CP", "CE1", "CE2", "CM1", "CM2"].map((n) => `<button type="button" data-n="${n}">${n}</button>`).join("")}<button type="button" data-n="">Tous</button></div>
+    </div>
+    <div class="cats" id="outilsCats">
+      <button type="button" data-cat="fav">⭐ Mes outils</button><button type="button" data-cat="tout">Tout</button>
+      ${CATS_OUTILS.filter(([c]) => presentes.has(c)).map(([c, ico, nom]) => `<button type="button" data-cat="${c}">${ico} ${nom}</button>`).join("")}
+      <a href="#/ressources">📂 Mes documents</a>
+    </div>
+    <div id="outilsListe"></div>`;
+  $("#outilsQ").oninput = (e) => { filtreOutils.q = e.target.value; dessiner(); };
+  app.onclick = (e) => {
+    const f = e.target.closest("[data-fav]");
+    if (f) {
+      e.preventDefault();
+      const l = favOutils(), i = l.indexOf(f.dataset.fav);
+      if (i >= 0) l.splice(i, 1); else l.push(f.dataset.fav);
+      save("reglages"); dessiner(); return;
+    }
+    const c = e.target.closest("[data-cat]");
+    if (c) { filtreOutils.cat = c.dataset.cat; filtreOutils.q = ""; $("#outilsQ").value = ""; dessiner(); return; }
+    const n = e.target.closest("[data-n]");
+    if (n) { localStorage.setItem(CLE_NIV_OUTILS, n.dataset.n); if (n.dataset.n) choisirNiveau(n.dataset.n); dessiner(); }
+  };
+  dessiner();
 }
 // Barre d'outils du tableau : élèves présents (sans les absents de l'appel de la demi-journée en cours).
 function ctxBarre() {
