@@ -2,6 +2,7 @@
 // Même format que outils.js : { id, nom, icone, couleur, desc, mount(el, ctx) -> cleanup }.
 // Les contenus par niveau sont dans les tableaux ci-dessous, pour être relus et complétés facilement.
 import { niveauJeux, segNiveau, surNiveau, rang, NIVEAUX_JEUX } from "./niveau.js";
+import { CONJUGAISON } from "./conjugaison.js";
 
 const hasard = (n) => Math.floor(Math.random() * n);
 const melange = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = hasard(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -496,4 +497,5 @@ export const FRANCAIS = [
   { id: "etiquettes", nom: "Mots baladeurs", icone: "🏷️", couleur: "#c9ecd4", desc: "Étiquettes à glisser : phrases à trous, mots en ordre, tris", mount: mots },
   { id: "homophones", nom: "Homophones", icone: "👂", couleur: "#ffe3a3", desc: "a/à, et/est, on/ont, la/là… avec l'astuce", mount: homophones },
   { id: "accords", nom: "Accords et mots variables", icone: "🔗", couleur: "#ffd0dc", desc: "Choisir la bonne forme, variable ou invariable", mount: accords },
+  ...CONJUGAISON,
 ];

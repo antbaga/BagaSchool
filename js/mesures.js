@@ -412,20 +412,49 @@ function tableauConversion(el) {
 // 5. OUTIL : JEU DES CONVERSIONS
 // =====================================================================
 const NB_QUESTIONS = 10;
+const TAILLES_FICHE = [4, 6, 8, 10, 12];
+const CLE_CONV = "bagaschool-conversions";
+// Tirage de n conversions sans doublon (si le niveau en offre assez)
+function tirerConversions(niv, g, n) {
+  const vus = new Map(), out = [];
+  for (let essai = 0; out.length < n && essai < 500; essai++) {
+    const q = genConversion(niv, g), deja = vus.get(q.cle) || 0;
+    // pas de doublon si possible ; sinon (petit niveau, peu de conversions possibles), le moins de répétitions possible
+    if (deja && (essai < 300 || (deja > 1 && essai < 450))) continue;
+    vus.set(q.cle, deja + 1); out.push(q);
+  }
+  return out;
+}
+// Fiche imprimable (A4) : les conversions avec des lignes à compléter, puis le corrigé sur une deuxième page
+function ficheImprimable(fiche, titre, avecExpl) {
+  const ligne = (x) => `${x.gauche}${x.droite ? "" : " ="} ${x.slots.map((s) => `<span class="mes-pr-trou"></span>${NB}${escM(s.u)}`).join(" ")}${x.droite || ""}`;
+  return `<section class="mes-pr-page"><h1>🔁 Conversions</h1><p class="mes-pr-sous">${escM(titre)}</p>
+      <p class="mes-pr-nom"><span>Prénom${NB}:</span><i></i><span>Date${NB}:</span><i></i></p>
+      <ol class="mes-pr-liste">${fiche.map((x) => `<li>${ligne(x)}</li>`).join("")}</ol></section>
+    <section class="mes-pr-page mes-pr-corr"><h1>Corrigé</h1><p class="mes-pr-sous">${escM(titre)}</p>
+      <ol class="mes-pr-liste">${fiche.map((x) => `<li><b>${x.correction}</b>${avecExpl && x.expl ? `<small>${typo(x.expl)}</small>` : ""}</li>`).join("")}</ol></section>`;
+}
 function conversions(el) {
   let niv = niveauJeux(), g = "melange", equipes = 1;
   let serie = [], pos = 0, saisies = [], slotActif = 0, etat = null, voirAide = false, resultats = [], scores = [0, 0], attente = null;
+  // Mode « fiche » : plusieurs conversions à la fois, puis correction collective
+  const memo = (() => { try { return JSON.parse(localStorage.getItem(CLE_CONV)) || {}; } catch { return {}; } })();
+  let mode = memo.mode === "fiche" ? "fiche" : "une", taille = TAILLES_FICHE.includes(memo.taille) ? memo.taille : 8;
+  let fiche = [], repF = [], revF = [], actif = null, corrPos = -1, masque = false, aDefiler = false;
+  const retenir = () => { try { localStorage.setItem(CLE_CONV, JSON.stringify({ mode, taille })); } catch {} };
   const valider = () => { const l = grandeursConv(niv); if (g !== "melange" && !l.includes(g)) g = l.length > 1 ? "melange" : l[0]; };
   const nouvelleSerie = () => {
     valider(); clearTimeout(attente);
-    const vus = new Set(); serie = [];
-    for (let essai = 0; serie.length < NB_QUESTIONS && essai < 400; essai++) {
-      const q = genConversion(niv, g);
-      if (vus.has(q.cle) && essai < 300) continue;
-      vus.add(q.cle); serie.push(q);
-    }
+    serie = tirerConversions(niv, g, NB_QUESTIONS);
     pos = 0; resultats = []; scores = [0, 0]; preparer();
   };
+  const nouvelleFiche = () => {
+    valider();
+    fiche = tirerConversions(niv, g, taille);
+    repF = fiche.map((x) => x.slots.map(() => "")); revF = fiche.map(() => false);
+    actif = null; corrPos = -1; masque = false;
+  };
+  const nouveau = () => { nouvelleSerie(); nouvelleFiche(); };
   const preparer = () => { saisies = serie[pos].slots.map(() => ""); slotActif = 0; etat = null; voirAide = false; };
   const q = () => serie[pos];
   const virguleOk = () => rang(niv) >= 3;
@@ -447,11 +476,94 @@ function conversions(el) {
     }
     return `<p class="mes-expl">${typo(x.expl || "")}</p>`;
   };
+  const segMode = () => `<div class="seg mes-seg" role="group" aria-label="Façon de jouer"><button type="button" data-cmode="une" class="${mode === "une" ? "on" : ""}">🎯 Une à la fois</button><button type="button" data-cmode="fiche" class="${mode === "fiche" ? "on" : ""}">📋 Fiche de conversions</button></div>`;
+  const titreFiche = () => `${niv} · ${g === "melange" ? "Mélange" : GRANDEURS[g].nom}`;
+
+  // ---------- mode fiche ----------
+  const juste = (i, j) => normaliser(repF[i][j]) === normaliser(fiche[i].slots[j].att);
+  const remplie = (i) => repF[i].some(Boolean);
+  const boiteHTML = (i, j, s) => {
+    const v = repF[i][j], vis = revF[i] && !masque, on = actif && actif.i === i && actif.j === j;
+    let cl = "", txt = v ? fmtNb(v) : "";
+    if (vis) { if (v) cl = juste(i, j) ? "good" : "bad"; else { cl = "sol"; txt = fmtNb(s.att); } }
+    return `<span class="mes-fi-rep"><button type="button" class="mes-slot mes-fi-box ${cl} ${on ? "on" : ""}" data-fi="${i}" data-fj="${j}" aria-label="Réponse ${i + 1}${x2(i)} en ${escM(s.u)}">${txt || NB}</button>${NB}<span class="mes-u">${escM(s.u)}</span></span>`;
+  };
+  const x2 = (i) => (fiche[i].slots.length > 1 ? " (plusieurs cases)" : "");
+  const itemHTML = (x, i) => {
+    const vis = revF[i] && !masque, faux = vis && remplie(i) && x.slots.some((_, j) => repF[i][j] && !juste(i, j));
+    const cur = i === corrPos && !masque;
+    // Explication (« 1 m = 100 cm, donc 3,5 m = 350 cm ») sur la ligne en cours de correction ; touche un numéro pour la revoir
+    const expl = vis && cur && x.expl ? `<span class="mes-fi-expl">${typo(x.expl)}</span>` : "";
+    const corr = faux && !expl ? `<span class="mes-fi-sol">➜ ${x.correction}</span>` : "";
+    const num = vis ? `<button type="button" class="mes-fi-num" data-fiexpl="${i}" aria-label="Expliquer la conversion ${i + 1}">${i + 1}</button>` : `<span class="mes-fi-num">${i + 1}</span>`;
+    return `<li class="mes-fi-item ${vis ? "rev" : ""} ${cur ? "cur" : ""} ${vis && remplie(i) ? (faux ? "ko" : "ok") : ""}" data-item="${i}">${num}
+      <div class="mes-fi-corps"><div class="mes-fi-q">${x.gauche}${x.droite ? "" : " ="} ${x.slots.map((s, j) => boiteHTML(i, j, s)).join(" ")}${x.droite || ""}</div>${corr || expl ? `<div class="mes-fi-plus">${corr}${expl}</div>` : ""}</div></li>`;
+  };
+  const renderFiche = (tete) => {
+    const n = fiche.length, nbRev = revF.filter(Boolean).length, tout = nbRev === n;
+    const corrigees = fiche.map((_, i) => i).filter((i) => revF[i] && remplie(i));
+    const bonnes = corrigees.filter((i) => fiche[i].slots.every((_, j) => juste(i, j))).length;
+    const libCorr = corrPos < 0 && !nbRev ? "▶ Corriger une par une" : tout ? "✔ Tout est corrigé" : `Correction suivante ➜ (${nbRev + 1}/${n})`;
+    el.innerHTML = `${tete}
+      <div class="tool-top wrap mes-fi-outils">
+        <div class="seg mes-seg" role="group" aria-label="Nombre de conversions">${TAILLES_FICHE.map((t) => `<button type="button" data-taille="${t}" class="${t === taille ? "on" : ""}" aria-label="${t} conversions">${t}</button>`).join("")}</div>
+        <button type="button" class="pill" id="mesFiNew">↻ Nouvelle fiche</button>
+        <button type="button" class="pill mes-on" id="mesFiUne" ${tout && !masque ? "disabled" : ""}>${masque && nbRev ? "▶ Corriger une par une" : libCorr}</button>
+        <button type="button" class="pill" id="mesFiTout" ${tout && !masque ? "disabled" : ""}>✅ Tout corriger</button>
+        <button type="button" class="pill ${masque ? "on mes-on" : ""}" id="mesFiMasque" ${nbRev ? "" : "disabled"}>${masque ? "👀 Montrer les réponses" : "🙈 Masquer les réponses"}</button>
+        <button type="button" class="pill" id="mesFiEff" ${repF.some((r) => r.some(Boolean)) || nbRev ? "" : "disabled"}>🧽 Tout effacer</button>
+        <button type="button" class="pill" id="mesFiPrint">🖨️ Imprimer la fiche</button>
+      </div>
+      <div class="mes-fiche rc-board">
+        <div class="mes-fi-tete"><b>📋 ${escM(titreFiche())}</b><span>${n} conversions</span>${corrigees.length && !masque ? `<span class="mes-fi-score">✔ ${bonnes} / ${corrigees.length} ${pluriel(corrigees.length, "réponse")} ${pluriel(corrigees.length, "corrigée")}</span>` : ""}</div>
+        <ol class="mes-fi-grille" style="--rows:${Math.ceil(n / 2)};--n:${n}">${fiche.map(itemHTML).join("")}</ol>
+        ${actif ? `<div class="mes-fi-clavier">${padHTML(virguleOk())}<div class="mes-fi-nav"><button type="button" data-finav="prev" aria-label="Case précédente">◀</button><button type="button" data-finav="next">Case suivante ➜</button><button type="button" data-finav="close" aria-label="Fermer le clavier">✕</button></div></div>`
+        : `<p class="mes-aide mes-fi-astuce">${nbRev && !masque ? "Touche un numéro pour afficher l'explication de la conversion." : "Les élèves répondent sur l'ardoise ou le cahier. Touche une case pour écrire une réponse au tableau."}</p>`}
+      </div>`;
+    if (aDefiler) {
+      aDefiler = false;
+      el.querySelector(actif ? ".mes-fi-box.on" : ".mes-fi-item.cur")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  };
+  // Cases dans l'ordre de lecture, pour « Case suivante »
+  const cases = () => fiche.flatMap((x, i) => x.slots.map((_, j) => ({ i, j })));
+  const deplacer = (d) => {
+    const cs = cases(), k = cs.findIndex((c) => actif && c.i === actif.i && c.j === actif.j);
+    const k2 = k + d;
+    actif = k2 >= 0 && k2 < cs.length ? cs[k2] : null;
+  };
+  const toucheFiche = (k) => {
+    if (!actif) return;
+    let s = repF[actif.i][actif.j];
+    if (k === "del") s = s.slice(0, -1);
+    else if (k === ",") { if (!virguleOk() || s.includes(",")) return; s = (s || "0") + ","; }
+    else if (s.length < 9) s = s === "0" ? k : s + k;
+    repF[actif.i][actif.j] = s; render();
+  };
+  const corrigerSuivante = () => {
+    if (masque) { masque = false; if (revF.some(Boolean)) { revF = revF.map(() => false); corrPos = -1; } }
+    const k = revF.findIndex((r) => !r);
+    if (k < 0) return;
+    revF[k] = true; corrPos = k; actif = null; aDefiler = true;
+  };
+  const imprimer = () => {
+    document.querySelector(".mes-print")?.remove();
+    const d = document.createElement("div");
+    d.className = "mes-print";
+    d.innerHTML = ficheImprimable(fiche, titreFiche(), rang(niv) >= 3);
+    document.body.append(d); document.body.classList.add("mes-imp");
+    const fin = () => { document.body.classList.remove("mes-imp"); d.remove(); window.removeEventListener("afterprint", fin); };
+    window.addEventListener("afterprint", fin);
+    window.print();
+    setTimeout(fin, 1500);
+  };
+
   const render = () => {
     valider();
     const tete = `<div class="tool-top wrap">${segNiveau(niv)}${segGrandeur(grandeursConv(niv), g, grandeursConv(niv).length > 1 ? [["melange", "🎲 Mélange"]] : [])}
-      <div class="seg"><button type="button" data-eq="1" class="${equipes === 1 ? "on" : ""}">1 joueur</button><button type="button" data-eq="2" class="${equipes === 2 ? "on" : ""}">2 équipes</button></div>
-      <button type="button" class="pill" id="mesNew">↻ Nouvelle série</button></div>`;
+      ${segMode()}${mode === "une" ? `<div class="seg"><button type="button" data-eq="1" class="${equipes === 1 ? "on" : ""}">1 joueur</button><button type="button" data-eq="2" class="${equipes === 2 ? "on" : ""}">2 équipes</button></div>
+      <button type="button" class="pill" id="mesNew">↻ Nouvelle série</button>` : ""}</div>`;
+    if (mode === "fiche") return renderFiche(tete);
     if (pos >= serie.length) {
       const err = resultats.filter((r) => !r.ok);
       const total = resultats.filter((r) => r.ok).length;
@@ -495,10 +607,25 @@ function conversions(el) {
     else if (s.length < 9) s = s === "0" ? k : s + k;
     saisies[slotActif] = s; render();
   };
+  const clicFiche = (t) => {
+    if (t.dataset.taille) { taille = +t.dataset.taille; retenir(); nouvelleFiche(); return render(); }
+    if (t.dataset.fi !== undefined) { actif = { i: +t.dataset.fi, j: +t.dataset.fj }; aDefiler = true; return render(); }
+    if (t.dataset.k !== undefined) return toucheFiche(t.dataset.k);
+    if (t.dataset.finav) { if (t.dataset.finav === "close") actif = null; else { deplacer(t.dataset.finav === "next" ? 1 : -1); aDefiler = true; } return render(); }
+    if (t.dataset.fiexpl !== undefined) { const i = +t.dataset.fiexpl; corrPos = corrPos === i ? -1 : i; return render(); }
+    if (t.id === "mesFiNew") { nouvelleFiche(); return render(); }
+    if (t.id === "mesFiUne") { corrigerSuivante(); return render(); }
+    if (t.id === "mesFiTout") { revF = revF.map(() => true); corrPos = -1; masque = false; actif = null; return render(); }
+    if (t.id === "mesFiMasque") { masque = !masque; return render(); }
+    if (t.id === "mesFiEff") { repF = fiche.map((x) => x.slots.map(() => "")); revF = revF.map(() => false); corrPos = -1; masque = false; actif = null; return render(); }
+    if (t.id === "mesFiPrint") return imprimer();
+  };
   el.onclick = (e) => {
-    if (surNiveau(e, (n) => { niv = n; nouvelleSerie(); render(); })) return;
+    if (surNiveau(e, (n) => { niv = n; nouveau(); render(); })) return;
     const t = e.target.closest("button"); if (!t) return;
-    if (t.dataset.g) { g = t.dataset.g; nouvelleSerie(); return render(); }
+    if (t.dataset.g) { g = t.dataset.g; nouveau(); return render(); }
+    if (t.dataset.cmode) { if (mode !== t.dataset.cmode) { mode = t.dataset.cmode; retenir(); actif = null; } return render(); }
+    if (mode === "fiche") return clicFiche(t);
     if (t.dataset.eq) { equipes = +t.dataset.eq; nouvelleSerie(); return render(); }
     if (t.id === "mesNew" || t.id === "mesNew2") { nouvelleSerie(); return render(); }
     if (t.dataset.slot !== undefined) { if (!etat) { slotActif = +t.dataset.slot; render(); } return; }
@@ -508,6 +635,15 @@ function conversions(el) {
     if (t.id === "mesNext") return suivant();
   };
   const finClavier = clavier((e) => {
+    if (mode === "fiche") {
+      if (!actif) return;
+      if (/^\d$/.test(e.key)) { toucheFiche(e.key); return true; }
+      if (e.key === "," || e.key === ".") { toucheFiche(","); return true; }
+      if (e.key === "Backspace") { toucheFiche("del"); return true; }
+      if (e.key === "Enter" || e.key === "Tab") { deplacer(e.shiftKey ? -1 : 1); aDefiler = true; render(); return true; }
+      if (e.key === "Escape") { actif = null; render(); return true; }
+      return;
+    }
     if (pos >= serie.length) return;
     if (/^\d$/.test(e.key)) { touche(e.key); return true; }
     if (e.key === "," || e.key === ".") { touche(","); return true; }
@@ -515,8 +651,8 @@ function conversions(el) {
     if (e.key === "Tab" && !etat && serie[pos].slots.length > 1) { slotActif = (slotActif + 1) % serie[pos].slots.length; render(); return true; }
     if (e.key === "Enter") { if (etat) suivant(); else corriger(); return true; }
   });
-  nouvelleSerie(); render();
-  return () => { finClavier(); clearTimeout(attente); };
+  nouveau(); render();
+  return () => { finClavier(); clearTimeout(attente); document.body.classList.remove("mes-imp"); document.querySelector(".mes-print")?.remove(); };
 }
 
 // =====================================================================

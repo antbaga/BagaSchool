@@ -16,11 +16,15 @@ const des = (niv, min) => rang(niv) >= rang(min);
 // =====================================================================
 // 1. FRISES ET MOTIFS
 // Une frise = un motif de l carreaux de large et h de haut, répété vers la droite.
-// c : cases [colonne, ligne, couleur, forme] ; s : segments [x1, y1, x2, y2] entre nœuds du quadrillage.
+// c : cases [colonne, ligne, couleur, forme] ; s : segments [x1, y1, x2, y2, couleur?] entre nœuds du quadrillage.
 // Formes de case : f case pleine, q petit carré, o rond, t triangle,
 // tl / tr / bl / br demi-carré (coupé par une diagonale) dont l'angle droit est en haut-gauche, haut-droite, bas-gauche, bas-droite.
+// Une case peut porter deux demi-carrés complémentaires de couleurs différentes (tl + br ou tr + bl) : valeur « 0:tl|3:br ».
+// Motifs de saison (SAISONS) : contour automatique (trait noir entre deux zones de couleurs différentes),
+// alt : couleurs qui changent à chaque répétition { couleur de base: [couleurs successives] },
+// d : décorations dessinées mais jamais vérifiées (yeux, reflets, étoile…), niv : [niveau min, niveau max].
 // =====================================================================
-const COULEURS = [["#ef6461", "rouge"], ["#4d8ef0", "bleu"], ["#f5c542", "jaune"], ["#4cbb6c", "vert"], ["#a77bdb", "violet"], ["#f59a4d", "orange"]];
+const COULEURS = [["#ef6461", "rouge"], ["#4d8ef0", "bleu"], ["#f5c542", "jaune"], ["#4cbb6c", "vert"], ["#a77bdb", "violet"], ["#f59a4d", "orange"], ["#f799bd", "rose"], ["#a8754f", "marron"], ["#8ad4f2", "bleu ciel"], ["#454056", "noir"], ["#f3d7a1", "beige"]];
 const ENCRE = "#3b3355";
 const FRISES = {
   CP: [
@@ -70,6 +74,86 @@ const FRISES = {
     { nom: "La grecque double", l: 5, h: 4, s: [[0, 4, 0, 0], [0, 0, 4, 0], [4, 0, 4, 3], [4, 3, 1, 3], [1, 3, 1, 1], [1, 1, 3, 1], [3, 1, 3, 2], [3, 2, 2, 2], [0, 4, 5, 4]], c: [[2, 2, 2, "f"]] },
   ],
 };
+
+// ---- Motifs de saison, dessinés case par case ----
+// Chaque ligne du dessin : une case par mot. « . » case vide ; sinon une lettre de couleur puis une forme.
+// Couleurs : r rouge, b bleu, j jaune, v vert, p violet, o orange, R rose, m marron, c bleu ciel, n noir, s beige.
+// Formes (pavé numérique : position de l'angle droit du demi-carré colorié) : # case pleine, 7 haut-gauche, 9 haut-droite,
+// 1 bas-gauche, 3 bas-droite ; o rond, q petit carré, t triangle. « b1+R9 » : deux demi-carrés dans la même case.
+const CODE_COUL = { r: 0, b: 1, j: 2, v: 3, p: 4, o: 5, R: 6, m: 7, c: 8, n: 9, s: 10 };
+const CODE_FORME = { "#": "f", 7: "tl", 9: "tr", 1: "bl", 3: "br", o: "o", q: "q", t: "t" };
+const dessin = (lignes) => lignes.flatMap((ligne, r) => ligne.trim().split(/\s+/).flatMap((tok, c) => (tok === "." ? [] : tok.split("+").map((p) => [c, r, CODE_COUL[p[0]], CODE_FORME[p.slice(1)]]))));
+const M = (nom, niv, l, h, art, x = {}) => ({ nom, niv, l, h, c: dessin(art), contour: true, ...x });
+const THEMES = [
+  { id: "geo", nom: "Géométriques", court: "Géo", ico: "📐", cadre: "#7a6cf0" },
+  { id: "rentree", nom: "Rentrée", ico: "✏️", cadre: "#4d8ef0", mois: [9] },
+  { id: "automne", nom: "Automne", ico: "🍂", cadre: "#e8833a", mois: [10, 11] },
+  { id: "halloween", nom: "Halloween", ico: "🎃", cadre: "#8e5bd6" },
+  { id: "noel", nom: "Noël", ico: "🎄", cadre: "#d94b4b", mois: [12] },
+  { id: "hiver", nom: "Hiver et carnaval", court: "Hiver", ico: "🎭", cadre: "#3fa7d6", mois: [1, 2] },
+  { id: "printemps", nom: "Printemps et Pâques", court: "Printemps", ico: "🌷", cadre: "#4fb565", mois: [3, 4, 5] },
+  { id: "ete", nom: "Été et mer", court: "Été", ico: "☀️", cadre: "#f0a020", mois: [6, 7, 8] },
+];
+const SAISONS = {
+  rentree: [
+    M("Les livres", ["CP", "CE1"], 4, 3, ["r# . v# .", "r# b# v# j#", "r# b# v# j#"], { s: [[0, 3, 4, 3, 7]], alt: { 0: [0, 4], 3: [3, 5] } }),
+    M("Les pommes", ["CP", "CE2"], 5, 4, [". . v1", "r3 r1 r3 r1", "r# r# r# r#", "r9 r# r# r7"], { s: [[2, 0, 2, 2, 7]], alt: { 0: [0, 3, 2] }, d: [[0.75, 1.75, "blanc"]] }),
+    M("Les crayons", ["CE1", "CM2"], 7, 2, ["R# c# r# r# r# s1", "R# c# r# r# r# s7"], { s: [[2, 1, 5, 1]], alt: { 0: [0, 1, 3, 4] }, d: [["poly", [[5.62, 0.62], [6, 1], [5.62, 1.38]], 9]] }),
+    M("Les cerfs-volants", ["CE1", "CM1"], 3, 4, ["r3 j1", "j9 r7", ". Ro", ". vo"], { s: [[1, 2, 2, 3], [2, 3, 1, 4]], alt: { 0: [0, 1, 4], 2: [2, 6, 8] } }),
+    M("Les cartables", ["CM1", "CM2"], 5, 5, [". . . .", "p# p# p# p#", "p9+b1 p# p# p7+b3", "b# j# j# b#", "b# b# b# b#"], { s: [[1, 1, 1, 0], [1, 0, 3, 0], [3, 0, 3, 1]], alt: { 1: [1, 3, 0], 4: [4, 7, 1] } }),
+  ],
+  automne: [
+    M("Les champignons", ["CP", "CE1"], 4, 3, ["r3 r# r1", "r# r# r#", ". s# ."], { s: [[0, 3, 4, 3, 3]], alt: { 0: [0, 5] }, d: [[1.5, 0.72, "blanc"], [0.55, 1.45, "blanc"], [2.45, 1.45, "blanc"]] }),
+    M("Les glands", ["CP", "CE2"], 3, 4, [". .", "m# m#", "s# s#", "s9 s7"], { s: [[1, 0, 1, 1, 7]], alt: { 10: [10, 5] } }),
+    M("Les feuilles", ["CE1", "CM1"], 3, 4, ["v3 v1", "v# v#", "v9 v7"], { s: [[1, 0, 1, 4, 7], [1, 2, 0, 1, 7], [1, 2, 2, 1, 7]], alt: { 3: [3, 5, 0, 2] } }),
+    M("Les hérissons", ["CE2", "CM1"], 6, 4, [". m1 m1 m1", "m3 m# m# m# s1", "m# m# m# m# s7", ". m# . m#"], { d: [[4.32, 1.78, "oeil"], [4.9, 2, "noir"]] }),
+    M("Les parapluies", ["CE2", "CM2"], 7, 6, ["r3 r# r# b# b# b1 co", "r# r# r# b# b# b#", "r9 r7 r9 b7 b9 b7", ". . . . . . co", "co"], { s: [[3, 2, 3, 5], [3, 5, 2, 5], [2, 5, 2, 4]], alt: { 0: [0, 4], 1: [1, 3] } }),
+    M("Les escargots", ["CM1", "CM2"], 7, 4, [". o3 o# o1", ". o# j# o# s3", ". o9 o# o7 s#", "s9 s# s# s# s# s7"], { s: [[5, 1, 4, 0], [5, 1, 6, 0]], alt: { 5: [5, 4, 6] }, d: [[4, 0, "noir"], [6, 0, "noir"], [4.7, 1.6, "oeil"]] }),
+  ],
+  halloween: [
+    M("Les fantômes", ["CP", "CE1"], 5, 4, [". . .", ". no no"], { s: [[0, 4, 0, 1], [0, 1, 1, 0], [1, 0, 3, 0], [3, 0, 4, 1], [4, 1, 4, 4], [4, 4, 3, 3], [3, 3, 2, 4], [2, 4, 1, 3], [1, 3, 0, 4]] }),
+    M("Les bonbons", ["CP", "CE1"], 5, 2, ["R1 o# j# R3", "R7 o# j# R9"], { alt: { 6: [6, 4, 8] } }),
+    M("Les citrouilles", ["CP", "CE2"], 6, 4, [". . v# v1 .", "o3 o# o# o# o1", "o# o# o# o# o#", "o9 o# o# o# o7"], { s: [[2, 1, 2, 4], [3, 1, 3, 4]] }),
+    M("Les chauves-souris", ["CE1", "CE2"], 7, 3, ["n1 . n1 n3 . n3", "n# n# n# n# n# n#", "n9 n7 n# n# n9 n7"], { alt: { 9: [9, 4] }, d: [[2.62, 1.42, "jaune"], [3.38, 1.42, "jaune"]] }),
+    M("Les chapeaux de sorcière", ["CE2", "CM1"], 7, 4, [". . p3 p1 . .", ". p3 p# p# p1 .", ". o# j# j# o# .", "p9 p# p# p# p# p7"], { alt: { 4: [4, 9, 3] } }),
+    M("Les citrouilles qui sourient", ["CM1", "CM2"], 6, 6, [". . v# v1 .", "o3 o# o# o# o1", "o# n3+o7 o# n1+o9 o#", "o# o# o# o# o#", "o# n9+o1 n# n7+o3 o#", "o9 o# o# o# o7"]),
+    M("La toile d'araignée", ["CM1", "CM2"], 5, 4, [], { s: [[0, 0, 4, 4], [4, 0, 0, 4], [2, 0, 2, 4], [0, 2, 4, 2], [1, 1, 3, 1], [3, 1, 3, 3], [3, 3, 1, 3], [1, 3, 1, 1], [2, 0, 4, 2], [4, 2, 2, 4], [2, 4, 0, 2], [0, 2, 2, 0]] }),
+  ],
+  noel: [
+    M("Les sapins en escalier", ["CP", "CE1"], 6, 5, [". . jo", ". . v#", ". v# v# v#", "v# v# v# v# v#", ". . m#"]),
+    M("Les boules de Noël", ["CP", "CE1"], 4, 4, [". j# .", "r3 r# r1", "j# j# j#", "r9 r# r7"], { s: [[0, 0, 4, 0, 3]], alt: { 0: [0, 1, 3, 4] }, d: [[0.75, 1.55, "blanc"]] }),
+    M("Les cadeaux", ["CP", "CE2"], 4, 4, ["j3 jo j1", "r# j# r#", "j# j# j#", "r# j# r#"], { alt: { 0: [0, 1, 3, 4] } }),
+    M("Les sucres d'orge", ["CE1", "CE2"], 4, 5, ["r1 r1 r1", "r1 . r1", "r1", "r1", "r1"], { s: [[0, 5, 0, 0], [0, 0, 3, 0], [3, 0, 3, 2], [3, 2, 2, 2], [2, 2, 2, 1], [2, 1, 1, 1], [1, 1, 1, 5], [1, 5, 0, 5]], alt: { 0: [0, 3] } }),
+    M("Les étoiles", ["CE2", "CM1"], 7, 6, [". . j3 j1", ". j7+o3 o# o# j9+o1", "j3 o# o# o# o# j1", "j9 o# o# o# o# j7", ". j1+o9 o# o# j3+o7", ". . j9 j7"], { alt: { 5: [5, 0, 1] } }),
+    M("Les sapins étagés", ["CE2", "CM2"], 7, 5, [". . v3 v1", ". v3 v# v# v1", ". v3 v# v# v1", "v3 v# v# v# v# v1", ". . m# m#"], { d: [[3, 0, "etoile"], [2.6, 1.5, "rouge"], [3.7, 1.75, "jaune"], [1.6, 3.4, "bleu"], [3, 3.1, "rouge"], [4.3, 3.5, "jaune"]] }),
+    M("Les flocons", ["CM1", "CM2"], 5, 4, [], { s: [[0, 2, 4, 2, 1], [2, 0, 2, 4, 1], [0, 0, 4, 4, 1], [4, 0, 0, 4, 1], [1, 0, 2, 1, 1], [2, 1, 3, 0, 1], [1, 4, 2, 3, 1], [2, 3, 3, 4, 1], [0, 1, 1, 2, 1], [1, 2, 0, 3, 1], [4, 1, 3, 2, 1], [3, 2, 4, 3, 1]] }),
+  ],
+  hiver: [
+    M("Les couronnes", ["CP", "CE1"], 6, 3, ["j# . j# . j#", "j# r# j# b# j#", "j# j# j# j# j#"]),
+    M("Les bonnets", ["CP", "CE2"], 6, 4, [". . jo", ". b3 b# b1", "r3 r# r# r# r1", "j# j# j# j# j#"], { alt: { 1: [1, 3], 0: [0, 4] } }),
+    M("Les galettes", ["CE1", "CE2"], 5, 4, ["s3 s# s# s1", "s# s# s# s#", "s# s# s# s#", "s9 s# s# s7"], { s: [[2, 0, 4, 2, 7], [4, 2, 2, 4, 7], [2, 4, 0, 2, 7], [0, 2, 2, 0, 7], [1, 1, 3, 3, 7], [3, 1, 1, 3, 7]] }),
+    M("Les bonshommes de neige", ["CE1", "CM1"], 5, 6, [". n# n#", ".", ".", ". r# r# r1"], { s: [[0, 1, 4, 1, 9], [1, 1, 1, 3], [3, 1, 3, 3], [3, 3, 4, 4], [4, 4, 4, 5], [4, 5, 3, 6], [3, 6, 1, 6], [1, 6, 0, 5], [0, 5, 0, 4], [0, 4, 1, 3]], alt: { 0: [0, 1, 3] }, d: [[1.62, 1.7, "oeil"], [2.38, 1.7, "oeil"], ["poly", [[2, 2.12], [2.75, 2.3], [2, 2.45]], 5], [2, 4.5, "noir"], [2, 5.3, "noir"]] }),
+    M("Les masques", ["CE2", "CM2"], 7, 4, ["p1 . . . . p3", "p# p# p# p# p# p#", "p# . p# p# . p#", "p9 p# p7 p9 p# p7"], { alt: { 4: [4, 6, 1] }, d: [[0.75, 1.5, "jaune"], [3, 1.5, "jaune"], [5.25, 1.5, "jaune"]] }),
+    M("Le costume d'Arlequin", ["CM1", "CM2"], 2, 2, ["j7+r3 j9+r1", "b1+r9 b3+r7"], { alt: { 0: [0, 3, 4, 5] } }),
+  ],
+  printemps: [
+    M("Les tulipes", ["CP", "CE1"], 4, 5, ["r# . r#", "r# r# r#", ". v# .", "v3 v# v1", ". v# ."], { alt: { 0: [0, 6, 2, 4] } }),
+    M("Les poussins", ["CP", "CE1"], 6, 4, [". . j3 j# o7", "j3 j# j# j#", "j9 j# j# j7"], { s: [[1, 3, 1, 4, 5], [2, 3, 2, 4, 5]], d: [[3.4, 0.45, "oeil"]] }),
+    M("Les œufs rayés", ["CE1", "CE2"], 4, 5, ["R3 R# R1", "b# b# b#", "R# R# R#", "j# j# j#", "R9 R# R7"], { alt: { 6: [6, 8, 4] } }),
+    M("Les lapins", ["CE1", "CE2"], 6, 5, [". s# . s#", ". s# . s#", "s3 s# s# s# s1", "s# s# s# s# s#", "s9 s# s# s# s7"], { alt: { 10: [10, 7] }, d: [["poly", [[1.3, 0.2], [1.7, 0.2], [1.7, 1.8], [1.3, 1.8]], 6], ["poly", [[3.3, 0.2], [3.7, 0.2], [3.7, 1.8], [3.3, 1.8]], 6], [1.6, 3, "oeil"], [3.4, 3, "oeil"], [2.5, 3.55, "nez"]] }),
+    M("Les papillons", ["CE2", "CM2"], 5, 5, [".", "r# r1 r3 r#", "r# r# r# r#", "j9 j# j# j7", ". j9 j7"], { s: [[2, 2, 2, 5], [2, 2, 1, 0], [2, 2, 3, 0]], alt: { 0: [0, 1, 4, 6], 2: [2, 5, 8, 3] }, d: [[0.6, 1.75, "blanc"], [3.4, 1.75, "blanc"], [1, 0, "noir"], [3, 0, "noir"]] }),
+    M("Les œufs à zigzag", ["CM1", "CM2"], 4, 5, ["R3 R# R1", "R# R# R#", "b1+R9 b3+R7 b1+R9", "b# b# b#", "R9 R# R7"], { alt: { 6: [6, 2, 8] } }),
+  ],
+  ete: [
+    M("Les soleils", ["CP", "CE1"], 4, 3, ["jo o# jo", "o# j# o#", "jo o# jo"]),
+    M("Les bateaux", ["CP", "CE1"], 6, 4, [". . r3", ". r3 r# j1", ". m9 m# m# m7", "c3 c1 c3 c1 c3 c1"], { alt: { 0: [0, 1, 4] } }),
+    M("Les poissons", ["CP", "CE2"], 5, 2, ["j1 o3 o# o1 co", "j7 o9 o# o7"], { alt: { 5: [5, 1, 4] }, d: [[3, 0.72, "oeil"]] }),
+    M("Les glaces", ["CE1", "CE2"], 5, 5, [". . ro", "R3 R# R# R1", "R# R# R# R#", "s9 s# s# s7", ". s9 s7"], { s: [[1, 3, 2, 4, 7], [3, 3, 2, 4, 7], [2, 3, 1, 4, 7], [2, 3, 3, 4, 7]], alt: { 6: [6, 3, 8] } }),
+    M("Les phares", ["CE2", "CM1"], 5, 6, [". r3 r1", ". j# j#", ". r# r#", ".", ". r# r#"], { s: [[1, 2, 1, 6], [3, 2, 3, 6], [0, 6, 4, 6, 1], [1, 1, 0, 0, 2], [1, 2, 0, 3, 2], [3, 1, 4, 0, 2], [3, 2, 4, 3, 2]], alt: { 0: [0, 1] } }),
+    M("Les crabes", ["CE2", "CM2"], 7, 4, ["r1 r3 . . r1 r3", ". r# r# r# r#", ". r# r# r# r#"], { s: [[1, 2, 0, 3], [1, 3, 0, 4], [5, 2, 6, 3], [5, 3, 6, 4]], alt: { 0: [0, 5] }, d: [[2.4, 1.5, "oeil"], [3.6, 1.5, "oeil"]] }),
+    M("Les ancres", ["CM1", "CM2"], 5, 6, [], { s: [[2, 0, 3, 1], [3, 1, 2, 2], [2, 2, 1, 1], [1, 1, 2, 0], [2, 2, 2, 6], [1, 3, 3, 3], [0, 4, 2, 6], [2, 6, 4, 4], [0, 4, 1, 4], [0, 4, 0, 5], [4, 4, 3, 4], [4, 4, 4, 5]] }),
+  ],
+};
 // Suites de motifs évolutives (algèbre, CM1-CM2) : cases de l'étape n (n ≥ 1), origine en bas à gauche.
 const SUITES = [
   { nom: "Le L qui grandit", n: (n) => 2 * n + 1, formule: "2 × n + 1", cases: (n) => [...Array.from({ length: n + 1 }, (_, i) => [0, i]), ...Array.from({ length: n }, (_, i) => [i + 1, 0])] },
@@ -79,7 +163,7 @@ const SUITES = [
   { nom: "Le T", n: (n) => 3 * n + 1, formule: "3 × n + 1", cases: (n) => { const r = []; for (let x = 0; x <= 2 * n; x++) r.push([x, n]); for (let y = 0; y < n; y++) r.push([n, y]); return r; } },
   { nom: "Les rectangles", n: (n) => n * (n + 1), formule: "n × (n + 1)", cases: (n) => { const r = []; for (let x = 0; x <= n; x++) for (let y = 0; y < n; y++) r.push([x, y]); return r; } },
 ];
-const S = 40, OY = 1, FR_KEY = "bagaschool-frises-perso";
+const S = 40, OY = 1, FR_KEY = "bagaschool-frises-perso", TH_KEY = "bagaschool-frises-theme", MARGE = 46;
 const cle = (a) => a.join(",");
 const pgcd = (a, b) => (b ? pgcd(b, a % b) : Math.abs(a));
 // Découpe un segment en segments élémentaires entre nœuds consécutifs (pour comparer deux tracés).
@@ -92,31 +176,72 @@ function decoupe(x1, y1, x2, y2) {
   }
   return out;
 }
-const vide = () => ({ s: new Map(), c: new Map() });
+// Demi-carrés complémentaires : ils peuvent partager une case (valeur « a:tl|b:br », parties triées par forme).
+const COMPL = { tl: "br", br: "tl", tr: "bl", bl: "tr" };
+const formeDe = (v) => v.split(":")[1];
+const joindre = (a, b) => [a, b].sort((x, y) => (formeDe(x) < formeDe(y) ? -1 : 1)).join("|");
+const contient = (cur, v) => !!cur && cur.split("|").includes(v);
+// Ajoute la partie v à la case (ou l'enlève si efface) ; renvoie la nouvelle valeur ou null si la case devient vide.
+function poserPart(cur, v, efface) {
+  const parts = cur ? cur.split("|") : [];
+  if (efface) { const reste = parts.filter((p) => p !== v); return reste.length ? reste.join("|") : null; }
+  const autre = COMPL[formeDe(v)] && parts.find((p) => formeDe(p) === COMPL[formeDe(v)]);
+  return autre ? joindre(autre, v) : v;
+}
+// Contour automatique d'un motif de saison : chaque case est vue comme 4 quarts (N, E, S, O) ;
+// un trait sépare deux quarts voisins de couleurs différentes (ou couleur / vide).
+const QUARTS = { f: "NESW", tl: "NW", tr: "NE", bl: "SW", br: "SE" };
+const contours = new WeakMap();
+function contourDe(m) {
+  if (contours.has(m)) return contours.get(m);
+  const q = new Map();
+  for (const [c, r, col, sh] of m.c || []) { const Q = QUARTS[sh]; if (!Q) continue; const o = q.get(cle([c, r])) || {}; for (const ch of Q) o[ch] = col; q.set(cle([c, r]), o); }
+  const g = (c, r, ch) => q.get(cle([c, r]))?.[ch] ?? null, out = [];
+  for (let r = 0; r <= m.h; r++) for (let c = 0; c < m.l; c++) if (g(c, r - 1, "S") !== g(c, r, "N")) out.push([c, r, c + 1, r]);
+  for (let c = 0; c <= m.l; c++) for (let r = 0; r < m.h; r++) if (g(c - 1, r, "E") !== g(c, r, "W")) out.push([c, r, c, r + 1]);
+  for (let r = 0; r < m.h; r++) for (let c = 0; c < m.l; c++) {
+    const [N, E, Sd, W] = ["N", "E", "S", "W"].map((ch) => g(c, r, ch));
+    if (N !== W && E !== Sd) out.push([c, r, c + 1, r + 1]);
+    if (N !== E && W !== Sd) out.push([c + 1, r, c, r + 1]);
+  }
+  contours.set(m, out);
+  return out;
+}
+const vide = () => ({ s: new Map(), c: new Map(), d: [] });
 function elements(m, k0, k1, cols) {
-  const e = vide();
+  const e = vide(), segs = [...(m.contour ? contourDe(m) : []), ...(m.s || [])];
   for (let k = k0; k < k1; k++) {
-    const dx = k * m.l;
-    for (const [c, r, col, sh] of m.c || []) if (c + dx < cols) e.c.set(cle([c + dx, r + OY]), col + ":" + sh);
-    for (const [x1, y1, x2, y2, col = -1] of m.s || []) if (Math.max(x1, x2) + dx <= cols) for (const k2 of decoupe(x1 + dx, y1 + OY, x2 + dx, y2 + OY)) e.s.set(k2, col);
+    const dx = k * m.l, cc = (col) => (m.alt && m.alt[col] ? m.alt[col][k % m.alt[col].length] : col);
+    for (const [c, r, col, sh] of m.c || []) if (c + dx < cols) { const kk = cle([c + dx, r + OY]), v = cc(col) + ":" + sh; e.c.set(kk, e.c.has(kk) ? poserPart(e.c.get(kk), v, false) : v); }
+    for (const [x1, y1, x2, y2, col = -1] of segs) if (Math.max(x1, x2) + dx <= cols) for (const k2 of decoupe(x1 + dx, y1 + OY, x2 + dx, y2 + OY)) e.s.set(k2, col >= 0 ? cc(col) : -1);
+    for (const d of m.d || []) {
+      if (d[0] === "poly") { if (Math.max(...d[1].map((p) => p[0])) + dx <= cols) e.d.push(["poly", d[1].map(([x, y]) => [x + dx, y + OY]), cc(d[2])]); }
+      else if (d[0] + dx <= cols) e.d.push([d[0] + dx, d[1] + OY, d[2]]);
+    }
   }
   return e;
 }
-function comparer(p, cible, deja) {
-  const ko = vide(), manque = vide(); let bons = 0;
-  for (const [k, v] of p.s) if (cible.s.has(k)) bons++; else ko.s.set(k, v);
-  for (const [k, v] of p.c) if (cible.c.get(k) === v) bons++; else ko.c.set(k, v);
-  for (const [k, v] of cible.s) if (!deja.s.has(k) && !p.s.has(k)) manque.s.set(k, v);
-  for (const [k, v] of cible.c) if (!deja.c.has(k) && p.c.get(k) !== v) manque.c.set(k, v);
+// quoi : "tout" (traits et couleurs), "traits" (les couleurs ne comptent pas), "couleurs" (les traits sont donnés).
+function comparer(p, cible, deja, quoi = "tout") {
+  const ko = vide(), manque = vide(), segs = quoi !== "couleurs", cases = quoi !== "traits"; let bons = 0;
+  if (segs) {
+    for (const [k, v] of p.s) if (cible.s.has(k)) bons++; else ko.s.set(k, v);
+    for (const [k, v] of cible.s) if (!deja.s.has(k) && !p.s.has(k)) manque.s.set(k, v);
+  }
+  if (cases) {
+    for (const [k, v] of p.c) if (cible.c.get(k) === v) bons++; else ko.c.set(k, v);
+    for (const [k, v] of cible.c) if (!deja.c.has(k) && p.c.get(k) !== v) manque.c.set(k, v);
+  }
   return { ko, manque, bons, juste: !ko.s.size && !ko.c.size && !manque.s.size && !manque.c.size };
 }
 function caseSVG(c, r, v, cls = "") {
+  if (v.includes("|")) return v.split("|").map((p) => caseSVG(c, r, p, cls)).join("");
   const [col, sh] = v.split(":"), fill = COULEURS[+col]?.[0] || ENCRE, x = c * S, y = r * S;
   const P = (pts) => `<polygon points="${pts.map(([a, b]) => `${x + a * S},${y + b * S}`).join(" ")}" fill="${fill}" class="geo-case ${cls}"/>`;
   switch (sh) {
-    case "q": return `<rect x="${x + 0.2 * S}" y="${y + 0.2 * S}" width="${0.6 * S}" height="${0.6 * S}" rx="3" fill="${fill}" class="geo-case ${cls}"/>`;
-    case "o": return `<circle cx="${x + S / 2}" cy="${y + S / 2}" r="${0.32 * S}" fill="${fill}" class="geo-case ${cls}"/>`;
-    case "t": return P([[0.5, 0.16], [0.86, 0.82], [0.14, 0.82]]);
+    case "q": return `<rect x="${x + 0.2 * S}" y="${y + 0.2 * S}" width="${0.6 * S}" height="${0.6 * S}" rx="3" fill="${fill}" class="geo-case geo-petit ${cls}"/>`;
+    case "o": return `<circle cx="${x + S / 2}" cy="${y + S / 2}" r="${0.32 * S}" fill="${fill}" class="geo-case geo-petit ${cls}"/>`;
+    case "t": return P([[0.5, 0.16], [0.86, 0.82], [0.14, 0.82]]).replace("geo-case", "geo-case geo-petit");
     case "tl": return P([[0, 0], [1, 0], [0, 1]]);
     case "tr": return P([[0, 0], [1, 0], [1, 1]]);
     case "bl": return P([[0, 0], [0, 1], [1, 1]]);
@@ -125,30 +250,61 @@ function caseSVG(c, r, v, cls = "") {
   }
 }
 const segSVG = (k, col, cls = "") => { const [a, b, c, d] = k.split(",").map(Number); return `<line x1="${a * S}" y1="${b * S}" x2="${c * S}" y2="${d * S}" stroke="${col >= 0 ? COULEURS[col][0] : ENCRE}" class="geo-seg ${cls}"/>`; };
-const couche = (e, cls = "") => [...e.c].map(([k, v]) => { const [c, r] = k.split(",").map(Number); return caseSVG(c, r, v, cls); }).join("") + [...e.s].map(([k, v]) => segSVG(k, v, cls)).join("");
+// Décorations (jamais vérifiées) : yeux, points de couleur, étoile, petits polygones.
+const POINTS = { blanc: "#ffffff", jaune: "#ffe45c", rouge: "#ef4f5a", bleu: "#4d8ef0", noir: ENCRE, nez: "#f06a9b" };
+function decoSVG(d, cls = "") {
+  if (d[0] === "poly") return `<polygon points="${d[1].map(([x, y]) => `${x * S},${y * S}`).join(" ")}" fill="${COULEURS[d[2]]?.[0] || ENCRE}" class="geo-deco ${cls}"/>`;
+  const [x, y, k] = d, X = x * S, Y = y * S;
+  if (k === "oeil") return `<g class="geo-deco ${cls}"><circle cx="${X}" cy="${Y}" r="${0.13 * S}" fill="${ENCRE}"/><circle cx="${X + 0.045 * S}" cy="${Y - 0.045 * S}" r="${0.045 * S}" fill="#fff"/></g>`;
+  if (k === "etoile") { const pts = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = (i % 2 ? 0.17 : 0.4) * S; pts.push(`${f1(X + rr * Math.cos(a))},${f1(Y + rr * Math.sin(a))}`); } return `<polygon points="${pts.join(" ")}" fill="#ffd93d" stroke="${ENCRE}" stroke-width="2.5" stroke-linejoin="round" class="geo-deco ${cls}"/>`; }
+  return `<circle cx="${X}" cy="${Y}" r="${(k === "nez" ? 0.11 : 0.1) * S}" fill="${POINTS[k] || ENCRE}" class="geo-deco geo-point ${cls}"/>`;
+}
+const couche = (e, cls = "") => [...e.c].map(([k, v]) => { const [c, r] = k.split(",").map(Number); return caseSVG(c, r, v, cls); }).join("") + [...e.s].map(([k, v]) => segSVG(k, v, cls)).join("") + (e.d || []).map((d) => decoSVG(d, cls)).join("");
 const iconeForme = (sh, col) => `<svg viewBox="-2 -2 44 44" width="30" height="30" aria-hidden="true"><rect x="0" y="0" width="40" height="40" fill="#fff" stroke="#ccc"/>${caseSVG(0, 0, `${col}:${sh}`)}</svg>`;
 const NOMS_FORMES = { f: "Case pleine", q: "Petit carré", o: "Rond", t: "Triangle", tl: "Demi-carré", tr: "Demi-carré", bl: "Demi-carré", br: "Demi-carré" };
 
-function quadrillage(cols, rows, fond) {
-  let g = `<rect x="0" y="0" width="${cols * S}" height="${rows * S}" class="geo-fond"/>`;
-  if (fond === "points") { for (let x = 0; x <= cols; x++) for (let y = 0; y <= rows; y++) g += `<circle cx="${x * S}" cy="${y * S}" r="2.6" class="geo-pt"/>`; }
-  else { for (let x = 0; x <= cols; x++) g += `<line x1="${x * S}" y1="0" x2="${x * S}" y2="${rows * S}" class="geo-gl"/>`; for (let y = 0; y <= rows; y++) g += `<line x1="0" y1="${y * S}" x2="${cols * S}" y2="${y * S}" class="geo-gl"/>`; }
-  return g;
+// Fond : quadrillage, points ou lignage Seyès (4 lignes par carreau, la 4e plus foncée, verticales à chaque carreau, marge rouge).
+function quadrillage(cols, rows, fond, g = 12) {
+  if (fond === "seyes") {
+    const x0 = -g, x1 = cols * S + 12, y0 = -12, y1 = rows * S + 12;
+    let h = `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" class="geo-papier"/>`;
+    for (let i = -1; i <= rows * 4 + 1; i++) { const y = i * S / 4; h += `<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" class="${i % 4 === 0 ? "geo-sy-f" : "geo-sy"}"/>`; }
+    for (let x = 0; x <= cols; x++) h += `<line x1="${x * S}" y1="${y0}" x2="${x * S}" y2="${y1}" class="geo-sy-v"/>`;
+    return h + `<line x1="${-g / 2 - 2}" y1="${y0}" x2="${-g / 2 - 2}" y2="${y1}" class="geo-marge"/>`;
+  }
+  let h = `<rect x="0" y="0" width="${cols * S}" height="${rows * S}" class="geo-fond"/>`;
+  if (fond === "points") { for (let x = 0; x <= cols; x++) for (let y = 0; y <= rows; y++) h += `<circle cx="${x * S}" cy="${y * S}" r="2.6" class="geo-pt"/>`; }
+  else { for (let x = 0; x <= cols; x++) h += `<line x1="${x * S}" y1="0" x2="${x * S}" y2="${rows * S}" class="geo-gl"/>`; for (let y = 0; y <= rows; y++) h += `<line x1="0" y1="${y * S}" x2="${cols * S}" y2="${y * S}" class="geo-gl"/>`; }
+  return h;
+}
+// Une bande de frise : fond + contenu, dans un cadre de couleur (cadre) si demandé.
+function svgFrise(cols, rows, contenu, fond, attrs = "", cadre = "") {
+  const g = fond === "seyes" ? MARGE : 12;
+  return `<svg class="geo-fr-svg${cadre ? " geo-cadre" : ""}"${cadre ? ` style="--cadre:${cadre}"` : ""} viewBox="${-g} -12 ${cols * S + g + 12} ${rows * S + 24}" width="${cols * S + g + 12}" height="${rows * S + 24}" ${attrs} role="img" aria-label="Frise">${quadrillage(cols, rows, fond, g)}${contenu}</svg>`;
 }
 const lirePerso = () => { try { const a = JSON.parse(localStorage.getItem(FR_KEY)); return Array.isArray(a) ? a : []; } catch { return []; } };
+const pourNiveau = (m, niv) => !m.niv || (rang(m.niv[0]) <= rang(niv) && rang(niv) <= rang(m.niv[1]));
+const themeDuMois = () => { const mo = new Date().getMonth() + 1; return (THEMES.find((t) => t.mois?.includes(mo)) || THEMES[0]).id; };
+const motifsTheme = (th, niv) => { if (th === "geo" || !SAISONS[th]) return FRISES[niv]; const L = SAISONS[th].filter((m) => pourNiveau(m, niv)); return L.length ? L : SAISONS[th]; };
 
 function frises(el) {
-  let niv = niveauJeux(), mode = "continuer", idx = 0, outil = "trait", coul = 1, forme = "f", fond = "carreaux";
+  let niv = niveauJeux(), mode = "continuer", idx = 0, outil = "trait", coul = 1, forme = "f", fondChoisi = null, quoi = "tout";
+  let theme = localStorage.getItem(TH_KEY); if (!THEMES.some((t) => t.id === theme)) theme = themeDuMois();
   let dess = vide(), hist = [], verif = null, sol = false, pending = null, apercu = null, act = null, voirMotif = true;
   let perso = lirePerso(), edit = { id: null, nom: "Ma frise", l: 3, h: 2 };
   let suite = 0, etapeQ = 10, voirRep = false;
-  const liste = () => [...FRISES[niv], ...perso.map((m) => ({ ...m, perso: true }))];
+  const TH = () => THEMES.find((t) => t.id === theme) || THEMES[0];
+  const officiels = () => motifsTheme(theme, niv);
+  const liste = () => [...officiels(), ...perso.map((m) => ({ ...m, perso: true }))];
   const modele = () => liste()[idx] || liste()[0];
-  const modes = [["continuer", "➡️ Continuer"], ["reproduire", "✍️ Reproduire"], ["voir", "👁️ Voir le modèle"], ["creer", "🛠️ Créer"]];
-  if (des(niv, "CM1")) modes.splice(3, 0, ["suite", "📈 Motifs qui grandissent"]);
+  const fond = () => fondChoisi || (theme === "geo" && !modele()?.contour ? "carreaux" : "seyes");
+  const listeModes = () => { const r = [["continuer", "➡️ Continuer"], ["reproduire", "✍️ Reproduire"], ["voir", "👁️ Voir le modèle"], ["creer", "🛠️ Créer"]]; if (des(niv, "CM1")) r.splice(3, 0, ["suite", "📈 Motifs qui grandissent"]); return r; };
   const garder = () => localStorage.setItem(FR_KEY, JSON.stringify(perso));
   const instantane = () => { hist.push({ s: [...dess.s], c: [...dess.c] }); if (hist.length > 80) hist.shift(); };
   const reset = () => { dess = vide(); hist = []; verif = null; sol = false; pending = null; apercu = null; voirRep = false; };
+  // Le motif a-t-il à la fois des traits et des cases à colorier ? (sinon, pas de choix « tracer / colorier »)
+  const mixte = (m) => !!m && (m.c || []).length > 0 && ((m.s || []).length > 0 || !!m.contour);
+  const quoiEff = () => (mode === "continuer" || mode === "reproduire") && mixte(modele()) ? quoi : "tout";
 
   // Dimensions et contenus selon le mode.
   const plan = () => {
@@ -159,7 +315,10 @@ function frises(el) {
     if (mode === "suite") { const sq = SUITES[suite], w = (n) => { const cs = sq.cases(n); return Math.max(...cs.map((p) => p[0])) + 1; }, hh = Math.max(...sq.cases(4).map((p) => p[1])) + 1; const xs = [1]; for (let n = 1; n < 4; n++) xs.push(xs[n - 1] + w(n) + 2); return { cols: xs[3] + w(4) + 1, rows: hh + 2, xs, hh, sq }; }
     return { cols: edit.l * 4, rows: edit.h + 2 };
   };
-  const motifEdite = () => ({ l: edit.l, h: edit.h, c: [...dess.c].map(([k, v]) => { const [c, r] = k.split(",").map(Number), [col, sh] = v.split(":"); return [c, r - OY, +col, sh]; }), s: [...dess.s].map(([k, v]) => { const [a, b, c, d] = k.split(",").map(Number); return [a, b - OY, c, d - OY, v]; }) });
+  // Pour « colorier seulement » : les traits de la frise sont donnés (guides) et ne sont pas demandés.
+  const dejaEff = (p) => { if (quoiEff() !== "couleurs") return p.deja; const d = { s: new Map(p.cible.s), c: p.deja.c, d: p.deja.d }; return d; };
+  const guides = (p) => { if (quoiEff() !== "couleurs") return ""; const g = vide(); for (const [k, v] of p.cible.s) if (!p.deja.s.has(k)) g.s.set(k, v); return couche(g, "geo-guide"); };
+  const motifEdite = () => ({ l: edit.l, h: edit.h, c: [...dess.c].flatMap(([k, v]) => { const [c, r] = k.split(",").map(Number); return v.split("|").map((p) => { const [col, sh] = p.split(":"); return [c, r - OY, +col, sh]; }); }), s: [...dess.s].map(([k, v]) => { const [a, b, c, d] = k.split(",").map(Number); return [a, b - OY, c, d - OY, v]; }) });
   // Cases attendues pour la suite (étape 4, comparées à une translation près).
   const normaliser = (cells) => { const mx = Math.min(...cells.map((p) => p[0])), my = Math.min(...cells.map((p) => p[1])); return new Set(cells.map(([x, y]) => cle([x - mx, y - my]))); };
 
@@ -172,15 +331,16 @@ function frises(el) {
     if (mode === "creer") g += couche(elements(motifEdite(), 1, 4, p.cols), "geo-repete");
     return g;
   };
-  const grille = (id, p, statique, inter) => `<svg class="geo-fr-svg" viewBox="-12 -12 ${p.cols * S + 24} ${p.rows * S + 24}" ${inter ? `data-inter="${id}"` : ""} role="img" aria-label="Quadrillage">
-      ${quadrillage(p.cols, p.rows, fond)}${statique}${inter ? `<g class="geo-dyn">${dynHTML(p)}</g>` : ""}</svg>`;
+  const grille = (id, p, statique, inter) => svgFrise(p.cols, p.rows, statique + (inter ? `<g class="geo-dyn">${dynHTML(p)}</g>` : ""), fond(), inter ? `data-inter="${id}"` : "", TH().cadre);
 
   const palette = () => {
-    const formes = niv === "CP" ? ["f", "q", "o", "t"] : ["f", "q", "o", "t", "tl", "tr", "bl", "br"];
+    const m = mode === "creer" ? null : modele(), base = ["f", "q", "o", "t"];
+    const utiles = new Set((m?.c || []).map((x) => x[3]));
+    const formes = niv === "CP" && !["tl", "tr", "bl", "br"].some((f) => utiles.has(f)) ? base : [...base, "tl", "tr", "bl", "br"];
     const suiteM = mode === "suite";
     return `<div class="geo-palette">
       ${suiteM ? "" : `<div class="geo-grp">${[["trait", "✏️ Tracer"], ["colorier", "🎨 Colorier"], ["gomme", "🧽 Gomme"]].map(([k, v]) => `<button class="geo-tb ${outil === k ? "on" : ""}" data-outil="${k}">${v}</button>`).join("")}</div>`}
-      <div class="geo-grp">${COULEURS.map(([c, n], i) => `<button class="geo-coul ${coul === i ? "on" : ""}" data-coul="${i}" aria-label="${n}" style="--c:${c}"></button>`).join("")}</div>
+      <div class="geo-grp geo-couls">${COULEURS.map(([c, n], i) => `<button class="geo-coul ${coul === i ? "on" : ""}" data-coul="${i}" aria-label="${n}" title="${n}" style="--c:${c}"></button>`).join("")}</div>
       ${outil === "colorier" && !suiteM ? `<div class="geo-grp">${formes.map((f) => `<button class="geo-tb geo-forme ${forme === f ? "on" : ""}" data-forme="${f}" aria-label="${NOMS_FORMES[f]}">${iconeForme(f, coul)}</button>`).join("")}</div>` : ""}
       <div class="geo-grp"><button class="geo-tb" data-act="annuler" aria-label="Annuler">↶</button><button class="geo-tb" data-act="effacer" aria-label="Tout effacer">🗑️</button></div>
     </div>`;
@@ -191,13 +351,15 @@ function frises(el) {
     const ko = verif.ko.s.size + verif.ko.c.size, man = verif.manque.s.size + verif.manque.c.size;
     return `<span class="banner ko">${ko ? `${ko} erreur${ko > 1 ? "s" : ""} (en rouge)` : "Pas d'erreur"}${man ? ` • ${man} élément${man > 1 ? "s" : ""} manquant${man > 1 ? "s" : ""}` : ""}</span>`;
   };
+  const titre = (m, consigne) => `<div class="geo-fr-tete">${m ? `<span class="geo-fr-titre" style="--cadre:${TH().cadre}">${m.perso ? "⭐" : TH().ico} ${esc(m.nom)}</span>` : ""}${consigne ? `<span class="geo-q">${consigne}</span>` : ""}</div>`;
 
   const render = () => {
     const L = liste(); if (idx >= L.length) idx = 0;
     const p = plan();
-    let haut = `<div class="tool-top">${segNiveau(niv)}<div class="seg">${modes.map(([k, v]) => `<button data-mode="${k}" class="${mode === k ? "on" : ""}">${v}</button>`).join("")}</div></div>`;
+    let haut = `<div class="tool-top">${segNiveau(niv)}<div class="seg">${listeModes().map(([k, v]) => `<button data-mode="${k}" class="${mode === k ? "on" : ""}">${v}</button>`).join("")}</div></div>`;
     let barre = "", corps = "";
-    const selFond = `<div class="seg"><button data-fond="carreaux" class="${fond === "carreaux" ? "on" : ""}">▦ Quadrillage</button><button data-fond="points" class="${fond === "points" ? "on" : ""}">⁙ Points</button></div>`;
+    const F = fond();
+    const selFond = `<div class="seg">${[["seyes", "📒 Seyès"], ["carreaux", "▦ Quadrillage"], ["points", "⁙ Points"]].map(([k, v]) => `<button data-fond="${k}" class="${F === k ? "on" : ""}">${v}</button>`).join("")}</div>`;
     if (mode === "suite") {
       const sq = p.sq;
       barre = `<div class="tool-top"><select id="fr-suite" aria-label="Suite">${SUITES.map((s, i) => `<option value="${i}" ${i === suite ? "selected" : ""}>${esc(s.nom)}</option>`).join("")}</select>${selFond}<button class="pill" id="fr-verif">✔️ Vérifier l'étape 4</button><button class="pill" id="fr-rep">${voirRep ? "Cacher" : "Montrer"} la réponse</button></div>`;
@@ -216,22 +378,27 @@ function frises(el) {
       return;
     }
     if (mode !== "creer") {
-      const m = p.m;
-      barre = `<div class="tool-top"><select id="fr-m" aria-label="Modèle"><optgroup label="Modèles ${niv}">${FRISES[niv].map((x, i) => `<option value="${i}" ${i === idx ? "selected" : ""}>${esc(x.nom)}</option>`).join("")}</optgroup>${perso.length ? `<optgroup label="Mes frises">${perso.map((x, i) => `<option value="${FRISES[niv].length + i}" ${FRISES[niv].length + i === idx ? "selected" : ""}>${esc(x.nom)}</option>`).join("")}</optgroup>` : ""}</select>
-        <button class="pill" id="fr-hasard">🎲 Au hasard</button>${selFond}
+      const m = p.m, O = officiels(), th = TH();
+      haut += `<div class="tool-top"><div class="seg geo-themes" role="group" aria-label="Thème">${THEMES.map((t) => `<button data-theme="${t.id}" class="${t.id === theme ? "on" : ""}" title="${t.nom}">${t.ico} ${t.court || t.nom}</button>`).join("")}</div></div>`;
+      const q = quoiEff(), selQuoi = (mode === "continuer" || mode === "reproduire") && mixte(m) ? `<div class="seg" role="group" aria-label="Ce qu'on fait">${[["tout", "✏️🎨 Tracer et colorier"], ["traits", "✏️ Tracer"], ["couleurs", "🎨 Colorier"]].map(([k, v]) => `<button data-quoi="${k}" class="${q === k ? "on" : ""}">${v}</button>`).join("")}</div>` : "";
+      barre = `<div class="tool-top"><select id="fr-m" aria-label="Modèle"><optgroup label="${th.ico} ${esc(th.nom)} · ${niv}">${O.map((x, i) => `<option value="${i}" ${i === idx ? "selected" : ""}>${esc(x.nom)}</option>`).join("")}</optgroup>${perso.length ? `<optgroup label="⭐ Mes frises">${perso.map((x, i) => `<option value="${O.length + i}" ${O.length + i === idx ? "selected" : ""}>${esc(x.nom)}</option>`).join("")}</optgroup>` : ""}</select>
+        <button class="pill" id="fr-hasard">🎲 Au hasard</button>${selFond}${selQuoi}
         ${mode === "voir" ? `<button class="pill ${voirMotif ? "on" : ""}" id="fr-motif">${voirMotif ? "Cacher" : "Montrer"} le motif</button>` : `<button class="pill" id="fr-verif">✔️ Vérifier</button><button class="pill" id="fr-sol">💡 Solution</button>`}
+        <button class="pill" id="fr-print">🖨️ Imprimer</button>
         ${m.perso ? `<button class="pill" id="fr-modif">✏️ Modifier</button>` : ""}</div>`;
       if (mode === "voir") {
         let st = "";
         if (voirMotif) for (let k = 0; k < p.reps; k++) st += `<rect x="${k * m.l * S}" y="0" width="${m.l * S}" height="${p.rows * S}" class="geo-bande ${k % 2 ? "b2" : "b1"}"/>`;
         st += couche(p.tout);
         if (voirMotif) st += `<rect x="-4" y="${OY * S - 4}" width="${m.l * S + 8}" height="${m.h * S + 8}" class="geo-motif"/><text x="4" y="${OY * S - 10}" class="geo-lbl">motif</text>`;
-        corps = `<div class="geo-fr rc-board">${grille("voir", p, st, false)}<p class="geo-msg">${voirMotif ? `Le motif (${m.l} carreau${m.l > 1 ? "x" : ""} de large) se répète en glissant vers la droite.` : ""}</p></div>`;
+        const altTxt = m.alt ? " Les couleurs changent à chaque fois : regarde bien l'ordre." : "";
+        corps = `<div class="geo-fr rc-board">${titre(m, "")}${grille("voir", p, st, false)}<p class="geo-msg">${voirMotif ? `Le motif (${m.l} carreau${m.l > 1 ? "x" : ""} de large) se répète en glissant vers la droite.${altTxt}` : ""}</p></div>`;
       } else if (mode === "continuer") {
-        const st = `<rect x="${p.depart * S}" y="0" width="${(p.cols - p.depart) * S}" height="${p.rows * S}" class="geo-zone-eleve"/>` + couche(p.deja, "geo-modele") + `<line x1="${p.depart * S}" y1="-8" x2="${p.depart * S}" y2="${p.rows * S + 8}" class="geo-sep"/>`;
-        corps = `<div class="geo-fr rc-board"><p class="geo-q">Continue la frise jusqu'au bout ➜</p>${grille("g", p, st, true)}${palette()}<p class="geo-msg">${message()}</p></div>`;
+        const st = `<rect x="${p.depart * S}" y="0" width="${(p.cols - p.depart) * S}" height="${p.rows * S}" class="geo-zone-eleve"/>` + guides(p) + couche(p.deja, "geo-modele") + `<line x1="${p.depart * S}" y1="-8" x2="${p.depart * S}" y2="${p.rows * S + 8}" class="geo-sep"/>`;
+        const cons = q === "couleurs" ? "Colorie la suite de la frise ➜" : q === "traits" ? "Trace la suite de la frise ➜" : "Continue la frise jusqu'au bout ➜";
+        corps = `<div class="geo-fr rc-board">${titre(m, cons)}${grille("g", p, st, true)}${palette()}<p class="geo-msg">${message()}</p></div>`;
       } else {
-        corps = `<div class="geo-fr rc-board"><p class="geo-q">Le modèle :</p>${grille("modele", p, couche(p.cible, "geo-modele"), false)}<p class="geo-q">Reproduis-le ici :</p>${grille("g", p, "", true)}${palette()}<p class="geo-msg">${message()}</p></div>`;
+        corps = `<div class="geo-fr rc-board">${titre(m, "Le modèle :")}${grille("modele", p, couche(p.cible, "geo-modele"), false)}<p class="geo-q">${q === "couleurs" ? "Colorie de la même façon :" : "Reproduis-le ici :"}</p>${grille("g", p, guides(p), true)}${palette()}<p class="geo-msg">${message()}</p></div>`;
       }
     } else {
       barre = `<div class="tool-top"><button class="pill" id="fr-new">✨ Nouvelle frise</button>
@@ -247,15 +414,33 @@ function frises(el) {
   };
   const majDyn = () => { const g = el.querySelector("svg[data-inter] .geo-dyn"); if (g) g.innerHTML = dynHTML(plan()); const msg = el.querySelector(".geo-msg"); if (msg && mode !== "voir" && mode !== "suite") msg.innerHTML = message(); };
 
+  // ---- fiche à imprimer (A4, à l'échelle du cahier : 1 carreau = 8 mm) ----
+  const imprimer = () => {
+    const m = modele(), th = TH(), COLS = 22, reps = Math.max(1, Math.floor(COLS / m.l)), plein = reps * m.l, rows = m.h + 2;
+    const bande = (e) => `<div class="geo-pr-bande" style="width:${f1((COLS * S + MARGE + 12) / S * 8)}mm">${svgFrise(COLS, rows, couche(e), "seyes", "", th.cadre)}</div>`;
+    const debut = Math.min(2, Math.max(1, reps - 2));
+    const fiche = `<div class="geo-print"><div class="geo-pr-tete"><b>${m.perso ? "⭐" : th.ico} Frise : ${esc(m.nom)}</b><span>Prénom : ……………………… &nbsp; Date : ……………</span></div>
+      <p class="geo-pr-q">1. Observe le modèle.</p>${bande(elements(m, 0, reps, plein))}
+      <p class="geo-pr-q">2. Continue la frise avec ta règle et tes crayons de couleur.</p>${bande(elements(m, 0, debut, plein))}
+      <p class="geo-pr-q">3. Reproduis la frise.</p>${bande(vide())}</div>`;
+    el.querySelector(".geo-print")?.remove();
+    el.insertAdjacentHTML("beforeend", fiche);
+    document.body.classList.add("geo-imprime");
+    const fin = () => { document.body.classList.remove("geo-imprime"); el.querySelector(".geo-print")?.remove(); window.removeEventListener("afterprint", fin); };
+    window.addEventListener("afterprint", fin);
+    window.print();
+  };
+
   // ---- dessin au doigt / stylet / souris ----
   const dansZone = (p, xs) => mode !== "creer" || xs.every((x) => x <= edit.l);
   const noeud = (p, x, y) => [Math.max(0, Math.min(p.cols, Math.round(x))), Math.max(0, Math.min(p.rows, Math.round(y)))];
   const caseA = (p, x, y) => { const c = Math.floor(x), r = Math.floor(y); return c >= 0 && r >= 0 && c < p.cols && r < p.rows ? [c, r] : null; };
   const ajouterSeg = (p, a, b) => { if (!dansZone(p, [a[0], b[0]])) return; instantane(); for (const k of decoupe(a[0], a[1], b[0], b[1])) dess.s.set(k, coul); verif = null; };
+  const valeur = () => (mode === "suite" ? `${coul}:f` : `${coul}:${forme}`);
   const peindre = (p, c) => {
     if (!c || (mode === "creer" && c[0] >= edit.l)) return;
-    const k = cle(c), v = mode === "suite" ? `${coul}:f` : `${coul}:${forme}`;
-    if (act.efface) dess.c.delete(k); else dess.c.set(k, v);
+    const k = cle(c), nv = poserPart(dess.c.get(k), valeur(), act.efface);
+    if (nv) dess.c.set(k, nv); else dess.c.delete(k);
     verif = null;
   };
   const gommer = (p, x, y) => {
@@ -268,7 +453,7 @@ function frises(el) {
     const p = plan(), [x, y] = svgPt(svg, e).map((v) => v / S);
     const o = mode === "suite" ? "colorier" : outil;
     if (o === "trait") { const n = noeud(p, x, y); act = { k: "trait", a: n, svg }; apercu = [n, n]; }
-    else if (o === "colorier") { const c = caseA(p, x, y); if (!c) return; instantane(); const v = mode === "suite" ? `${coul}:f` : `${coul}:${forme}`; act = { k: "peint", efface: dess.c.get(cle(c)) === v, svg }; peindre(p, c); }
+    else if (o === "colorier") { const c = caseA(p, x, y); if (!c) return; instantane(); act = { k: "peint", efface: contient(dess.c.get(cle(c)), valeur()), svg }; peindre(p, c); }
     else { instantane(); act = { k: "gomme", svg }; gommer(p, x, y); }
     majDyn();
   };
@@ -297,23 +482,26 @@ function frises(el) {
   const verifier = () => {
     const p = plan();
     if (mode === "suite") { const att = normaliser(p.sq.cases(4)), x0 = p.xs[3]; const mine = [...dess.c.keys()].map((k) => k.split(",").map(Number)).filter(([c]) => c >= x0 - 1); const got = mine.length ? normaliser(mine) : new Set(); verif = { juste: got.size === att.size && [...att].every((k) => got.has(k)) }; return; }
-    verif = comparer(dess, p.cible, p.deja);
+    verif = comparer(dess, p.cible, dejaEff(p), quoiEff());
   };
   el.onclick = (e) => {
-    if (surNiveau(e, (n) => { niv = n; idx = 0; if (mode === "suite" && !des(niv, "CM1")) mode = "continuer"; modes.length = 0; modes.push(...[["continuer", "➡️ Continuer"], ["reproduire", "✍️ Reproduire"], ["voir", "👁️ Voir le modèle"], ["creer", "🛠️ Créer"]]); if (des(niv, "CM1")) modes.splice(3, 0, ["suite", "📈 Motifs qui grandissent"]); reset(); render(); })) return;
+    if (surNiveau(e, (n) => { niv = n; idx = 0; if (mode === "suite" && !des(niv, "CM1")) mode = "continuer"; reset(); render(); })) return;
     const t = e.target.closest("button"); if (!t) return;
     const d = t.dataset;
     if (d.mode) { if (d.mode === "creer" && mode !== "creer") { edit = { id: null, nom: "Ma frise", l: 3, h: 2 }; } mode = d.mode; reset(); }
+    else if (d.theme) { theme = d.theme; localStorage.setItem(TH_KEY, theme); idx = 0; reset(); }
+    else if (d.quoi) { quoi = d.quoi; reset(); if (quoi === "couleurs") outil = "colorier"; else if (quoi === "traits") outil = "trait"; }
     else if (d.outil) { outil = d.outil; pending = null; }
     else if (d.coul) { coul = +d.coul; if (outil === "gomme") outil = "colorier"; }
     else if (d.forme) forme = d.forme;
-    else if (d.fond) fond = d.fond;
-    else if (d.act === "annuler") { const h = hist.pop(); if (h) { dess = { s: new Map(h.s), c: new Map(h.c) }; verif = null; } }
+    else if (d.fond) fondChoisi = d.fond;
+    else if (d.act === "annuler") { const h = hist.pop(); if (h) { dess = { s: new Map(h.s), c: new Map(h.c), d: [] }; verif = null; } }
     else if (d.act === "effacer") { if (dess.s.size || dess.c.size) { instantane(); dess = vide(); verif = null; sol = false; } }
     else if (d.dim) { const k = d.dim[0], v = edit[k] + (d.dim[1] === "+" ? 1 : -1), max = k === "l" ? 8 : 5; if (v >= 1 && v <= max) { edit[k] = v; for (const kk of [...dess.c.keys()]) { const [c, r] = kk.split(",").map(Number); if (c >= edit.l || r - OY >= edit.h) dess.c.delete(kk); } for (const kk of [...dess.s.keys()]) { const [a, b, c, dd] = kk.split(",").map(Number); if (Math.max(a, c) > edit.l || Math.max(b, dd) - OY > edit.h) dess.s.delete(kk); } } }
     else if (t.id === "fr-hasard") { const L = liste(); let j = idx; if (L.length > 1) while (j === idx) j = hasard(L.length); idx = j; reset(); }
     else if (t.id === "fr-verif") { verifier(); sol = false; }
     else if (t.id === "fr-sol") { verifier(); sol = true; }
+    else if (t.id === "fr-print") { imprimer(); return; }
     else if (t.id === "fr-motif") voirMotif = !voirMotif;
     else if (t.id === "fr-rep") voirRep = !voirRep;
     else if (t.id === "fr-new") { edit = { id: null, nom: "Ma frise", l: 3, h: 2 }; reset(); }
@@ -325,14 +513,14 @@ function frises(el) {
       const j = perso.findIndex((x) => x.id === m.id); if (j >= 0) perso[j] = m; else perso.push(m);
       edit.id = m.id; garder();
     }
-    else if (t.id === "fr-essai") { const j = perso.findIndex((x) => x.id === edit.id); if (j >= 0) { idx = FRISES[niv].length + j; mode = "continuer"; reset(); } }
+    else if (t.id === "fr-essai") { const j = perso.findIndex((x) => x.id === edit.id); if (j >= 0) { idx = officiels().length + j; mode = "continuer"; reset(); } }
     else if (t.id === "fr-suppr") { if (confirm("Supprimer cette frise ?")) { perso = perso.filter((x) => x.id !== edit.id); garder(); edit = { id: null, nom: "Ma frise", l: 3, h: 2 }; reset(); } }
     else return;
     render();
   };
   const charger = (pm) => {
     reset(); edit = { id: pm.id, nom: pm.nom, l: pm.l, h: pm.h };
-    for (const [c, r, col, sh] of pm.c || []) dess.c.set(cle([c, r + OY]), col + ":" + sh);
+    for (const [c, r, col, sh] of pm.c || []) { const k = cle([c, r + OY]), v = col + ":" + sh; dess.c.set(k, dess.c.has(k) ? poserPart(dess.c.get(k), v, false) : v); }
     for (const [a, b, c, d, col = -1] of pm.s || []) for (const k of decoupe(a, b + OY, c, d + OY)) dess.s.set(k, col);
   };
   el.onchange = (e) => {
@@ -342,7 +530,7 @@ function frises(el) {
   };
   el.oninput = (e) => { if (e.target.id === "fr-nom") edit.nom = e.target.value; };
   render();
-  return () => { act = null; };
+  return () => { act = null; document.body.classList.remove("geo-imprime"); };
 }
 
 // =====================================================================
@@ -1291,10 +1479,10 @@ function solides(el) {
 }
 
 // Fonctions exposées pour les tests.
-export const _geo = { decoupe, elements, comparer, FRISES, SUITES, proprietes, fabriquer, nette, ATTENDU, TRIS, NOMME, DEVINETTES, CHAINES, SOLIDES, comptes, modele3D, estPatronCube, polyominos, PATRONS, PATRONS_NIV, plier, patronCarres, deplier, typeFigure, nomFigure, axesSym, analyser, croise, DEPARTS, TOL_MANIP };
+export const _geo = { decoupe, elements, comparer, FRISES, SUITES, SAISONS, THEMES, contourDe, poserPart, proprietes, fabriquer, nette, ATTENDU, TRIS, NOMME, DEVINETTES, CHAINES, SOLIDES, comptes, modele3D, estPatronCube, polyominos, PATRONS, PATRONS_NIV, plier, patronCarres, deplier, typeFigure, nomFigure, axesSym, analyser, croise, DEPARTS, TOL_MANIP };
 
 export const GEO = [
-  { id: "frises", nom: "Frises et motifs", icone: "〰️", couleur: "#ffe3a3", desc: "Continuer, reproduire, créer des frises sur quadrillage", mount: frises },
+  { id: "frises", nom: "Frises et motifs", icone: "〰️", couleur: "#ffe3a3", desc: "Frises de saison sur Seyès ou quadrillage : continuer, reproduire, créer, imprimer", mount: frises },
   { id: "formes", nom: "Formes et polygones", icone: "🔷", couleur: "#cfe6ff", desc: "Nommer, trier, devinettes « Qui suis-je ? »", mount: formes },
   { id: "figures", nom: "Figures à manipuler", icone: "✋", couleur: "#c9ecd4", desc: "Déplacer les sommets, tourner, agrandir : propriétés en direct", mount: figures },
   { id: "solides", nom: "Les solides", icone: "🧊", couleur: "#d7ccff", desc: "Solides en 3D à faire tourner, patrons à plier", mount: solides },
