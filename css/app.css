@@ -1096,3 +1096,51 @@ body.projection .ec-space{max-height:calc(100vh - 120px)}
   .pl-bar button{flex:none}
 }
 .ec-space .ec-facts{grid-template-columns:minmax(0,46%) minmax(0,1fr)}
+
+/* ===== v0.13 : graphiques par domaine, fiche élève ===== */
+.tabs a{display:inline-grid;place-items:center;border-radius:10px;min-height:36px;padding:4px 12px;color:var(--ink);text-decoration:none;font-weight:700}
+.graph{margin:6px 0 18px}
+.gdisc{background:#fbfaff;border-radius:14px;padding:8px 12px 10px;margin:10px 0}
+.gdisc h4{margin:4px 0 8px}
+.gline{display:grid;grid-template-columns:minmax(110px,220px) 1fr 92px;gap:10px;align-items:center;margin:6px 0;font-size:14px}
+.gline.fort{font-weight:800;font-size:15px}
+.gline .gl{overflow-wrap:anywhere}
+.gline .gv{text-align:right;white-space:nowrap}.gline .gv small{color:var(--muted)}
+.gbar{position:relative;display:flex;height:26px;border-radius:13px;background:#f1edf9}
+.gbar>span{display:grid;place-items:center;font-size:12px;font-weight:800;min-width:0;overflow:hidden}
+.gbar>span:first-child{border-radius:13px 0 0 13px}.gbar>span:last-of-type{border-radius:0 13px 13px 0}.gbar>span:only-of-type{border-radius:13px}
+.gmark{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1.5px;background:var(--ink);border-radius:2px}
+.gmark-l{display:inline-block;width:3px;height:14px;background:var(--ink);vertical-align:middle;border-radius:2px}
+.suivi-h{margin:18px 0 8px}
+.heatmap{border-collapse:separate;border-spacing:3px;width:100%}
+.heatmap th,.heatmap td{border:none;vertical-align:middle}
+.heatmap th{font-size:13px;padding:6px;text-align:center}
+.heatmap thead th{vertical-align:bottom;max-width:140px}
+.heatmap tbody th,.heatmap tfoot th{text-align:left;white-space:nowrap;position:sticky;left:0;background:#fff}
+.heatmap tbody th a{color:var(--ink);text-decoration:none}
+.heatmap td.hm-v{border-radius:10px;text-align:center;padding:6px 4px;min-width:64px}
+.heatmap td.hm-v a{color:inherit;text-decoration:none;display:block}
+.heatmap td b{display:block;font-size:16px}.heatmap td small{color:#5b5470;font-size:11px}
+.heatmap tfoot td,.heatmap tfoot th{font-weight:800;border-top:2px solid var(--line)}
+.dom-input{margin-top:4px;font-size:13px;min-height:32px}
+.fiche-eleve h3{margin:18px 0 8px}
+.fiche-eleve .disp{margin-bottom:8px}
+.fnotes{list-style:none;padding:0;margin:0}
+.fnotes li{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line)}
+.fnotes li p{grid-column:1/-1;margin:0;white-space:pre-wrap}
+.ftag{border-radius:10px;padding:2px 8px;font-size:12px;font-weight:800;background:#f1edf9}
+.ftag.t-0{background:#c9ecd4}.ftag.t-1{background:#ffc9c9}.ftag.t-3,.ftag.t-4{background:#b9dcff}
+.fbilan{background:#fbfaff;border-radius:12px;padding:10px 12px;margin:8px 0}
+.fbilan p{margin:6px 0;white-space:pre-wrap}
+@media (max-width:600px){
+  .gline{grid-template-columns:1fr auto;gap:4px 8px}
+  .gline .gbar{grid-column:1/-1;grid-row:2}
+  .heatmap td.hm-v{min-width:52px}.heatmap td b{font-size:14px}
+  .toolbar .tabs:has(a){order:5;flex:1 1 100%;display:flex}.toolbar .tabs a{flex:1}
+}
+/* Projection : écran large, texte plus grand */
+@media (min-width:1400px){
+  .gline{font-size:17px;grid-template-columns:minmax(160px,300px) 1fr 120px}.gbar{height:34px}.gbar>span{font-size:15px}
+  .heatmap th{font-size:16px}.heatmap td b{font-size:22px}.heatmap td small{font-size:13px}
+}
+@media print{ .gdisc{break-inside:avoid} .heatmap td.hm-v{-webkit-print-color-adjust:exact;print-color-adjust:exact} .gbar>span{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
