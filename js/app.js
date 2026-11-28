@@ -18,14 +18,14 @@ import * as compte from "./compte.js";
 import { ecran, surveiller, quitterProjection, surRcEcran, surRcTel, viewTelecommande, rafraichirTel } from "./telecommande.js";
 import qrcode from "./vendor/qrcode.mjs";
 import { ISSR_BAREMES, issrJour, trancheISSR, nomTrancheISSR } from "./data/issr.js";
-import { chercherAdresse, distanceRoute, lienGeoportail } from "./distance.js";
+import { chercherAdresse, chercherEcole, distanceRoute, lienGeoportail } from "./distance.js";
 import { installerAnnotation, tapFiable } from "./annoter.js";
 import { installerBarre } from "./barre.js";
 import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.20.0";
+export const VERSION = "0.20.1";
 
 // ---------- état ----------
 let state = {};
@@ -2120,6 +2120,7 @@ function viewAide() {
 const COUL_ECOLES = ["#ffd0dc", "#cfe6ff", "#c9ecd4", "#ffe3a3", "#d7ccff", "#ffd7bf", "#bfeff0", "#f3c6f0"];
 const DUREES_R = { j: ["Journée", 1], m: ["Matin", 0.5], a: ["Après-midi", 0.5] };
 let moisRempl = null;
+let periodeRempl = null; // sélection d'une période sur le calendrier : { debut: null | "AAAA-MM-JJ" }
 function remplData() {
   const r = state.remplacements;
   r.ecoles ??= []; r.jours ??= {}; r.rattachement ??= "";
@@ -2151,7 +2152,7 @@ function viewRemplacements(partiel = false) {
   for (let d = 1; d <= nbJours; d++) {
     const iso = `${moisRempl}-${String(d).padStart(2, "0")}`, st = statutJour(iso), j = r.jours[iso];
     const e = j?.e && r.ecoles.find((x) => x.id === j.e);
-    cases.push(`<button class="rp-jour ${st ? "rp-" + st.type : ""} ${iso === today ? "rp-auj" : ""} ${e ? "rp-pris" : ""}" data-jour="${iso}" ${e ? `style="--ec:${e.couleur}"` : ""} title="${esc(st?.nom ?? "")}">
+    cases.push(`<button class="rp-jour ${st ? "rp-" + st.type : ""} ${iso === today ? "rp-auj" : ""} ${e ? "rp-pris" : ""} ${periodeRempl?.debut === iso ? "rp-sel" : ""}" data-jour="${iso}" ${e ? `style="--ec:${e.couleur}"` : ""} title="${esc(st?.nom ?? "")}">
       <span class="rp-n">${d}</span>${e ? `<span class="rp-e">${esc(e.nom)}</span>${j.d !== "j" ? `<span class="rp-d">${DUREES_R[j.d][0]}</span>` : ""}` : st && st.type !== "weekend" ? `<span class="rp-st">${esc(st.nom.replace("Vacances", "Vac."))}</span>` : ""}</button>`);
   }
   const rec = recapRempl(moisRempl), an = anneeScolaire(), y1 = +an.slice(0, 4);
@@ -2162,13 +2163,13 @@ function viewRemplacements(partiel = false) {
     <div class="rp">
       <div class="sheet rp-ecoles">
         <h2>🏫 Mes écoles</h2>
-        <label>École de rattachement <input id="rpRatt" value="${esc(r.rattachement)}" placeholder="Nom de l'école"></label>
+        <label>École de rattachement <span class="adr-box"><input id="rpRatt" data-cherche="ratt" value="${esc(r.rattachement)}" placeholder="Nom de l'école ou commune" autocomplete="off"><span class="adr-sugg" hidden></span></span></label>
         <div class="adr-box"><input data-adr="ratt" value="${esc(r.rattAdr?.label ?? "")}" placeholder="Adresse de l'école de rattachement (pour calculer les distances)" autocomplete="off"><div class="adr-sugg" hidden></div></div>
-        <p class="hint">Écoles où tu remplaces. La distance (aller simple) se calcule depuis ton école de rattachement : choisis l'adresse dans la liste proposée puis touche 📍. Tu peux aussi la taper à la main.</p>
+        <p class="hint">Tape le nom de l'école ou sa commune et choisis-la dans la liste : l'adresse se remplit toute seule. Touche ensuite 📍 pour calculer la distance (aller simple) depuis ton école de rattachement. Tu peux aussi taper l'adresse ou la distance à la main.</p>
         <div class="rp-liste">${r.ecoles.map((e) => `
           <div class="rp-ecole" data-ecole="${e.id}">
             <button class="rp-coul" data-coul="${e.id}" style="background:${e.couleur}" aria-label="Changer la couleur"></button>
-            <input data-f="nom" value="${esc(e.nom)}" placeholder="Nom de l'école">
+            <div class="adr-box rp-nom"><input data-f="nom" data-cherche="${e.id}" value="${esc(e.nom)}" placeholder="Nom de l'école ou commune" autocomplete="off"><div class="adr-sugg" hidden></div></div>
             <input data-f="commune" value="${esc(e.commune ?? "")}" placeholder="Commune">
             <label class="inline rp-km"><input data-f="km" type="number" min="0" step="0.1" value="${esc(e.km ?? "")}"> km</label>
             <button class="round-btn sm" data-supprecole="${e.id}" aria-label="Supprimer l'école">✕</button>
@@ -2181,8 +2182,11 @@ function viewRemplacements(partiel = false) {
       </div>
       <div class="sheet rp-cal">
         <div class="rp-nav"><button class="round-btn" id="rpPrev" aria-label="Mois précédent">‹</button><h2>${nomMois}</h2><button class="round-btn" id="rpNext" aria-label="Mois suivant">›</button>${moisRempl !== today.slice(0, 7) ? `<button class="pill" id="rpAuj">Aujourd'hui</button>` : ""}</div>
+        <div class="rp-per">${periodeRempl
+          ? `<p class="rp-per-msg">${periodeRempl.debut ? `Début : <b>${fmtLong(periodeRempl.debut)}</b>. Touche maintenant le <b>dernier jour</b> (change de mois avec ‹ › si besoin).` : "Touche le <b>premier jour</b> de la période."}</p><button class="pill" id="rpPerStop">Annuler</button>`
+          : `<button class="pill" id="rpPerGo">📅 Noter une période (plusieurs jours)</button>`}</div>
         <div class="rp-grille">${["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => `<div class="rp-tete">${d}</div>`).join("")}${cases.join("")}</div>
-        <p class="hint">Touche un jour pour noter où tu remplaces. Pour une période (plusieurs jours ou semaines), touche le premier jour et choisis la date de fin.</p>
+        <p class="hint">Touche un jour pour noter où tu remplaces. Pour plusieurs jours ou semaines d'affilée, touche « Noter une période », puis le premier et le dernier jour.</p>
       </div>
       <div class="sheet rp-recap">
         <h2>📊 ${nomMois}</h2>
@@ -2216,15 +2220,28 @@ function viewRemplacements(partiel = false) {
       box._l = l;
     }, 350);
   };
+  const suggererEcole = (inp) => {
+    clearTimeout(suggererEcole.t);
+    const box = inp.parentElement.querySelector(".adr-sugg");
+    suggererEcole.t = setTimeout(async () => {
+      let l = [];
+      try { l = await chercherEcole(inp.value); } catch { box.hidden = false; box.innerHTML = `<p class="hint">Recherche d'école impossible (pas de connexion ?). Tape l'adresse dans le champ « Adresse ».</p>`; box._l = null; return; }
+      if (document.activeElement !== inp) return;
+      box.hidden = !l.length && inp.value.trim().length < 3;
+      box.innerHTML = l.length ? l.map((a, k) => `<button type="button" class="sugg-ecole" data-pickecole="${k}"><b>${esc(a.nom)}</b><small>${esc(a.label)}</small></button>`).join("")
+        : `<p class="hint">Aucune école trouvée. Essaie avec le nom de la commune, ou tape l'adresse dans le champ « Adresse ».</p>`;
+      box._l = l;
+    }, 350);
+  };
   const cibleAdr = (k) => k === "ratt" ? null : r.ecoles.find((x) => x.id === k);
   app.oninput = (e) => {
-    if (e.target.id === "rpRatt") { r.rattachement = e.target.value; save("remplacements"); return; }
+    if (e.target.id === "rpRatt") { r.rattachement = e.target.value; save("remplacements"); suggererEcole(e.target); return; }
     if (e.target.dataset.adr) { // l'adresse tapée n'a plus de coordonnées tant qu'on n'a pas choisi une suggestion
       const k = e.target.dataset.adr, v = { label: e.target.value };
       if (k === "ratt") r.rattAdr = v; else { const ec = cibleAdr(k); if (ec) ec.adr = v; }
       save("remplacements"); suggerer(e.target); return;
     }
-    const row = e.target.closest("[data-ecole]"); if (row && e.target.dataset.f) { majEcole(row.dataset.ecole, e.target.dataset.f, e.target.value); clearTimeout(viewRemplacements._t); viewRemplacements._t = setTimeout(() => location.hash === "#/remplacements" && viewRemplacements(true), 300); }
+    const row = e.target.closest("[data-ecole]"); if (row && e.target.dataset.f) { majEcole(row.dataset.ecole, e.target.dataset.f, e.target.value); if (e.target.dataset.cherche) suggererEcole(e.target); clearTimeout(viewRemplacements._t); viewRemplacements._t = setTimeout(() => location.hash === "#/remplacements" && viewRemplacements(true), 300); }
   };
 
   app.onclick = async (e) => {
@@ -2234,6 +2251,22 @@ function viewRemplacements(partiel = false) {
       const k = inp.dataset.adr; inp.value = a.label; box.hidden = true;
       if (k === "ratt") r.rattAdr = a; else { const ec = cibleAdr(k); if (ec) { ec.adr = a; if (!ec.commune) ec.commune = a.label.replace(/^.*\d{5}\s*/, ""); } }
       save("remplacements"); return;
+    }
+    if (t.dataset.pickecole != null) {
+      const box = t.closest(".adr-sugg"), inp = box.parentElement.querySelector("[data-cherche]"), a = box._l?.[+t.dataset.pickecole]; if (!a) return;
+      const k = inp.dataset.cherche, adr = { label: a.label, lon: a.lon, lat: a.lat };
+      box.hidden = true; inp.value = a.nom;
+      if (k === "ratt") { r.rattachement = a.nom; r.rattAdr = adr; app.querySelector('[data-adr="ratt"]').value = a.label; }
+      else {
+        const ec = cibleAdr(k); if (!ec) return;
+        Object.assign(ec, { nom: a.nom, commune: a.commune, adr });
+        const row = t.closest("[data-ecole]");
+        row.querySelector("[data-f=commune]").value = a.commune; row.querySelector("[data-adr]").value = a.label;
+      }
+      save("remplacements");
+      if (k !== "ratt") viewRemplacements(true);
+      $("#rpCalcMsg").textContent = k === "ratt" ? "École de rattachement enregistrée avec son adresse." : `${a.nom} : touche 📍 Calculer pour la distance depuis ton école de rattachement.`;
+      return;
     }
     if (t.dataset.calc) {
       const ec = cibleAdr(t.dataset.calc), msg = $("#rpCalcMsg");
@@ -2256,18 +2289,27 @@ function viewRemplacements(partiel = false) {
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `remplacements-${moisRempl}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       return;
     }
-    if (t.dataset.jour) jourRempl(t.dataset.jour);
+    if (t.id === "rpPerGo") { periodeRempl = { debut: null }; viewRemplacements(true); return; }
+    if (t.id === "rpPerStop") { periodeRempl = null; viewRemplacements(true); return; }
+    if (t.dataset.jour) {
+      if (!periodeRempl) return jourRempl(t.dataset.jour);
+      if (!periodeRempl.debut) { periodeRempl.debut = t.dataset.jour; viewRemplacements(true); return; }
+      const [a, b] = [periodeRempl.debut, t.dataset.jour].sort();
+      periodeRempl = null; viewRemplacements(true); jourRempl(a, b);
+    }
   };
+  // Ferme les listes de suggestions quand on touche ailleurs.
+  app.onfocusout = (e) => { const box = e.target.closest?.(".adr-box")?.querySelector(".adr-sugg"); if (box) setTimeout(() => { if (!box.parentElement.contains(document.activeElement)) box.hidden = true; }, 250); };
 }
-function jourRempl(iso) {
+function jourRempl(iso, finInit = iso) {
   const r = remplData(), j = { e: "", d: "j", classe: "", note: "", ...(r.jours[iso] ?? {}) }, st = statutJour(iso);
   const corps = () => `
-    <h2>${capit(fmtLong(iso))}</h2>
-    ${st ? `<p class="hint">${esc(st.nom)}</p>` : ""}
+    <h2>${finInit > iso ? `Du ${fmtLong(iso)} au ${fmtLong(finInit)}` : capit(fmtLong(iso))}</h2>
+    ${st && finInit === iso ? `<p class="hint">${esc(st.nom)}</p>` : ""}
     ${r.ecoles.length ? `<p>Où remplaces-tu ?</p><div class="rp-choix">${r.ecoles.map((e) => `<button class="rp-btn ${j.e === e.id ? "on" : ""}" data-e="${e.id}" style="--ec:${e.couleur}">${esc(e.nom || "Sans nom")}${e.commune ? `<small>${esc(e.commune)}</small>` : ""}</button>`).join("")}<button class="rp-btn ${!j.e ? "on" : ""}" data-e="">Pas de remplacement</button></div>`
       : `<p>Ajoute d'abord tes écoles dans « Mes écoles ».</p>`}
     <div class="seg">${Object.entries(DUREES_R).map(([k, [v]]) => `<button data-d="${k}" class="${j.d === k ? "on" : ""}">${v}</button>`).join("")}</div>
-    <label>Jusqu'au (pour une période) <input type="date" name="fin" value="${iso}" min="${iso}"></label>
+    <label>Jusqu'au (pour une période) <input type="date" name="fin" value="${finInit}" min="${iso}"></label>
     <p class="hint" id="rpPer"></p>
     <label>Classe, niveau, enseignant remplacé <input name="classe" value="${esc(j.classe)}" placeholder="Ex. CE1 de Mme Martin"></label>
     <label>Note <input name="note" value="${esc(j.note)}"></label>
@@ -2277,19 +2319,22 @@ function jourRempl(iso) {
   const periode = (fin) => { const out = []; for (let d = iso; d <= fin && out.length < 400; d = addDays(d, 1)) { if (d === iso || (!statutJour(d) && joursClasse.includes(JOURS_JS[new Date(d + "T12:00").getDay()]))) out.push(d); } return out; };
   openModal(corps(), (m) => {
     const majPer = () => { const fin = m.querySelector("[name=fin]").value; const n = fin > iso ? periode(fin).length : 1; m.querySelector("#rpPer").textContent = fin > iso ? `${n} jour${n > 1 ? "s" : ""} de classe du ${fmtLong(iso)} au ${fmtLong(fin)} (sans les week-ends, mercredis non travaillés, vacances et jours fériés).` : ""; };
-    m.querySelector("[name=fin]").oninput = majPer;
+    const fin = m.querySelector("[name=fin]");
+    fin.oninput = fin.onchange = majPer; // iOS Safari ne déclenche parfois que « change » sur un champ date
+    majPer();
     m.onclick = (e) => {
       const t = e.target.closest("button"); if (!t) return;
       if (t.dataset.e != null) { j.e = t.dataset.e; m.querySelectorAll("[data-e]").forEach((b) => b.classList.toggle("on", b === t)); }
       if (t.dataset.d) { j.d = t.dataset.d; m.querySelectorAll("[data-d]").forEach((b) => b.classList.toggle("on", b === t)); }
       if (t.id === "rpOk") {
         j.classe = m.querySelector("[name=classe]").value.trim(); j.note = m.querySelector("[name=note]").value.trim();
-        const fin = m.querySelector("[name=fin]").value, dates = fin > iso ? periode(fin) : [iso];
+        const f = fin.value, dates = f > iso ? periode(f) : [iso];
         for (const d of dates) { if (j.e) r.jours[d] = { ...j }; else delete r.jours[d]; }
         save("remplacements"); closeModal(true); viewRemplacements();
       }
     };
-  });
+  });  // Sur téléphone, pas de focus automatique sur « Jusqu'au » : le sélecteur de date s'ouvrirait par-dessus la fenêtre.
+  if (matchMedia("(pointer: coarse)").matches) document.activeElement?.blur();
 }
 
 // ---------- MES RESSOURCES (PDF, images, vidéos, diapos importés) ----------
