@@ -1,0 +1,71 @@
+/* ===== v0.29 : animations partagées (voir js/anim.js) =====
+   Courbes et durées communes. Rien ne change la taille des éléments : pas de saut sous le stylet. */
+:root{--mv-rapide:.16s;--mv:.28s;--mv-lent:.52s;--mv-sortie:cubic-bezier(.2,.8,.2,1);--mv-ressort:cubic-bezier(.34,1.5,.64,1);--mv-doux:cubic-bezier(.4,0,.2,1)}
+
+/* transform ne s'applique pas aux éléments en ligne */
+span.banner,.score b,.cl-compte b,.dice-total b,span.score{display:inline-block}
+
+/* boutons : on sent l'appui (utile au stylet sur TBI) */
+.big-btn{transition:transform var(--mv-rapide) var(--mv-sortie),box-shadow var(--mv-rapide) var(--mv-sortie),background var(--mv-rapide)}
+.big-btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 #5a4cd0}
+.big-btn.soft:active:not(:disabled){box-shadow:none}
+.pill,.seg button,.mini,.round-btn{transition:background var(--mv-rapide),color var(--mv-rapide),box-shadow var(--mv) var(--mv-sortie),transform .08s}
+.tile,.big-card{transition:transform var(--mv) var(--mv-ressort),box-shadow var(--mv)}
+.tile:hover,.big-card:hover{box-shadow:0 10px 26px #3b33551f}
+
+/* ouverture d'un outil au tableau */
+.board{animation:mvBoard var(--mv-lent) var(--mv-sortie) both}
+@keyframes mvBoard{from{opacity:0;transform:translateY(14px) scale(.985)}}
+.board-head h2 span{display:inline-block;animation:mvIco .7s var(--mv-ressort) .12s both}
+@keyframes mvIco{from{transform:scale(.4) rotate(-20deg);opacity:0}}
+
+/* fenêtres */
+.modal-backdrop:not([hidden]){animation:mvFond var(--mv) ease-out}
+.modal-backdrop:not([hidden]) .modal{animation:mvModale var(--mv-lent) var(--mv-ressort)}
+@keyframes mvFond{from{background:#3b335500}}
+@keyframes mvModale{from{opacity:0;transform:translateY(18px) scale(.97)}}
+
+/* minuteur : le cercle avance en douceur, les 10 dernières secondes battent, la fin sonne sans clignoter */
+.ring-fg{transition:stroke-dashoffset .25s linear,stroke .6s}
+.warn .ring-time{animation:mvBat 1s var(--mv-doux) infinite}
+@keyframes mvBat{0%,100%{transform:scale(1)}15%{transform:scale(1.07)}}
+.done .ring-time{animation:mvFin 1.6s var(--mv-doux) infinite}
+@keyframes mvFin{0%,100%{transform:scale(1);opacity:1}20%{transform:scale(1.1)}50%{opacity:.55}}
+.done .ring-wrap{animation:mvSonne .6s ease-out 2}
+@keyframes mvSonne{20%{transform:rotate(-4deg)}40%{transform:rotate(4deg)}60%{transform:rotate(-2deg)}80%{transform:rotate(1deg)}}
+
+/* tirage au sort : le nom défile en glissant, puis se pose */
+.draw-name{transition:background var(--mv),box-shadow var(--mv-lent)}
+.draw-name.roule{background:#f4f1fb}
+.draw-name.roule .nm-t{animation:mvDefile .09s linear}
+@keyframes mvDefile{from{transform:translateY(-35%);opacity:.3}}
+.draw-name.pop{animation:mvPose .6s var(--mv-ressort);box-shadow:0 0 0 6px #ffd0dc,0 14px 40px #ef646133}
+@keyframes mvPose{0%{transform:scale(.85)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+.nm-t{display:inline-block}
+
+/* dés : ils roulent et rebondissent */
+.rolling .die{animation:mvDe .7s var(--mv-sortie) both}
+.rolling .die:nth-child(2){animation-delay:.05s}.rolling .die:nth-child(3){animation-delay:.1s}.rolling .die:nth-child(4){animation-delay:.04s}.rolling .die:nth-child(5){animation-delay:.08s}.rolling .die:nth-child(6){animation-delay:.12s}
+@keyframes mvDe{0%{transform:translateY(-40px) rotate(-260deg) scale(.7);opacity:0}55%{transform:translateY(6px) rotate(8deg) scale(1.02);opacity:1}75%{transform:translateY(-6px) rotate(-3deg)}100%{transform:none}}
+
+/* feu tricolore : la lampe s'allume */
+.lamp{transition:opacity var(--mv-lent) var(--mv-doux),box-shadow var(--mv-lent) var(--mv-doux),transform var(--mv) var(--mv-ressort)}
+.lamp.on{transform:scale(1.04)}
+
+/* voix (niveau sonore) */
+.voice-emoji{display:inline-block;transition:transform var(--mv) var(--mv-ressort)}
+.voice-item{transition:background var(--mv),box-shadow var(--mv)}
+
+/* flashcards : retournement plus souple */
+.flash-in{transition-timing-function:var(--mv-ressort)!important}
+
+/* barre de progression des séries */
+.mes-prog i{transition:background var(--mv),transform var(--mv) var(--mv-ressort)}
+.mes-prog i.cur{transform:scale(1.25)}
+
+/* fête de fin de jeu */
+.fete-canvas{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:400}
+
+/* Réglage « Réduire les animations » (même effet que la préférence du système) */
+html.anim-reduites *,html.anim-reduites *::before,html.anim-reduites *::after{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.fete-canvas{display:none}}

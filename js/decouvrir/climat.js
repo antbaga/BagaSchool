@@ -3,12 +3,13 @@
 // Dans les images, toucher un élément ouvre une bulle d'info à côté de lui.
 // Trois versions de texte : CP-CE1, CE2, CM1-CM2 (palier 0, 1, 2). Contenus : js/data/decouvrir/climat-donnees.js.
 import { NIVEAUX, esc, shuffle, niveauxHTML, niveauMemo, bravo, dragEtiquettes, clicApresDrag, scoreHTML } from "./kit.js";
+import { moinsAnim, entree } from "../anim.js";
 import { SERRE, SERRE_INTRO, CAUSES, CAUSES_INTRO, SECTEURS_FR, EPOQUES, EPOQUES_TXT, CONSEQUENCES, GESTES, ENSEMBLE, ENSEMBLE_MSG, QUIZ, ENSEIGNANT, INFOS_SERRE, DEG_VUES, FIEVRE_CORPS, FIEVRE_TERRE, FIEVRE_TXT, COURBE, ZOOM, DEG_POINTS, CANICULES, CANICULES_TXT } from "../data/decouvrir/climat-donnees.js";
 
 const palier = (n) => (n === "CP" || n === "CE1" ? 0 : n === "CE2" ? 1 : 2);
 // Texte selon le palier : chaîne commune, ou tableau [CP-CE1, CE2, CM] (case vide = celle d'avant).
 const P = (v, t) => { if (!Array.isArray(v)) return v ?? ""; for (let i = Math.min(t, v.length - 1); i >= 0; i--) if (v[i]) return v[i]; return ""; };
-const reduit = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const reduit = moinsAnim;
 const ETAPES = [["serre", "🏠", "Effet de serre"], ["causes", "🏭", "Causes"], ["degres", "📈", "+2 °C ?"], ["consequences", "🌊", "Conséquences"], ["agir", "🌱", "Agir"], ["quiz", "❓", "Quiz"]];
 const NS = "http://www.w3.org/2000/svg";
 const mix = (a, b, k) => { const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, "0")).join(""); };
@@ -433,7 +434,7 @@ export function mountClimat(el) {
   el.onclick = (e) => {
     const b = e.target.closest("button");
     if (b?.dataset.niv) { niv.set(b.dataset.niv); el.querySelectorAll(".dk-niv button").forEach((x) => x.classList.toggle("on", x === b)); t = palier(b.dataset.niv); return rendu(); }
-    if (b?.dataset.etape) { etape = b.dataset.etape; return rendu(); }
+    if (b?.dataset.etape) { etape = b.dataset.etape; rendu(); return entree(corps); }
     if (b?.dataset.act === "prof") return ouvrirProf();
     if (b?.dataset.act === "prof-x" || e.target.classList.contains("cl-prof")) return el.querySelector(".cl-prof")?.remove();
     if (e.target.closest(".cl-prof")) return;
