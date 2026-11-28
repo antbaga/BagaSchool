@@ -1384,6 +1384,69 @@ body.projection .ec-space{max-height:calc(100vh - 120px)}
   .prog-print-t{margin:0 0 6px;font-size:18px}.imp-couleur .prog-print-t{color:#5b50d6}
   .period [data-addseq]{display:none!important}
   .pweek textarea:placeholder-shown{display:none}
+  .imp ::placeholder{color:transparent}
   .imp-paysage .prog-weeks{display:grid;grid-template-columns:1fr 1fr;gap:3mm}.imp-paysage .prog-weeks .pweek{margin:0}
   .imp-portrait .periods{grid-template-columns:1fr 1fr}
 }
+
+/* ===== cahier de comportement ===== */
+.cp-date{min-width:180px;text-align:center}
+.cp-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.cp-carte{background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.cp-tete{display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:800}
+.cp-tete a{color:var(--ink);text-decoration:none;font-size:17px}
+.cp-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.cp-btns button{min-height:44px;font-size:22px;border-radius:12px}
+.cp-plus{background:#c9ecd4}.cp-moins{background:#ffd9d9}
+.cp-chips{display:flex;flex-wrap:wrap;gap:4px}
+.cp-chip{min-height:0;padding:3px 8px;border-radius:10px;font-size:12px;font-weight:700}
+.cp-chip.pos{background:#e3f6e9}.cp-chip.neg{background:#ffe8e8}
+.cp-p,.cp-n{display:inline-block;border-radius:10px;padding:0 6px;margin-left:3px;font-weight:800;font-size:14px}
+.cp-p{background:#c9ecd4;color:#1d6b3a}.cp-n{background:#ffd9d9;color:#9b2222}
+.stats b.cp-p,.stats b.cp-n{background:none;padding:0;margin:0;font-size:26px}
+.cp-cats{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.cp-cats button{border-radius:14px;min-height:44px;padding:8px 14px;font-weight:700}
+.cp-cats.pos button{background:#e3f6e9}.cp-cats.neg button{background:#ffe8e8}
+.cp-sem td{min-width:70px}
+.cp-cat-l,.cp-hist{padding-left:18px}.cp-cat-l li,.cp-hist li{margin:3px 0}
+.cp-eleve .seg{margin:6px 0 10px}
+.cp-signature{margin-top:40px}
+/* ===== emploi du temps : niveaux et heures par matière ===== */
+.niv-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:#fff8;font-size:12px;font-weight:800;vertical-align:middle}
+.jt-disc .niv-badge{background:var(--primary-soft);color:var(--primary)}
+.slot-par{display:flex;gap:6px}.slot-par .slot{flex:1;min-width:0}
+.vol{margin-top:16px}.vol h3{margin:0}
+.vol-table{width:100%;border-collapse:collapse;margin:8px 0}
+.vol-table th{text-align:left;font-weight:700;padding:6px 10px 6px 0;width:38%;vertical-align:top}
+.vol-table th,.vol-table td{border:0;background:none}.vol-table td{padding:6px 0}
+.vol-cell{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vol-barre{position:relative;flex:1;min-width:120px;height:12px;border-radius:8px;background:#f1edfb;overflow:visible}
+.vol-barre span{display:block;height:100%;border-radius:8px;background:#9ccf9c}
+.vol-barre.moins span{background:#f2b36b}.vol-barre.plus span{background:#8fb7e8}
+.vol-barre i{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.5}
+.vol-txt{min-width:150px;font-size:14px}.vol-txt em{font-style:normal;font-weight:800}.vol-txt em.moins{color:#c0721f}.vol-txt em.plus{color:#3c74b8}
+.vol-total th,.vol-total td{border-top:1px solid #eee;padding-top:10px}
+/* ===== cahier journal : bilan des séances, imprévus, progressions ===== */
+.jt-done{width:auto}
+.jt-statut{display:flex;gap:2px;background:#f4f1fb;border-radius:12px;padding:3px}
+.jt-statut button{min-height:34px;min-width:34px;padding:4px;border-radius:9px;font-size:16px;color:var(--muted)}
+.jt-statut button.on{background:#fff;box-shadow:var(--shadow);color:var(--ink)}
+.jt-statut button[data-st=fait].on{color:#2f9a52}.jt-statut button[data-st=reporter].on{color:#c0721f}.jt-statut button[data-st=modifie].on{color:#3c74b8}
+.jtable tr.st-reporter td:first-child{border-left-color:#f2b36b}
+.jtable tr.st-modifie .jt-disc b::after{content:" ✏️";font-size:12px}
+.jtable tr.ip-touche{opacity:.55}
+.jt-report{margin-top:6px;font-size:14px;font-weight:700;color:#c0721f}.jt-report.hint{color:var(--muted);font-weight:400}
+.jt-sugg{margin-top:6px;font-size:14px;background:#fff8e6;border-radius:10px;padding:6px 10px}
+.banner-ip{background:#fff1e6;border-radius:12px;padding:8px 12px;margin:6px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner-ip .link{margin-left:auto}
+@media (max-width:700px){.jtable tr{grid-template-columns:64px 1fr}.jtable td.jt-done{grid-column:1/-1;display:flex;justify-content:flex-end}}
+/* ===== calendrier de classe ===== */
+.evts{margin-bottom:16px}.evts h3{margin:0}
+.evt-mois{margin:14px 0 4px;color:var(--muted);font-size:14px}
+.evt-ligne{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;justify-content:flex-start;text-align:left;width:100%;padding:8px 10px;border-radius:12px;font-weight:700}
+.evt-ligne:hover{background:var(--primary-soft)}
+.evt-ligne .hint{font-weight:400;flex-basis:100%;padding-left:28px}
+.evt-ico{display:inline-block;width:22px;text-align:center}
+.evt-passes{margin-top:10px}.evt-passes summary{cursor:pointer;color:var(--muted);font-weight:700}
+.cal-titre{margin:4px 0 8px}
+.banner-evt{display:block;background:#eef6ff;border-radius:12px;padding:8px 12px;margin:6px 0;color:var(--ink);text-decoration:none;font-weight:700}
