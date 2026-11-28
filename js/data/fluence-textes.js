@@ -44,3 +44,117 @@ export const TEXTES = [
   T("cm2-volcans", "CM2", "Les volcans",
     "Sous nos pieds, à plusieurs dizaines de kilomètres de profondeur, la température est si élevée que certaines roches fondent. Elles forment alors le magma, une matière brûlante, plus légère que les roches qui l'entourent. Le magma remonte lentement et s'accumule dans une poche appelée chambre magmatique. Lorsque la pression devient trop forte, il s'échappe vers la surface par une cheminée : c'est l'éruption. Une fois sorti du volcan, le magma prend le nom de lave. Tous les volcans ne se comportent pas de la même manière. Certains produisent une lave très fluide, qui s'écoule en longues coulées et peut parcourir plusieurs kilomètres. Ces éruptions, dites effusives, sont spectaculaires mais rarement meurtrières, car on a le temps de s'éloigner des coulées. D'autres volcans libèrent une lave épaisse, chargée de gaz, qui bouche la cheminée. La pression augmente jusqu'à ce que tout explose. Ces éruptions explosives projettent des cendres, des blocs de roche et des nuages de gaz brûlants qui dévalent les pentes à grande vitesse. Elles sont beaucoup plus dangereuses pour les populations. En France, la chaîne des Puys, en Auvergne, rassemble environ quatre-vingts volcans, endormis depuis plusieurs milliers d'années. Sur l'île de La Réunion, en revanche, le piton de la Fournaise entre très souvent en éruption. Des scientifiques, les volcanologues, le surveillent en permanence. Grâce à des capteurs, ils mesurent les petits tremblements de terre et la déformation du sol, ce qui leur permet souvent d'annoncer une éruption quelques heures ou quelques jours à l'avance."),
 ];
+
+// LISTES DE MOTS (fluence de mots isolés) : listes rédigées pour BagaSchool, à relire.
+// Trois sortes par niveau : mots fréquents, mots réguliers à décoder (ou syllabes en CP), mots inventés
+// (sans signification, pour vérifier le décodage sans deviner). Pas de repère officiel intégré :
+// les repères ci-dessus portent sur la lecture d'un texte.
+const L = (id, niv, titre, mots) => ({ id, niv, titre, texte: mots.trim().split(/\s+/).join(" "), liste: true });
+export const LISTES = [
+  L("cp-syll", "CP", "Syllabes", `
+    ma lo ri pu fé ta mi so lu ra ne po fi vo du sa li mo ré nu pa to la mu si ro vi ju ba de
+    ca no ti lé ru fo va mé bi go ou on an in oi chu cho chi mou lon pin moi ban fon tou ral
+    bra tri plo cla gru fla vre dra pli cro blé gla fri tro clo bro pré flo tra glu`),
+  L("cp-freq", "CP", "Mots fréquents", `
+    le la les un une et il elle est a de du dans sur avec pour mais ou on je tu nous vous ils
+    mon ton son ma ta sa qui que pas ne au en papa maman ami école chat chien maison rue lit
+    moto vélo porte table livre jour nuit petit grand beau joli rouge vert bleu noir blanc
+    aller voir faire dire venir jouer manger lire courir sauter dormir rire matin soir eau lune soleil`),
+  L("cp-reg", "CP", "Mots à décoder", `
+    ami mur lama moto vélo tomate salade banane domino pirate robot tulipe cabane farine limace
+    numéro otarie pyjama radis savon tapis lavabo canapé parole minute malade poli fumée pile rame
+    lune mine dune sirop bidon mouton lapin chaton garage melon jupe four roue loup poule soupe
+    route bouche moulin sapin matin dindon ballon pantalon maman lundi samedi vache niche chemise
+    roi noix voiture poire étoile fleur sucre arbre livre zèbre`),
+  L("cp-inv", "CP", "Mots inventés", `
+    ra lo mi pu tafi lopu sima rilo pume fano tiva dura mipo lasi nuro bami
+    pouli tonra chami lanpo moufi vinto rouba pila tirou fonsa chalu mitou
+    brami glota triva plomi crafu dribo flami gripu`),
+  L("ce1-freq", "CE1", "Mots fréquents", `
+    toujours beaucoup maintenant ensuite pendant après avant encore aussi très trop peu bien mal
+    chez sans sous vers depuis comme quand alors enfin déjà jamais souvent rien tout chaque autre
+    même premier dernier heure année semaine enfant famille classe maître élève cahier crayon jardin
+    arbre fleur oiseau cheval voiture train ville pays monde temps chose main tête yeux fenêtre
+    histoire question réponse prendre mettre donner trouver penser regarder parler écrire partir
+    arriver ouvrir savoir pouvoir vouloir devoir`),
+  L("ce1-reg", "CE1", "Mots à décoder", `
+    poisson maison cheveux grenouille champignon citrouille escargot feuille soleil abeille crayon
+    éléphant girafe guitare bouteille fourmi coussin papillon chaussure journal chocolat bonbon
+    ballon gâteau château bateau cadeau oiseau peinture tambour couteau fromage nuage plage orange
+    genou cerise glace ciseaux pingouin écureuil lunettes trompette tortue renard hibou dauphin
+    baleine requin cartable trousse gomme tableau récréation cantine piscine cuisine bougie
+    mouchoir parapluie montagne grenier poignée chemin cheminée`),
+  L("ce1-inv", "CE1", "Mots inventés", `
+    ralo tipu mabou fital poune chalin grato blinou vardi tosta lirpe mouda sapir bounal frila
+    gonvé prilo nirta choupe valti drimon flouse garpi toubin vrata clémou bisto mirchal ponfu
+    graduche latoir spipa bourin trovel glimpe chandou fripal voumi tagnon`),
+  L("ce2-freq", "CE2", "Mots fréquents", `
+    cependant pourtant plusieurs quelquefois autour ensemble longtemps aujourd'hui demain hier
+    lorsque puisque environ presque seulement vraiment soudain bientôt dehors dessous dessus devant
+    derrière loin près bonheur voyage village montagne rivière campagne forêt animal travail nature
+    silence lumière couleur chiffre nombre problème exercice expérience découvrir construire
+    apprendre comprendre expliquer raconter préparer chercher choisir répondre attendre entendre
+    devenir connaître paraître certain différent important difficile facile rapide immense
+    ancien heureux curieux sérieux`),
+  L("ce2-reg", "CE2", "Mots à décoder", `
+    parapluie hélicoptère dinosaure crocodile kangourou bibliothèque ordinateur magnifique
+    gymnastique pharmacie téléphone aquarium escalier ascenseur champion incroyable invisible
+    imprimante explosion squelette astronaute chevalier sorcière dragon princesse grenouille
+    araignée coccinelle sauterelle hérisson écureuil chauve-souris perroquet chimpanzé
+    hippopotame rhinocéros toboggan boulangerie quincaillerie anniversaire gentillesse
+    tranquille spectacle orchestre trompette violoncelle batterie accordéon automne printemps`),
+  L("ce2-inv", "CE2", "Mots inventés", `
+    grintoufle plavonade chabrique trimbalor vousquette brandinal folipreau spartoche
+    cramoulin glistane tropavier quinoral blandeuse chourgnon priscoter vagnelou
+    fretaille moustival grabinon plindoche tarsuvin cloumaire stribole nangrefou
+    balquinette froudimer goustrale prunevaille tramoulin bristoche flanquemir
+    vourdanel glimbaton crapisol moustrel plavigne drouscalet fringotte`),
+  L("cm1-freq", "CM1", "Mots fréquents", `
+    néanmoins davantage autrefois désormais aussitôt tellement parfois également notamment
+    pareillement quoique tandis jusque malgré parmi auprès selon afin ailleurs autant
+    surtout plutôt vraisemblablement immédiatement brusquement lentement doucement
+    entièrement habitant population gouvernement territoire paysage frontière continent
+    océan atmosphère température énergie mouvement circulation phénomène événement
+    souvenir aventure mystère courage danger victoire raisonnement conclusion hypothèse
+    observer mesurer comparer calculer résoudre vérifier transformer produire recevoir
+    apercevoir poursuivre disparaître reconnaître obtenir maintenir appartenir convaincre`),
+  L("cm1-reg", "CM1", "Mots longs", `
+    extraordinaire électricité géographie mathématiques photographie thermomètre
+    microscope télescope parallèle perpendiculaire rectangle quadrilatère multiplication
+    soustraction division numérateur dénominateur kilomètre millilitre hectolitre
+    archéologue préhistoire chevalerie monastère cathédrale explorateur navigateur
+    caravelle ambassadeur parlement république démocratie constitution révolution
+    chrysalide métamorphose photosynthèse respiration digestion squelette articulation
+    vertébré invertébré mammifère amphibien carnivore herbivore omnivore`),
+  L("cm1-inv", "CM1", "Mots inventés", `
+    strombalique perfoustaire glandivoreux cratimondel bourliquette scaparniste
+    fralimbodre quintaloche vroustigneur plinchaveau dramouvelle estrapignon
+    crivolante moustrabaque gloufernier pratimoulade sclendrival bourtifaille
+    grumolin tasprignon floubertal vandrique scolimar bruntiche placouvin dremousset
+    trinquelor spavigne cloutarel mirdouche frangolin vrastimel bouscadin gluperon`),
+  L("cm2-freq", "CM2", "Mots fréquents", `
+    conséquence circonstance connaissance indépendance responsabilité solidarité citoyenneté
+    environnement développement fonctionnement raisonnement comportement établissement
+    nécessaire indispensable remarquable considérable exceptionnel particulier progressivement
+    régulièrement fréquemment suffisamment évidemment apparemment récemment patiemment
+    accomplir approfondir établir entreprendre interrompre apparaître abandonner accompagner
+    s'efforcer s'apercevoir distinguer interpréter argumenter justifier démontrer
+    paragraphe vocabulaire orthographe conjugaison ponctuation proposition complément
+    adjectif adverbe préposition subordonnée imparfait conditionnel subjonctif`),
+  L("cm2-reg", "CM2", "Mots longs", `
+    anticonstitutionnel météorologique hydroélectrique biodiversité agriculture
+    industrialisation urbanisation mondialisation décentralisation intercommunalité
+    département préfecture municipalité arrondissement Méditerranée hémisphère
+    équateur latitude longitude cartographie volcanologue sismographe magnétisme
+    gravitation astronomie constellation chronologie Renaissance imprimerie absolutisme
+    colonisation climatologie scientifique ornithologue entomologiste paléontologue
+    proportionnalité pourcentage périmètre circonférence hexagone parallélépipède
+    pentagone symétrique équilatéral isocèle`),
+  L("cm2-inv", "CM2", "Mots inventés", `
+    anticrapoulesque désembriolation cramouflaticule hydrobalvinesque strapontivore
+    gribouillandesque météorisquelin plafondrimage congruliforme décabristoquet
+    mirlifloquette entrequimbalade translavigneur ombrocapiteux sporadivulgue
+    scrampinoir grélusquet fromantiche drapuscule plintovère crasmolin bouvrignac
+    estramblin quarnedouce tifloubert sprangolin chuvrequet glandormisse vustrapol
+    frenquilade brumascol trapiloche sclarmitaine poudrevingue clastrumel`),
+];
