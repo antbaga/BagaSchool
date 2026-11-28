@@ -1,0 +1,248 @@
+{
+ "_doc": "Images téléchargées depuis Wikipédia/Commons par .github/workflows/art-images.yml (image principale de chaque article fr, essayés dans l'ordre). Doit rester aligné avec MOT_IMG dans js/decouvrir/arts.js. Modifier ce fichier sur une branche claude/* relance le téléchargement.",
+ "oeuvres": [
+  {
+   "id": "lascaux",
+   "wiki": [
+    "Grotte de Lascaux"
+   ]
+  },
+  {
+   "id": "kheops",
+   "wiki": [
+    "Pyramide de Khéops"
+   ]
+  },
+  {
+   "id": "parthenon",
+   "wiki": [
+    "Parthénon"
+   ]
+  },
+  {
+   "id": "pont-gard",
+   "wiki": [
+    "Pont du Gard"
+   ]
+  },
+  {
+   "id": "bayeux",
+   "wiki": [
+    "Tapisserie de Bayeux"
+   ]
+  },
+  {
+   "id": "cluny",
+   "wiki": [
+    "Abbaye de Cluny"
+   ]
+  },
+  {
+   "id": "notre-dame",
+   "wiki": [
+    "Cathédrale Notre-Dame de Paris"
+   ]
+  },
+  {
+   "id": "joconde",
+   "wiki": [
+    "La Joconde"
+   ]
+  },
+  {
+   "id": "chambord",
+   "wiki": [
+    "Château de Chambord"
+   ]
+  },
+  {
+   "id": "chasseurs",
+   "wiki": [
+    "Chasseurs dans la neige",
+    "Les Chasseurs dans la neige"
+   ]
+  },
+  {
+   "id": "versailles",
+   "wiki": [
+    "Château de Versailles"
+   ]
+  },
+  {
+   "id": "perle",
+   "wiki": [
+    "La Jeune Fille à la perle"
+   ]
+  },
+  {
+   "id": "liberte",
+   "wiki": [
+    "La Liberté guidant le peuple"
+   ]
+  },
+  {
+   "id": "glaneuses",
+   "wiki": [
+    "Des glaneuses",
+    "Les Glaneuses"
+   ]
+  },
+  {
+   "id": "impression",
+   "wiki": [
+    "Impression, soleil levant"
+   ]
+  },
+  {
+   "id": "nuit-etoilee",
+   "wiki": [
+    "La Nuit étoilée",
+    "La Nuit étoilée (Van Gogh, juin 1889)"
+   ]
+  },
+  {
+   "id": "vague",
+   "wiki": [
+    "La Grande Vague de Kanagawa"
+   ]
+  },
+  {
+   "id": "tour-eiffel",
+   "wiki": [
+    "Tour Eiffel"
+   ]
+  },
+  {
+   "id": "penseur",
+   "wiki": [
+    "Le Penseur",
+    "Le Penseur (Rodin)"
+   ]
+  },
+  {
+   "id": "danse",
+   "wiki": [
+    "La Danse (Matisse)",
+    "La Danse (Henri Matisse)"
+   ]
+  }
+ ],
+ "mots": [
+  {
+   "id": "autoportrait",
+   "wiki": [
+    "Autoportrait"
+   ]
+  },
+  {
+   "id": "nature-morte",
+   "wiki": [
+    "Nature morte"
+   ]
+  },
+  {
+   "id": "chaudes",
+   "wiki": [
+    "Les Tournesols"
+   ]
+  },
+  {
+   "id": "primaires",
+   "wiki": [
+    "Composition avec grand plan rouge, jaune, noir, gris et bleu",
+    "Piet Mondrian"
+   ]
+  },
+  {
+   "id": "mosaique",
+   "wiki": [
+    "Mosaïque"
+   ]
+  },
+  {
+   "id": "fresque",
+   "wiki": [
+    "La Création d'Adam"
+   ]
+  },
+  {
+   "id": "roman",
+   "wiki": [
+    "Abbatiale Sainte-Foy de Conques"
+   ]
+  },
+  {
+   "id": "gothique",
+   "wiki": [
+    "Cathédrale Notre-Dame de Chartres"
+   ]
+  },
+  {
+   "id": "arc-brise",
+   "wiki": [
+    "Arc brisé"
+   ]
+  },
+  {
+   "id": "voute",
+   "wiki": [
+    "Voûte"
+   ]
+  },
+  {
+   "id": "arc-boutant",
+   "wiki": [
+    "Arc-boutant"
+   ]
+  },
+  {
+   "id": "vitrail",
+   "wiki": [
+    "Vitrail"
+   ]
+  },
+  {
+   "id": "rosace",
+   "wiki": [
+    "Rosace"
+   ]
+  },
+  {
+   "id": "bas-relief",
+   "wiki": [
+    "Bas-relief"
+   ]
+  },
+  {
+   "id": "perspective",
+   "wiki": [
+    "L'École d'Athènes"
+   ]
+  },
+  {
+   "id": "fuite",
+   "wiki": [
+    "L'École d'Athènes"
+   ]
+  },
+  {
+   "id": "composition",
+   "wiki": [
+    "Le Radeau de La Méduse"
+   ]
+  },
+  {
+   "id": "clair-obscur",
+   "wiki": [
+    "La Vocation de saint Matthieu",
+    "Le Tricheur à l'as de carreau"
+   ]
+  },
+  {
+   "id": "tympan",
+   "wiki": [
+    "Tympan (architecture)"
+   ]
+  }
+ ]
+}
