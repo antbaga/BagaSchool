@@ -180,8 +180,11 @@ export function viewPartager(ctx, dateISO) {
       let lien, autonome = false;
       if (connecte) {
         const { contenu, cle } = await chiffrer(data);
-        const id = await compte.partages.creer(contenu, P.heures, date);
-        garderCle(id, cle); lien = lienServeur(id, cle);
+        let id = null;
+        try { id = await compte.partages.creer(contenu, P.heures, date); }
+        catch (err) { if (!/creer_partage|partages|PGRST|schema cache/i.test(String(err?.message))) throw err; } // serveur pas encore prêt : lien autonome
+        if (id) { garderCle(id, cle); lien = lienServeur(id, cle); }
+        else { lien = `${base()}#/voir/${await versLienAutonome(data)}`; autonome = true; }
       } else { lien = `${base()}#/voir/${await versLienAutonome(data)}`; autonome = true; }
       afficherLien(ctx, out, lien, data, autonome);
       chargerMiens();
