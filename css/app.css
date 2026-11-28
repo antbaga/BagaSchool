@@ -1353,3 +1353,13 @@ body.projection .ec-space{max-height:calc(100vh - 120px)}
 .banner-ip{background:#fff1e6;border-radius:12px;padding:8px 12px;margin:6px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .banner-ip .link{margin-left:auto}
 @media (max-width:700px){.jtable tr{grid-template-columns:64px 1fr}.jtable td.jt-done{grid-column:1/-1;display:flex;justify-content:flex-end}}
+/* ===== calendrier de classe ===== */
+.evts{margin-bottom:16px}.evts h3{margin:0}
+.evt-mois{margin:14px 0 4px;color:var(--muted);font-size:14px}
+.evt-ligne{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;justify-content:flex-start;text-align:left;width:100%;padding:8px 10px;border-radius:12px;font-weight:700}
+.evt-ligne:hover{background:var(--primary-soft)}
+.evt-ligne .hint{font-weight:400;flex-basis:100%;padding-left:28px}
+.evt-ico{display:inline-block;width:22px;text-align:center}
+.evt-passes{margin-top:10px}.evt-passes summary{cursor:pointer;color:var(--muted);font-weight:700}
+.cal-titre{margin:4px 0 8px}
+.banner-evt{display:block;background:#eef6ff;border-radius:12px;padding:8px 12px;margin:6px 0;color:var(--ink);text-decoration:none;font-weight:700}
