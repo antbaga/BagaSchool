@@ -26,7 +26,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.25";
+export const VERSION = "0.26";
 
 // ---------- état ----------
 let state = {};
@@ -197,14 +197,16 @@ function alertInline(root, msg) {
 }
 
 // ---------- PROGRAMMATIONS & PROGRESSIONS ----------
+// État vide commun : une icône, une phrase, au plus une action.
+const vide = (ico, texte, action = "") => `<div class="empty"><span>${ico}</span><p>${texte}</p>${action}</div>`;
 const PERIODES = ["Période 1", "Période 2", "Période 3", "Période 4", "Période 5"];
 function viewProgList() {
   app.innerHTML = `
     <p class="intro">Une programmation par discipline et par niveau : les séquences de chaque période sur l'année. Elle se transforme ensuite en progression, semaine par semaine, selon les vacances de ta zone.</p>
     <div class="toolbar"><button class="primary" id="add">+ Nouvelle programmation</button></div>
-    <div class="cards">${state.programmations.map((p) => `
+    ${state.programmations.length ? `<div class="cards">${state.programmations.map((p) => `
       <a class="card" href="#/programmations/${p.id}"><strong>${esc(p.discipline)}</strong><span>${esc(p.niveau)} · ${esc(p.annee)}</span>
-      <span class="hint">${p.periodes.flat().length} séquence(s)</span></a>`).join("") || `<p class="hint">Aucune programmation.</p>`}</div>`;
+      <span class="hint">${p.periodes.flat().length} séquence(s)</span></a>`).join("")}</div>` : vide("🗂️", "Pas encore de programmation. Commence par une discipline : tu y ranges les séquences de chaque période.")}`;
   $("#add").onclick = () => openModal(`
     <h2>Nouvelle programmation</h2>
     <form id="f">
@@ -432,7 +434,7 @@ function viewFiches() {
     const q = $("#q").value.toLowerCase();
     $("#l").innerHTML = state.fiches.filter((f) => !q || (f.titre + f.discipline).toLowerCase().includes(q)).map((f) => `
       <a class="item" href="#/fiches/${f.id}"><strong>${esc(f.titre)}</strong><span class="hint">${esc(f.discipline)} ${esc(f.niveau)} ${f.date ? "· " + fmtDate(f.date) : ""}</span></a>`).join("")
-      || `<p class="hint">Aucune fiche. Crée-en une ici, ou depuis une séance dans Programmations.</p>`;
+      || (q ? `<p class="hint">Aucune fiche ne correspond à « ${esc($("#q").value)} ».</p>` : vide("📝", "Pas encore de fiche. Crée-en une ici, ou depuis une séance d'une programmation."));
   };
   $("#q").oninput = draw; draw();
   $("#add").onclick = choisirModele;
@@ -528,7 +530,7 @@ function viewEvals() {
     ${Object.entries(parD).sort((a, b) => DISCIPLINES.indexOf(a[0]) - DISCIPLINES.indexOf(b[0])).map(([d, evs]) => `<h3 class="ev-groupe">${esc(d)}</h3>
     <div class="list">${evs.map((ev) => `
       <a class="item" href="#/evaluations/${ev.id}"><strong>${esc(ev.titre)}</strong>
-      <span class="hint">${ev.niveau ? esc(ev.niveau) + " · " : ""}${ev.date ? fmtDate(ev.date) + " · " : ""}${ev.items.length} compétence(s)${saisie(ev)}</span></a>`).join("")}</div>`).join("") || `<p class="hint">Aucune évaluation.</p>`}`;
+      <span class="hint">${ev.niveau ? esc(ev.niveau) + " · " : ""}${ev.date ? fmtDate(ev.date) + " · " : ""}${ev.items.length} compétence(s)${saisie(ev)}</span></a>`).join("")}</div>`).join("") || vide("✅", "Pas encore d'évaluation. Choisis les compétences évaluées, puis saisis les résultats de chaque élève.")}`;
   $("#add").onclick = () => { location.hash = `#/evaluations/${newEval().id}`; };
   app.onclick = (e) => { const t = e.target.closest("[data-fd]"); if (t) { filtreEvals = t.dataset.fd; viewEvals(); } };
 }
@@ -658,7 +660,7 @@ function viewClasse() {
     <p class="intro">Les prénoms restent sur cet appareil. Évite les noms de famille.</p>
     <form id="f" class="row"><textarea name="noms" rows="2" placeholder="Un ou plusieurs prénoms (un par ligne)" class="grow"></textarea><button class="primary">Ajouter</button></form>
     <ul class="pupils">${state.eleves.map((e) => `<li><input data-el="${e.id}" value="${esc(e.prenom)}"><a class="pill" href="#/classe/${e.id}">Suivi</a><button class="ghost small" data-rm="${e.id}" aria-label="Retirer">×</button></li>`).join("")}</ul>
-    <p class="hint">${state.eleves.length} élève(s)</p>`;
+    ${state.eleves.length ? `<p class="hint">${state.eleves.length} élève${state.eleves.length > 1 ? "s" : ""}</p>` : vide("👧🧒", "Tape les prénoms de tes élèves ci-dessus. Ils servent à l'appel, au tirage au sort et aux évaluations.")}`;
   $("#f").onsubmit = (e) => {
     e.preventDefault();
     const noms = e.target.noms.value.split(/\n|,/).map((s) => s.trim()).filter(Boolean);
@@ -2291,13 +2293,13 @@ function viewSuivi(disc) {
   const comps = d ? resultatsParCompetence(d) : [];
   app.innerHTML = `
     <p class="intro no-print">Le dernier résultat de chaque élève pour chaque compétence évaluée. Pour ajouter des résultats, crée une évaluation (elle peut porter sur n'importe quelle matière) et remplis sa grille.</p>
-    <div class="toolbar no-print"><div class="seg wrap">${discs.map((x) => `<a class="${x === d ? "on" : ""} seg-link" href="#/suivi/${encodeURIComponent(x)}">${esc(x)}</a>`).join("") || `<span class="hint">Pas encore d'évaluation avec des résultats.</span>`}</div><span class="grow"></span><a class="ghost btn" href="#/apc">🤝 APC</a><a class="primary btn" href="#/evaluations/new">+ Évaluation</a><button class="ghost" onclick="print()">🖨️ Imprimer</button></div>
+    <div class="toolbar no-print">${discs.length ? `<div class="seg wrap">${discs.map((x) => `<a class="${x === d ? "on" : ""} seg-link" href="#/suivi/${encodeURIComponent(x)}">${esc(x)}</a>`).join("")}</div>` : ""}<span class="grow"></span><a class="primary btn" href="#/evaluations/new">+ Évaluation</a><button class="ghost" onclick="print()">🖨️ Imprimer</button></div>
     ${comps.length && state.eleves.length ? carteDomaines(d) : ""}
     ${comps.length && state.eleves.length ? `<h3 class="suivi-h">Détail par compétence</h3><div class="suivi-wrap"><table class="suivi"><thead><tr><th>Élève</th>${comps.map((c, i) => `<th title="${esc(c.texte)}"><span>${i + 1}</span></th>`).join("")}<th>Acquis</th></tr></thead>
       <tbody>${state.eleves.map((el) => { const vals = comps.map((c) => c.res[el.id]); const ok = vals.filter((v) => v && (v.code === "A" || v.code === "D")).length, n = vals.filter(Boolean).length;
         return `<tr><th><a href="#/classe/${el.id}">${esc(el.prenom)}</a></th>${vals.map((v) => `<td>${v ? `<a class="res r-${v.code}" href="#/evaluations/${v.ev.id}" title="${esc(v.ev.titre)}">${v.code}</a>` : ""}</td>`).join("")}<td class="suivi-tot">${n ? `${ok}/${n}` : ""}</td></tr>`; }).join("")}</tbody></table></div>
       <ol class="suivi-legend">${comps.map((c) => `<li>${esc(c.texte)}</li>`).join("")}</ol>
-      <p class="hint">${CODES.slice(1).map((c) => `<span class="legend-dot r-${c.code}"></span> ${c.code} : ${c.label}`).join(" &nbsp; ")}. « Acquis » = atteint ou dépassé.</p>` : d ? `<p class="hint">Aucun résultat saisi en ${esc(d)}.</p>` : ""}`;
+      <p class="hint">${CODES.slice(1).map((c) => `<span class="legend-dot r-${c.code}"></span> ${c.code} : ${c.label}`).join(" &nbsp; ")}. « Acquis » = atteint ou dépassé.</p>` : d ? `<p class="hint">Aucun résultat saisi en ${esc(d)}.</p>` : vide("📊", "Les résultats apparaissent ici dès qu'une évaluation a des résultats saisis.")}`;
 }
 
 // ---------- AIDE : INSTALLER ET PROJETER ----------
