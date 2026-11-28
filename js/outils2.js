@@ -89,12 +89,13 @@ function cahier(el, ctx) {
 // =====================================================================
 // Calcul posé au tableau : page Seyès, un chiffre par carreau, cases de retenues.
 // Plusieurs opérations côte à côte ; la barre du haut agit sur l'opération active.
-// On touche une case puis on tape le chiffre (clavier de l'outil ou du PC).
+// On touche une case puis on tape le chiffre (clavier de l'outil ou du PC). Retoucher une retenue la barre.
+// « Sans carreaux » (CM) : mêmes colonnes, mais page blanche et lignes d'écriture sous la barre.
 // Hauteurs de lignes en quarts de carreau (interlignes Seyès) : chiffres = 4, retenues = 2 ou 4.
 // =====================================================================
 function calculPose(el) {
   const MAX_OPS = 6, TAILLES = [["S", 44], ["M", 60], ["L", 76]];
-  let nd = 3, corr = false, sel = null, rouge = false, act = 0, taille = 60;
+  let nd = 3, corr = false, sel = null, rouge = false, act = 0, taille = 60, papier = "carreaux";
   const nouvelle = (op) => { const o = { op, a: 0, b: 0, cells: {} }; tirer(o); return o; };
   const tirer = (o) => {
     const n = (k) => entre(10 ** (k - 1), 10 ** k - 1);
@@ -157,10 +158,10 @@ function calculPose(el) {
     const solRow = (l) => (l.sol ? l.sol.padStart(L.W, " ") : null);
     return `<div class="cp-op ${i === act && ops.length > 1 ? "act" : ""} ${o.op === "÷" ? "div" : ""}" data-op-i="${i}" style="--w:${L.W};padding-bottom:calc(var(--c) * ${(4 - (quarts % 4)) % 4} / 4)">
       ${ops.length > 1 ? `<button class="cp-x" data-suppr="${i}" aria-label="Retirer cette opération">✕</button>` : ""}
-      ${L.lignes.map((l, r) => `<div class="cp-row ${l.cls || ""} ${l.h === 4 ? "plein" : ""} ${l.trait ? "trait" : ""}">${l.cases.map((x, c) => {
+      ${L.lignes.map((l, r) => `<div class="cp-row ${l.cls || ""} ${l.h === 4 ? "plein" : ""} ${l.trait ? "trait" : ""} ${l.cls !== "ret" && l.cases.some((x) => x.t === "vide") ? "ecrire" : ""}">${l.cases.map((x, c) => {
         const key = `${i}|${r},${c}`, u = o.cells[`${r},${c}`];
         const sol = corr && !u ? (x.sol ?? (solRow(l)?.[c]?.trim() || (x.point ? "0" : ""))) : "";
-        const cls = ["cp-c", x.t, x.pot ? "pot" : "", sel === key ? "sel" : "", u?.rouge ? "rouge" : "", sol ? "solution" : ""].join(" ");
+        const cls = ["cp-c", x.t, x.pot ? "pot" : "", sel === key ? "sel" : "", u?.rouge ? "rouge" : "", u?.barre ? "barre" : "", sol ? "solution" : ""].join(" ");
         const txt = x.t === "fixe" || x.t === "signe" ? x.v : u ? u.v : sol;
         return `<span class="${cls}" ${x.t === "vide" || x.t === "ret" ? `data-cell="${key}"` : ""}>${escO(txt ?? "")}</span>`;
       }).join("")}</div>`).join("")}
@@ -172,23 +173,25 @@ function calculPose(el) {
     el.innerHTML = `
       <div class="tool-top wrap">
         <div class="seg">${["+", "−", "×", "÷"].map((x) => `<button data-op="${x}" class="${x === o.op ? "on" : ""}">${x}</button>`).join("")}</div>
-        <label class="inline">Nombres <input id="na" class="num-in" value="${o.a}" inputmode="numeric"> ${o.op} <input id="nb" class="num-in" value="${o.b}" inputmode="numeric"></label>
+        <label class="inline cp-mien">Mon calcul : <input id="na" class="num-in" value="${o.a}" inputmode="numeric" aria-label="Premier nombre"> ${o.op} <input id="nb" class="num-in" value="${o.b}" inputmode="numeric" aria-label="Deuxième nombre"></label>
         <button class="pill" id="go">Poser</button>
         <label class="inline">Chiffres <select id="nd">${[2, 3, 4, 5].map((n) => `<option ${n === nd ? "selected" : ""}>${n}</option>`).join("")}</select></label>
         <button class="pill" id="rnd">🎲 Au hasard</button>
         <button class="pill" id="ajout" ${ops.length >= MAX_OPS ? "disabled" : ""}>＋ Opération</button>
         <button class="pill ${corr ? "on" : ""}" id="corr">✔ Correction</button>
         <button class="pill" id="vider">Effacer mes chiffres</button>
+        <div class="seg">${[["carreaux", "Carreaux"], ["lignes", "Sans carreaux"]].map(([k, v]) => `<button data-papier="${k}" class="${k === papier ? "on" : ""}">${v}</button>`).join("")}</div>
         <div class="seg">${TAILLES.map(([n, px]) => `<button data-taille="${px}" class="${px === taille ? "on" : ""}" aria-label="Taille des carreaux ${n}">${n}</button>`).join("")}</div>
       </div>
-      <div class="cp-page rc-board" style="--c:${taille}px">${ops.map(opHTML).join("")}</div>
-      <div class="keypad cp-keys">${[7, 8, 9, 4, 5, 6, 1, 2, 3].map((n) => `<button data-k="${n}">${n}</button>`).join("")}<button data-k="del" aria-label="Effacer">⌫</button><button data-k="0">0</button><button data-k="rouge" class="${rouge ? "on" : ""}">Rouge</button></div>`;
+      <div class="cp-page ${papier} rc-board" style="--c:${taille}px">${ops.map(opHTML).join("")}</div>
+      <div class="keypad cp-keys">${[7, 8, 9, 4, 5, 6, 1, 2, 3].map((n) => `<button data-k="${n}">${n}</button>`).join("")}<button data-k="del" aria-label="Effacer">⌫</button><button data-k="0">0</button><button data-k="rouge" class="${rouge ? "on" : ""}">Rouge</button><button data-k="barre" class="cp-barrer">Barrer</button></div>`;
   };
   const parse = (key) => { const [i, rc] = key.split("|"); const [r, c] = rc.split(",").map(Number); return { i: +i, r, c, rc }; };
   const taper = (k) => {
     if (k === "rouge") { rouge = !rouge; return render(); }
     if (!sel) return;
     const { i, r, c, rc } = parse(sel), o = ops[i];
+    if (k === "barre") { if (o.cells[rc]) o.cells[rc].barre = !o.cells[rc].barre; return render(); } // retenue utilisée
     if (k === "del") delete o.cells[rc]; else o.cells[rc] = { v: k, rouge };
     if (k !== "del") { // case suivante : vers la gauche (on calcule de droite à gauche), sauf dans les retenues
       const prev = el.querySelector(`[data-cell="${i}|${r},${c - 1}"]`);
@@ -197,9 +200,11 @@ function calculPose(el) {
     render();
   };
   const onKey = (e) => {
+    if (e.target.matches("#na,#nb") && e.key === "Enter") { el.querySelector("#go").click(); return; }
     if (e.target.matches("input,select,textarea")) return;
     if (/^[0-9]$/.test(e.key)) { taper(e.key); e.preventDefault(); }
     else if (e.key === "Backspace" || e.key === "Delete") { taper("del"); e.preventDefault(); }
+    else if (e.key === "/" || e.key === "x") { taper("barre"); e.preventDefault(); }
     else if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
       if (!sel) return; const { i, r, c } = parse(sel);
       const [dr, dc] = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
@@ -211,13 +216,18 @@ function calculPose(el) {
   document.addEventListener("keydown", onKey);
   el.onclick = (e) => {
     const cell = e.target.closest("[data-cell]");
-    if (cell) { sel = cell.dataset.cell; act = parse(sel).i; return render(); }
+    if (cell) {
+      // Retoucher une retenue déjà écrite la barre (ou la débarre) : geste naturel au stylet.
+      if (sel === cell.dataset.cell && cell.classList.contains("ret") && cell.textContent.trim()) return taper("barre");
+      sel = cell.dataset.cell; act = parse(sel).i; return render();
+    }
     const t = e.target.closest("button");
     if (!t) { const opEl = e.target.closest("[data-op-i]"); if (opEl && +opEl.dataset.opI !== act) { act = +opEl.dataset.opI; render(); } return; }
     const o = ops[act];
     if (t.dataset.suppr) { ops.splice(+t.dataset.suppr, 1); act = Math.min(act, ops.length - 1); sel = null; }
     if (t.dataset.op) { o.op = t.dataset.op; tirer(o); sel = null; }
     if (t.dataset.taille) taille = +t.dataset.taille;
+    if (t.dataset.papier) papier = t.dataset.papier;
     if (t.id === "rnd") { tirer(o); sel = null; }
     if (t.id === "ajout" && ops.length < MAX_OPS) { ops.push(nouvelle(o.op)); act = ops.length - 1; sel = null; }
     if (t.id === "go") {
