@@ -1324,3 +1324,18 @@ body.projection .ec-space{max-height:calc(100vh - 120px)}
 .cp-cat-l,.cp-hist{padding-left:18px}.cp-cat-l li,.cp-hist li{margin:3px 0}
 .cp-eleve .seg{margin:6px 0 10px}
 .cp-signature{margin-top:40px}
+/* ===== emploi du temps : niveaux et heures par matière ===== */
+.niv-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:#fff8;font-size:12px;font-weight:800;vertical-align:middle}
+.jt-disc .niv-badge{background:var(--primary-soft);color:var(--primary)}
+.slot-par{display:flex;gap:6px}.slot-par .slot{flex:1;min-width:0}
+.vol{margin-top:16px}.vol h3{margin:0}
+.vol-table{width:100%;border-collapse:collapse;margin:8px 0}
+.vol-table th{text-align:left;font-weight:700;padding:6px 10px 6px 0;width:38%;vertical-align:top}
+.vol-table th,.vol-table td{border:0;background:none}.vol-table td{padding:6px 0}
+.vol-cell{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vol-barre{position:relative;flex:1;min-width:120px;height:12px;border-radius:8px;background:#f1edfb;overflow:visible}
+.vol-barre span{display:block;height:100%;border-radius:8px;background:#9ccf9c}
+.vol-barre.moins span{background:#f2b36b}.vol-barre.plus span{background:#8fb7e8}
+.vol-barre i{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.5}
+.vol-txt{min-width:150px;font-size:14px}.vol-txt em{font-style:normal;font-weight:800}.vol-txt em.moins{color:#c0721f}.vol-txt em.plus{color:#3c74b8}
+.vol-total th,.vol-total td{border-top:1px solid #eee;padding-top:10px}

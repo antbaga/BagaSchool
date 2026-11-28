@@ -25,9 +25,10 @@ import { installerBarre } from "./barre.js";
 import { initAnimations, animReduites, setAnimReduites, entree } from "./anim.js";
 import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
+import { grilleHoraire, fusionQLM, SOURCE_HORAIRES, LIEN_HORAIRES, TOTAL_HEBDO } from "./data/horaires.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.30";
+export const VERSION = "0.31";
 
 // ---------- état ----------
 let state = {};
@@ -121,24 +122,39 @@ const compChips = (ids, removable = false) => ids.map((id) => {
 // ---------- EMPLOI DU TEMPS ----------
 const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 const COULEURS = ["#cfe3f5", "#f9d9c4", "#d6efd2", "#efe0f7", "#fbefb8", "#f5cfd8", "#d3ece9", "#e5e5e5"];
+// Niveaux de la classe (profil) ; plusieurs = classe à plusieurs niveaux : chaque créneau peut viser un niveau.
+const niveauxClasse = () => (state.reglages.niveaux ?? []).filter((n) => NIVEAUX.includes(n));
+const multiNiveaux = () => niveauxClasse().length > 1;
+const badgeNiveau = (s) => (s.niveau ? `<span class="niv-badge">${esc(s.niveau)}</span>` : "");
+// Regroupe les créneaux qui se chevauchent (deux niveaux en parallèle) pour les afficher côte à côte.
+function enParallele(slots) {
+  const out = [];
+  for (const s of [...slots].sort(parDebut)) {
+    const g = out[out.length - 1];
+    if (g && s.debut < g.fin) { g.items.push(s); if (s.fin > g.fin) g.fin = s.fin; } else out.push({ fin: s.fin, items: [s] });
+  }
+  return out.map((g) => g.items);
+}
 function viewEdt() {
   const days = state.reglages.jours ?? ["Lundi", "Mardi", "Jeudi", "Vendredi"];
-  const cols = days.map((d) => {
-    const slots = state.edt.filter((s) => s.jour === d).sort((a, b) => a.debut.localeCompare(b.debut));
-    return `<section class="day"><h3>${d}</h3>${slots.map((s) => `
+  const slotBtn = (s) => `
       <button class="slot" data-edit="${s.id}" style="background:${s.couleur}">
         <span class="time">${esc(s.debut)}–${esc(s.fin)} · ${dureeTxt(s.debut, s.fin)}</span>
-        <strong>${esc(s.discipline || "")}</strong>${s.libelle ? `<span>${esc(s.libelle)}</span>` : ""}
-      </button>`).join("") || `<p class="hint">Rien pour l'instant.</p>`}
+        <strong>${esc(s.discipline || "")}${badgeNiveau(s)}</strong>${s.libelle ? `<span>${esc(s.libelle)}</span>` : ""}
+      </button>`;
+  const cols = days.map((d) => {
+    const groupes = enParallele(state.edt.filter((s) => s.jour === d));
+    return `<section class="day"><h3>${d}</h3>${groupes.map((g) => (g.length > 1 ? `<div class="slot-par">${g.map(slotBtn).join("")}</div>` : slotBtn(g[0]))).join("") || `<p class="hint">Rien pour l'instant.</p>`}
       <button class="ghost small" data-add="${d}">+ Créneau</button></section>`;
   }).join("");
   app.innerHTML = `
-    <p class="intro">Ton emploi du temps type, valable toute l'année. Il remplit chaque jour du <a href="#/journal">cahier journal</a> avec les horaires et les matières. Pour un jour particulier (sortie, piscine…), modifie les horaires directement dans le cahier journal.</p>
+    <p class="intro">Ton emploi du temps type, valable toute l'année : place tes matières une seule fois. Il remplit chaque jour du <a href="#/journal">cahier journal</a> avec les horaires et les matières. Pour un jour particulier (sortie, piscine…), modifie les horaires directement dans le cahier journal.${multiNiveaux() ? " Classe à plusieurs niveaux : indique le niveau d'un créneau pour faire deux matières en parallèle." : ""}</p>
     <div class="toolbar">
       <div class="days-pick">${JOURS.map((d) => `<label><input type="checkbox" value="${d}" ${days.includes(d) ? "checked" : ""}> ${d.slice(0, 3)}</label>`).join("")}</div>
       <button class="ghost" onclick="print()">Imprimer</button>
     </div>
-    <div class="week" style="--n:${days.length}">${cols}</div>`;
+    <div class="week" style="--n:${days.length}">${cols}</div>
+    ${volumesHTML(days)}`;
   $(".days-pick", app).onchange = () => {
     state.reglages.jours = JOURS.filter((d) => $(`.days-pick input[value="${d}"]`, app).checked);
     save("reglages"); viewEdt();
@@ -146,7 +162,66 @@ function viewEdt() {
   app.onclick = (e) => {
     const a = e.target.closest("[data-add]"); if (a) return editSlot({ jour: a.dataset.add });
     const ed = e.target.closest("[data-edit]"); if (ed) return editSlot(state.edt.find((s) => s.id === ed.dataset.edit));
+    const nv = e.target.closest("[data-volniv]"); if (nv) { volNiveau = nv.dataset.volniv; return viewEdt(); }
+    if (e.target.closest("#volProfil")) return ouvrirProfil();
   };
+}
+// ---------- volumes horaires : emploi du temps comparé aux horaires officiels ----------
+// Les libellés sont libres : on range « Lecture », « Calcul mental »… dans la bonne discipline.
+const PAUSES = /r[ée]cr[ée]ation|pause|cantine|d[ée]jeuner|repas|sieste|accueil|sortie des classes/i;
+const MOTS_DISC = [
+  [/questionner|qlm/i, "Questionner le monde"],
+  [/emc|moral|civique|conseil d/i, "EMC"],
+  [/fran[cç]ais|lecture|[ée]criture|conjugaison|grammaire|orthographe|vocabulaire|dict[ée]e|production d|r[ée]daction|fluence|po[ée]sie|litt[ée]rature|langage|oral|copie|phonologie|code|graphisme|[ée]tude de la langue/i, "Français"],
+  [/math|calcul|num[ée]ration|g[ée]om[ée]trie|mesure|probl[eè]me|nombres/i, "Mathématiques"],
+  [/anglais|allemand|espagnol|italien|langue|lve|lvr|english/i, "Langues vivantes"],
+  [/eps|sport|piscine|natation|motricit|gym|athl[ée]tisme|jeux collectifs/i, "EPS"],
+  [/musique|musical|chant|chorale/i, "Éducation musicale"],
+  [/arts?\b|art plastique|dessin|peinture|histoire des arts/i, "Arts plastiques"],
+  [/histoire|g[ée]ographie|g[ée]o\b/i, "Histoire-géographie"],
+  [/science|technolog|vivant|mati[eè]re|exp[ée]rience/i, "Sciences et technologie"],
+];
+function disciplineDe(s) {
+  const d = (s.discipline || "").trim();
+  if (DISCIPLINES.includes(d) && d !== "Autre") return d;
+  if (PAUSES.test(d)) return "pause";
+  for (const [re, disc] of MOTS_DISC) if (re.test(d)) return disc;
+  return "";
+}
+let volNiveau = null;
+const hTxt = (m) => { m = Math.round(m); const h = Math.floor(Math.abs(m) / 60), r = Math.abs(m) % 60; if (!m) return "0 h"; return `${m < 0 ? "−" : ""}${h ? `${h} h${r ? String(r).padStart(2, "0") : ""}` : `${r} min`}`; };
+function volumesHTML(days) {
+  const nivs = niveauxClasse().filter((n) => grilleHoraire(n, anneeScolaire()));
+  const tete = `<div class="label-row"><h3>Heures par matière</h3></div>`;
+  if (!state.edt.length) return "";
+  if (!nivs.length) return `<section class="sheet vol no-print">${tete}<p class="hint">Indique le niveau de ta classe pour comparer ton emploi du temps aux horaires officiels. <button class="link" id="volProfil">Choisir le niveau</button></p></section>`;
+  if (!nivs.includes(volNiveau)) volNiveau = nivs[0];
+  const slots = state.edt.filter((s) => days.includes(s.jour) && (!s.niveau || s.niveau === volNiveau));
+  const parDisc = {}, autres = {};
+  let pauses = 0;
+  for (const s of slots) {
+    const m = Math.max(0, hm2min(s.fin) - hm2min(s.debut)), d = disciplineDe(s);
+    if (d === "pause") pauses += m; else if (d) parDisc[d] = (parDisc[d] ?? 0) + m; else autres[s.discipline || "Sans nom"] = (autres[s.discipline || "Sans nom"] ?? 0) + m;
+  }
+  let grille = grilleHoraire(volNiveau, anneeScolaire());
+  if (parDisc["Questionner le monde"]) grille = fusionQLM(grille);
+  const lignes = grille.map((r) => ({ ...r, prevu: r.disc.reduce((t, d) => t + (parDisc[d] ?? 0), 0) }));
+  const compte = lignes.reduce((t, r) => t + r.prevu, 0) + Object.values(autres).reduce((t, m) => t + m, 0);
+  const barre = (prevu, cible) => {
+    const ecart = prevu - cible, cls = Math.abs(ecart) <= 15 ? "ok" : ecart < 0 ? "moins" : "plus";
+    return `<div class="vol-barre ${cls}"><span style="width:${Math.min(100, (prevu / (cible * 1.3)) * 100)}%"></span><i style="left:${100 / 1.3}%"></i></div>
+      <span class="vol-txt"><b>${hTxt(prevu)}</b> sur ${hTxt(cible)}${Math.abs(ecart) > 15 ? ` <em class="${cls}">(${ecart > 0 ? "+" : ""}${hTxt(ecart)})</em>` : " ✓"}</span>`;
+  };
+  return `<section class="sheet vol">${tete}
+    ${nivs.length > 1 ? `<div class="seg no-print">${nivs.map((n) => `<button data-volniv="${n}" class="${n === volNiveau ? "on" : ""}">${n}</button>`).join("")}</div>` : ""}
+    <p class="hint">Ton emploi du temps type${nivs.length > 1 ? ` pour les ${esc(volNiveau)}` : ""}, comparé aux horaires officiels (moyenne par semaine). Une marge de 15 minutes est tolérée.</p>
+    <table class="vol-table"><tbody>
+      ${lignes.map((r) => `<tr><th>${esc(r.nom)}${r.aVerifier ? ` <span class="hint" title="Horaire de l'ancienne grille du cycle 2, non relu sur le texte officiel">(à vérifier)</span>` : ""}${r.note ? `<br><span class="hint">${esc(r.note)}</span>` : ""}</th><td><div class="vol-cell">${barre(r.prevu, r.min)}</div></td></tr>`).join("")}
+      ${Object.keys(autres).length ? `<tr><th>Non classé<br><span class="hint">${Object.keys(autres).map(esc).join(", ")}</span></th><td><span class="vol-txt"><b>${hTxt(Object.values(autres).reduce((t, m) => t + m, 0))}</b> <span class="hint">: choisis une discipline de la liste pour ces créneaux</span></span></td></tr>` : ""}
+      <tr class="vol-total"><th>Total</th><td><div class="vol-cell">${barre(compte, TOTAL_HEBDO)}</div></td></tr>
+    </tbody></table>
+    <p class="hint">${pauses ? `Récréations et pauses (${hTxt(pauses)}) non comptées. ` : ""}Source : <a href="${LIEN_HORAIRES}" target="_blank" rel="noopener">${esc(SOURCE_HORAIRES)}</a>. Nouvelle grille du cycle 2 : CP dès la rentrée 2026, CE1 et CE2 à la rentrée 2027.</p>
+  </section>`;
 }
 const hm2min = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + (m || 0); };
 const min2hm = (n) => `${String(Math.floor(n / 60) % 24).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
@@ -171,6 +246,7 @@ function editSlot(s, cible = CIBLE_EDT) {
       <div class="field"><span class="field-label">Durée</span><div class="seg wrap" id="durs">${[15, 20, 30, 45, 60, 90, 120].map((d) => `<button type="button" data-dur="${d}">${d < 60 ? d + " min" : d / 60 + " h" + (d % 60 ? "30" : "")}</button>`).join("")}</div></div>
       <label>Discipline<input name="discipline" list="disc" value="${esc(s.discipline)}" required></label>
       <datalist id="disc">${DISCIPLINES.map((d) => `<option value="${d}">`).join("")}<option value="Récréation"><option value="Pause méridienne"></datalist>
+      ${multiNiveaux() ? `<label>Niveau<select name="niveau"><option value="">Toute la classe</option>${opts(niveauxClasse(), s.niveau ?? "", null)}</select></label>` : ""}
       <label>Précision (facultatif)<input name="libelle" value="${esc(s.libelle)}" placeholder="ex. Lecture compréhension, groupe CM1"></label>
       <label>Couleur</label><div class="colors">${COULEURS.map((c) => `<label class="sw" style="background:${c}"><input type="radio" name="couleur" value="${c}" ${c === s.couleur ? "checked" : ""}></label>`).join("")}</div>
       <div class="actions">${isNew ? "" : `<button type="button" class="danger" id="del">Supprimer</button>`}<button type="button" data-close class="ghost">Annuler</button><button class="primary">Enregistrer</button></div>
@@ -1302,7 +1378,7 @@ function viewJournal(dateISO) {
         ${slots.map((s) => { const c = J.creneaux[s.id] ?? {}; const f = state.fiches.find((x) => x.id === c.ficheId);
           return `<tr data-s="${s.id}" style="--c:${s.couleur}" class="${c.fait ? "done" : ""}">
             <td class="jt-time">${cellule(s, `${esc(s.debut)}<br><span class="hint">${esc(s.fin)}</span>`)}</td>
-            <td class="jt-disc">${cellule(s, `<b>${esc(s.discipline)}</b>${s.libelle ? `<br><span class="hint">${esc(s.libelle)}</span>` : ""}`)}</td>
+            <td class="jt-disc">${cellule(s, `<b>${esc(s.discipline)}</b>${badgeNiveau(s)}${s.libelle ? `<br><span class="hint">${esc(s.libelle)}</span>` : ""}`)}</td>
             <td><div class="row no-print"><select data-fiche="${s.id}">${ficheOpts(c.ficheId, s.discipline)}</select>${f ? `<a class="pill" href="#/fiches/${f.id}">Ouvrir</a>` : `<button class="pill" data-newfiche="${s.id}">+ Créer</button>`}</div>
               ${f ? `<div class="print-only"><b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? ` — ${esc(f.objectif)}` : ""}</div>` : ""}
               <textarea data-note="${s.id}" rows="2" placeholder="Contenu, remarques…">${esc(c.notes ?? "")}</textarea>
