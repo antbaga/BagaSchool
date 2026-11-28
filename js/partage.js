@@ -170,7 +170,7 @@ export function viewPartager(ctx, dateISO) {
           competences: I.contenus ? (c.competences ?? []).map((id) => compById?.[id]?.texte).filter(Boolean) : [],
           differenciation: I.contenus ? c.differenciation?.trim() || "" : "",
           fiche: f ? { titre: f.titre, objectif: f.objectif || "", ...(I.fiches ? { materiel: f.materiel || "", differenciation: f.differenciation || "",
-            phases: (f.phases || []).filter((p) => p.phase || p.deroulement).map((p) => ({ duree: p.duree || "", phase: p.phase || "", deroulement: p.deroulement || "", modalite: p.modalite || "" })) } : {}) } : null,
+            phases: (f.phases || []).filter((p) => p.phase || p.type || p.titre || p.deroulement).map((p) => ({ duree: p.duree || "", phase: p.phase || [p.type, p.titre].filter(Boolean).join(" : "), deroulement: [p.deroulement, p.differenciation?.trim() && `Différenciation : ${p.differenciation.trim()}`].filter(Boolean).join("\n"), modalite: [p.modalite, p.forme].filter(Boolean).join(", ") })) } : {}) } : null,
         };
       }) : [],
       devoirs: I.devoirs ? { pour: devoirsPour, liste: (state.devoirs[devoirsPour] ?? []).map((d) => ({ discipline: d.discipline || "", texte: d.texte })) } : null,
