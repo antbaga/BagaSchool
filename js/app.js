@@ -22,11 +22,12 @@ import { ISSR_BAREMES, baremeISSR, issrJour, trancheISSR, nomTrancheISSR } from 
 import { chercherAdresse, chercherEcole, distanceRoute, lienGeoportail } from "./distance.js";
 import { installerAnnotation, tapFiable } from "./annoter.js";
 import { installerBarre } from "./barre.js";
+import { initAnimations, animReduites, setAnimReduites, entree } from "./anim.js";
 import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.28.1";
+export const VERSION = "0.29";
 
 // ---------- état ----------
 let state = {};
@@ -715,6 +716,9 @@ async function viewReglages() {
       <h2>Ma classe</h2>
       <p>${(() => { const r = state.reglages; return [r.niveaux?.length ? r.niveaux.join(", ") : "Niveau non précisé", (r.jours ?? []).map((j) => j.slice(0, 3).toLowerCase()).join(" ") || "", r.zone ? `zone ${r.zone}` : "zone non choisie", r.remplacant ? "remplaçant·e" : ""].filter(Boolean).map(esc).join(" · "); })()}</p>
       <div class="row"><button class="ghost" id="pfEdit">Modifier</button><a href="#/calendrier" class="link">Voir le calendrier scolaire</a></div>
+      <h2>Affichage</h2>
+      <label class="check"><input type="checkbox" id="animR" ${animReduites() ? "checked" : ""}> Réduire les animations</label>
+      <p class="hint">Pour cet appareil seulement. Utile si le TBI ou l'ordinateur est lent, ou si un élève est gêné par ce qui bouge.${matchMedia("(prefers-reduced-motion: reduce)").matches ? " Ton système demande déjà moins d'animations : elles sont coupées." : ""}</p>
       <h2>Sauvegarde</h2>
       <p>Tes données sont enregistrées <strong>sur cet appareil</strong>, dans ce navigateur.${compte.configure() ? " Avec un compte, tes préparations sont aussi copiées sur le serveur et synchronisées ; les élèves, les évaluations et l'appel restent uniquement ici." : ""}
       Pour ne rien perdre, exporte régulièrement un fichier de sauvegarde.</p>
@@ -737,6 +741,7 @@ async function viewReglages() {
       <div class="row"><button class="ghost" id="demo">Charger un exemple</button><button class="danger" id="wipe">Tout effacer</button></div>
       <p class="hint">BagaSchool version ${VERSION}</p>
     </div>`;
+  $("#animR").onchange = (e) => setAnimReduites(e.target.checked);
   $("#exp").onclick = () => {
     const blob = new Blob([exportJSON()], { type: "application/json" });
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `bagaschool-${new Date().toISOString().slice(0, 10)}.json` });
@@ -2784,8 +2789,10 @@ function route(doux = false) {
   document.body.dataset.view = name;
   if (name !== "outils" && ecran.actif) surveiller();
   (views[name] ?? notFound)();
+  if (!doux && !(name === "outils" && id)) entree(app);
 }
 initInstallation();
+initAnimations();
 $("#navBackdrop").onclick = () => document.body.classList.remove("nav-open");
 
 (async () => {
