@@ -1152,3 +1152,14 @@ body.projection .ec-space{max-height:calc(100vh - 120px)}
   .heatmap th{font-size:16px}.heatmap td b{font-size:22px}.heatmap td small{font-size:13px}
 }
 @media print{ .gdisc{break-inside:avoid} .heatmap td.hm-v{-webkit-print-color-adjust:exact;print-color-adjust:exact} .gbar>span{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
+/* ===== v0.14 : cahier journal — horaires du jour, objectifs, duplication ===== */
+.jt-source{margin:0 0 4px}.journal button.link{background:none;border:0;padding:0;color:var(--primary);cursor:pointer;font:inherit;font-weight:800}
+.jt-edit{all:unset;cursor:pointer;display:block;border-radius:8px;padding:2px 4px;margin:-2px -4px}
+.jt-edit:hover,.jt-edit:focus-visible{background:var(--primary-soft);outline:none}
+.jt-peda{margin-top:6px;font-size:14px}
+.jt-peda summary{cursor:pointer;color:var(--muted);font-weight:700;padding:2px 0}
+.jt-peda[open] summary{margin-bottom:4px}
+.jt-peda label{font-size:13px;margin-top:4px}.jt-peda textarea{margin-top:2px}
+.jt-peda .label-row{margin-top:6px}
+#addslot{margin-top:4px}
+@media print{.jt-peda summary,.jt-peda.vide{display:none}}
