@@ -6,7 +6,7 @@
 
 /* ---- Frises ---- */
 .geo-fr{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%}
-.geo-fr-svg{width:100%;max-height:max(220px,calc(100vh - 420px));background:#fff;border-radius:14px;box-shadow:var(--shadow);touch-action:none;user-select:none;-webkit-user-select:none}
+.geo-fr-svg{width:auto;height:auto;max-width:100%;max-height:max(220px,calc(100vh - 420px));background:#fff;border-radius:14px;box-shadow:var(--shadow);touch-action:none;user-select:none;-webkit-user-select:none}
 .geo-fr-svg[data-inter]{cursor:crosshair}
 .geo-fond{fill:#fff}
 .geo-gl{stroke:#d3dbf3;stroke-width:1.2}
@@ -38,6 +38,34 @@
 .geo-tab{border-collapse:collapse;font-size:clamp(16px,2.4vmin,24px);background:#fff;border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
 .geo-tab th,.geo-tab td{border:2px solid #ece6f7;padding:6px 12px;text-align:center;min-width:44px}
 .geo-tab th{background:#f4f1fb}
+/* Frises de saison : lignage Seyès, cadre de couleur, décorations, fiche à imprimer */
+.geo-papier{fill:#fffefa}
+.geo-sy{stroke:#c9d8f3;stroke-width:.8}
+.geo-sy-f{stroke:#8fb0e8;stroke-width:1.5}
+.geo-sy-v{stroke:#d3c6ec;stroke-width:1}
+.geo-marge{stroke:#ef7d93;stroke-width:2.4}
+.geo-fr-svg.geo-cadre{border:6px solid var(--cadre);border-radius:22px;background:#fffefa;box-shadow:0 5px 0 color-mix(in srgb,var(--cadre) 40%,transparent),var(--shadow)}
+.geo-fr-tete{display:flex;gap:8px 16px;align-items:center;justify-content:center;flex-wrap:wrap}
+.geo-fr-titre{background:var(--cadre);color:#fff;text-shadow:0 1px 0 #0003;font-weight:900;font-size:clamp(17px,2.4vmin,24px);padding:5px 18px;border-radius:999px;box-shadow:0 3px 0 color-mix(in srgb,var(--cadre) 60%,#000)}
+.geo-guide{opacity:.4}
+.geo-deco{pointer-events:none}
+.geo-point{stroke:#0003;stroke-width:1}
+.geo-petit{stroke:#3b3355;stroke-width:1.6}
+.geo-couls{max-width:560px}
+.geo-couls .geo-coul{width:42px;height:42px;min-height:42px}
+.geo-themes button{font-size:15px}
+.geo-print{display:none}
+@page geo{size:A4 portrait;margin:10mm}
+@media print{
+  body.geo-imprime .board-head,body.geo-imprime #tool>:not(.geo-print){display:none!important}
+  body.geo-imprime .board{box-shadow:none;border-radius:0;min-height:0!important;background:#fff}
+  body.geo-imprime #tool{padding:0}
+  body.geo-imprime .geo-print{display:block;page:geo;color:#222}
+  .geo-pr-bande{margin:0 auto 2mm;break-inside:avoid}
+  .geo-print .geo-fr-svg{display:block;width:100%;height:auto;max-height:none;box-shadow:none;border-width:1mm;border-radius:4mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .geo-pr-tete{display:flex;justify-content:space-between;align-items:baseline;gap:8mm;font-size:14pt;border-bottom:.4mm solid #aaa;padding-bottom:2mm;margin-bottom:2mm}
+  .geo-pr-q{font-size:12pt;font-weight:800;margin:3mm 0 1.5mm}
+}
 
 /* ---- Formes ---- */
 .geo-quiz{display:flex;flex-direction:column;gap:12px;align-items:center;width:100%}
