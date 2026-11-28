@@ -112,5 +112,50 @@
 .geo-sol.geo-3col{grid-template-columns:minmax(0,.8fr) minmax(0,1fr) minmax(240px,.9fr)}
 .geo-info .banner{font-size:clamp(18px,2.6vmin,26px)}
 @media (max-width:760px){.geo-sol,.geo-sol.geo-3col{grid-template-columns:1fr}.geo-3d{height:auto;aspect-ratio:400/330}}
+/* ---- Figures à manipuler ---- */
+.fg{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:16px;align-items:start;width:100%}
+.fg-svg{width:100%;height:max(300px,calc(100vh - 260px));max-height:72vh;background:#fff;border-radius:22px;box-shadow:var(--shadow);touch-action:none;user-select:none;-webkit-user-select:none}
+.fg-fond{fill:#fff}
+.fg-panneau{display:flex;flex-direction:column;gap:10px}
+.fg-ligne{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
+.fg-ligne select{width:auto;max-width:100%;min-height:48px;font-size:17px}
+.fg-voir{font-size:15px;padding:6px 10px}
+.fg-info{background:#fff;border-radius:18px;padding:10px 16px;box-shadow:var(--shadow);min-height:120px}
+.fg-nom{margin:0 0 6px;font-size:clamp(20px,3vmin,32px);font-weight:900;text-align:center;color:var(--primary)}
+.fg-nom.ko{color:#c0392b}
+.fg-props{margin:0;padding-left:20px;font-weight:700;font-size:clamp(15px,2.1vmin,21px);line-height:1.35}
+.fg-aide{margin:0;text-align:center}
+.fg-poly{fill:#cfe6ff;fill-opacity:.85;stroke:#3b3355;stroke-width:5;stroke-linejoin:round;cursor:move}
+.fg-poly.ko{fill:#ffd0dc;stroke:#c0392b}
+.fg-poly-m{fill:#ffe3a3;fill-opacity:.7;stroke:#d18a00;stroke-width:4;stroke-dasharray:12 8;stroke-linejoin:round;pointer-events:none}
+.fg-axe-m{stroke:#d18a00;stroke-width:4;stroke-dasharray:16 10}
+.fg-axe-pt{fill:#d18a00;stroke:#fff;stroke-width:3}
+.fg-axe-t{font:900 20px var(--font);fill:#fff;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.fg-poignee-axe{cursor:ew-resize}
+.fg-axe{stroke:#1f8a4c;stroke-width:4;stroke-dasharray:14 9;stroke-linecap:round}
+.fg-diag{stroke:#8a829c;stroke-width:3;stroke-dasharray:10 7}
+.fg-par{stroke-width:9;stroke-linecap:round;opacity:.75;pointer-events:none}
+.fg-droit{fill:none;stroke:#2448b8;stroke-width:3.5}
+.fg-tick{stroke:#1f8a4c;stroke-width:4;stroke-linecap:round}
+.fg-arc{fill:none;stroke:#e0556a;stroke-width:3}
+.fg-ang{font:900 22px var(--font);fill:#c0392b;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#fff;stroke-width:5;pointer-events:none}
+.fg-long{font:900 24px var(--font);fill:#2448b8;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#fff;stroke-width:5;pointer-events:none}
+.fg-lettre{font:900 28px var(--font);fill:#3b3355;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#fff;stroke-width:5;pointer-events:none}
+.fg-lettre.m{fill:#a86f00}
+.fg-hit{fill:transparent}
+.fg-sommet{cursor:grab}
+.fg-pt{fill:#e0556a;stroke:#fff;stroke-width:3}
+.fg-sommet.sel .fg-pt{fill:#7a6cf0;r:14px}
+.fg-tige{stroke:#7a6cf0;stroke-width:2.5;stroke-dasharray:4 5}
+.fg-poignee{cursor:grab}
+.fg-rot{fill:#7a6cf0;stroke:#fff;stroke-width:3}
+.fg-rot-t{font:900 22px var(--font);fill:#fff;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.fg-rot-deg{font:900 24px var(--font);fill:#7a6cf0;dominant-baseline:central;paint-order:stroke;stroke:#fff;stroke-width:5}
+@media (max-width:860px){.fg{grid-template-columns:1fr}.fg-svg{height:auto;aspect-ratio:16.6/10.6}}
+body.projection .fg-svg{max-height:80vh}
 body.projection .geo-fr-svg{max-height:60vh}
 body.projection .geo-3d{max-height:78vh}
+.geo-pface-lisse{stroke-width:2;stroke-linejoin:round}
+.geo-pface-bord{stroke:#3b3355;stroke-width:2;fill:none;stroke-linecap:round}
+.geo-plieur{display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:800;width:100%}
+.geo-plieur input{width:min(100%,320px)}

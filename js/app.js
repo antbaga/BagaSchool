@@ -25,7 +25,7 @@ import * as res from "./ressources.js";
 import { viewPartager, viewVoir } from "./partage.js";
 import { initInstallation, estInstallee, contenuInstallation, lancerInstallation, plateforme } from "./installer.js";
 
-export const VERSION = "0.15.1";
+export const VERSION = "0.17.1";
 
 // ---------- état ----------
 let state = {};
@@ -100,10 +100,11 @@ function pickCompetences(selected, onDone) {
       }).join("") || `<p class="hint">Aucun résultat.</p>`;
       $("#cc", m).textContent = `${sel.size} sélectionnée(s)`;
     };
-    m.addEventListener("input", (e) => {
+    m.oninput = (e) => { // la modale est réutilisée : on se débranche dès qu'elle affiche autre chose
+      if (!$("#cq", m)) return void (m.oninput = null);
       if (e.target.type === "checkbox") { e.target.checked ? sel.add(e.target.value) : sel.delete(e.target.value); $("#cc", m).textContent = `${sel.size} sélectionnée(s)`; }
       else draw();
-    });
+    };
     $("#cok", m).onclick = () => { closeModal(); onDone([...sel]); };
     $("#cadd", m).onclick = (e) => { e.preventDefault(); importerCompetences(() => pickCompetences([...sel], onDone)); };
     draw();
@@ -130,6 +131,7 @@ function viewEdt() {
       <button class="ghost small" data-add="${d}">+ Créneau</button></section>`;
   }).join("");
   app.innerHTML = `
+    <p class="intro">Ton emploi du temps type, valable toute l'année. Il remplit chaque jour du <a href="#/journal">cahier journal</a> avec les horaires et les matières. Pour un jour particulier (sortie, piscine…), modifie les horaires directement dans le cahier journal.</p>
     <div class="toolbar">
       <div class="days-pick">${JOURS.map((d) => `<label><input type="checkbox" value="${d}" ${days.includes(d) ? "checked" : ""}> ${d.slice(0, 3)}</label>`).join("")}</div>
       <button class="ghost" onclick="print()">Imprimer</button>
@@ -147,18 +149,21 @@ function viewEdt() {
 const hm2min = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + (m || 0); };
 const min2hm = (n) => `${String(Math.floor(n / 60) % 24).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
 const dureeTxt = (a, b) => { const d = hm2min(b) - hm2min(a); return d >= 60 ? `${Math.floor(d / 60)} h${d % 60 ? String(d % 60).padStart(2, "0") : ""}` : `${d} min`; };
-function editSlot(s) {
+// cible : par défaut l'emploi du temps type ; le cahier journal passe la liste des créneaux adaptés d'un jour (jourFixe).
+const CIBLE_EDT = { liste: () => state.edt, apres: () => { save("edt"); viewEdt(); } };
+function editSlot(s, cible = CIBLE_EDT) {
   const isNew = !s.id;
   if (isNew) { // le nouveau créneau commence à la fin du dernier créneau du jour
-    const last = state.edt.filter((x) => x.jour === s.jour).sort((a, b) => b.fin.localeCompare(a.fin))[0];
+    const last = cible.liste().filter((x) => cible.jourFixe || x.jour === s.jour).sort((a, b) => b.fin.localeCompare(a.fin))[0];
     const debut = last ? last.fin : "08:30";
     s = { debut, fin: min2hm(hm2min(debut) + 45), ...s };
   }
   s = { couleur: COULEURS[0], ...s };
   openModal(`
     <h2>${isNew ? "Nouveau créneau" : "Modifier le créneau"}</h2>
+    ${cible.jourFixe ? `<p class="hint">Pour ce jour seulement : ton emploi du temps type ne change pas.</p>` : ""}
     <form id="f">
-      <label>Jour<select name="jour">${opts(JOURS, s.jour, null)}</select></label>
+      ${cible.jourFixe ? "" : `<label>Jour<select name="jour">${opts(JOURS, s.jour, null)}</select></label>`}
       <div class="row"><label>Début<input type="time" name="debut" value="${s.debut}" step="300" required></label>
       <label>Fin<input type="time" name="fin" value="${s.fin}" step="300" required></label></div>
       <div class="field"><span class="field-label">Durée</span><div class="seg wrap" id="durs">${[15, 20, 30, 45, 60, 90, 120].map((d) => `<button type="button" data-dur="${d}">${d < 60 ? d + " min" : d / 60 + " h" + (d % 60 ? "30" : "")}</button>`).join("")}</div></div>
@@ -178,10 +183,11 @@ function editSlot(s) {
       const d = formData(e.target);
       d.couleur = $("input[name=couleur]:checked", m)?.value ?? COULEURS[0];
       if (d.fin <= d.debut) return alertInline(m, "L'heure de fin doit être après l'heure de début.");
-      if (isNew) state.edt.push({ id: uid(), ...d }); else Object.assign(state.edt.find((x) => x.id === s.id), d);
-      save("edt"); closeModal(); viewEdt();
+      const L = cible.liste();
+      if (isNew) L.push({ id: uid(), jour: s.jour, ...d }); else Object.assign(L.find((x) => x.id === s.id), d);
+      closeModal(); cible.apres();
     };
-    $("#del", m)?.addEventListener("click", () => { state.edt = state.edt.filter((x) => x.id !== s.id); save("edt"); closeModal(); viewEdt(); });
+    $("#del", m)?.addEventListener("click", () => { const L = cible.liste(); L.splice(L.findIndex((x) => x.id === s.id), 1); closeModal(); cible.apres(); });
   });
 }
 function alertInline(root, msg) {
@@ -621,7 +627,7 @@ function viewAccueil() {
   const now = new Date();
   const jour = JOURS_JS[now.getDay()];
   const hm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const slots = state.edt.filter((s) => s.jour === jour).sort((a, b) => a.debut.localeCompare(b.debut));
+  const slots = creneauxDuJour(localISO(now));
   const fiches = state.fiches.filter((f) => f.date === localISO(now));
   const recent = state.fiches.slice(0, 3);
   const dateTxt = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -870,13 +876,69 @@ function viewCalendrier() {
 }
 
 // ---------- CAHIER JOURNAL ----------
+const jourDe = (date) => JOURS_JS[new Date(date + "T12:00").getDay()];
+const parDebut = (a, b) => a.debut.localeCompare(b.debut);
+// Créneaux d'un jour : ceux de l'emploi du temps type, sauf si ce jour a été adapté dans le cahier journal (J.slots).
+function creneauxDuJour(date) {
+  const perso = state.journal[date]?.slots;
+  return [...(perso ?? state.edt.filter((s) => s.jour === jourDe(date)))].sort(parDebut);
+}
+const lundiDe = (date) => addDays(date, -((new Date(date + "T12:00").getDay() + 6) % 7));
+function jourRempli(J) {
+  if (!J) return false;
+  if (J.slots || J.notes?.trim()) return true;
+  return Object.values(J.creneaux ?? {}).some((c) => c.ficheId || c.fait || c.notes?.trim() || c.objectif?.trim() || c.differenciation?.trim() || c.competences?.length);
+}
+// Copie un jour du cahier journal vers une autre date (remplace son contenu). Les cases « Fait » repartent vides.
+function copierJour(src, dst) {
+  const C = structuredClone(state.journal[src]);
+  for (const c of Object.values(C.creneaux ?? {})) delete c.fait;
+  // Les contenus sont rangés par créneau : vers un autre jour de la semaine, on emporte aussi les horaires.
+  if (!C.slots && jourDe(src) !== jourDe(dst)) C.slots = structuredClone(creneauxDuJour(src));
+  C.slots?.forEach((s) => { s.jour = jourDe(dst); });
+  state.journal[dst] = { creneaux: C.creneaux ?? {}, notes: C.notes ?? "", ...(C.slots ? { slots: C.slots } : {}) };
+}
+function dupliquerJournal(date) {
+  let mode = "jour";
+  const sources = () => (mode === "jour" ? [date] : [0, 1, 2, 3, 4, 5].map((i) => addDays(lundiDe(date), i))).filter((d) => jourRempli(state.journal[d]));
+  openModal(`
+    <h2>Dupliquer le cahier journal</h2>
+    <div class="seg" id="qui"><button type="button" data-q="jour" class="on">Ce jour</button><button type="button" data-q="semaine">Toute la semaine</button></div>
+    <label><span id="lbl">Vers le</span><input type="date" id="cible" value="${addDays(date, 7)}"></label>
+    <p class="hint">Copie les horaires, les fiches, les objectifs, compétences et différenciation, et les remarques. Les cases « Fait » sont décochées. Les devoirs ne sont pas copiés.</p>
+    <p class="err" id="warn"></p>
+    <div class="actions"><button type="button" data-close class="ghost">Annuler</button><button type="button" class="primary" id="go">Dupliquer</button></div>`, (m) => {
+    const cible = $("#cible", m), warn = $("#warn", m), go = $("#go", m);
+    const destination = (d) => (mode === "jour" ? cible.value : addDays(lundiDe(cible.value), (new Date(d + "T12:00").getDay() + 6) % 7));
+    const maj = () => {
+      $$("#qui button", m).forEach((b) => b.classList.toggle("on", b.dataset.q === mode));
+      $("#lbl", m).textContent = mode === "jour" ? "Vers le" : "Vers la semaine du";
+      const src = sources();
+      const memeDate = cible.value && src.some((d) => destination(d) === d);
+      const ecrase = cible.value && src.filter((d) => jourRempli(state.journal[destination(d)])).length;
+      warn.textContent = !src.length ? (mode === "jour" ? "Ce jour est vide : rien à copier." : "Cette semaine est vide : rien à copier.")
+        : memeDate ? "Choisis une autre date." : ecrase ? `${mode === "jour" ? "Ce jour contient" : `${ecrase} jour(s) de cette semaine contiennent`} déjà quelque chose : ce sera remplacé.` : "";
+      go.disabled = !src.length || !cible.value || memeDate;
+    };
+    $("#qui", m).onclick = (e) => { const b = e.target.closest("[data-q]"); if (b) { mode = b.dataset.q; maj(); } };
+    cible.oninput = maj;
+    go.onclick = () => {
+      const src = sources(); if (!src.length || !cible.value) return;
+      for (const d of src) copierJour(d, destination(d));
+      save("journal"); closeModal(true);
+      location.hash = `#/journal/${destination(mode === "jour" ? date : src[0])}`;
+    };
+    maj();
+  });
+}
 function viewJournal(dateISO) {
   const date = dateISO || isoLocal(new Date());
   if (!dateISO) { location.replace(`#/journal/${date}`); return; }
-  const jour = JOURS_JS[new Date(date + "T12:00").getDay()];
-  const slots = state.edt.filter((s) => s.jour === jour).sort((a, b) => a.debut.localeCompare(b.debut));
+  const jour = jourDe(date);
+  const slots = creneauxDuJour(date);
   const st = statutJour(date);
   const J = (state.journal[date] ??= { creneaux: {}, notes: "" });
+  const perso = !!J.slots;
   const app_ = state.appel[date];
   const absents = app_ ? state.eleves.filter((e) => app_.matin?.[e.id] === "A" || app_.aprem?.[e.id] === "A") : [];
   const fichesDuJour = state.fiches.filter((f) => f.date === date);
@@ -884,6 +946,15 @@ function viewJournal(dateISO) {
     const list = [...state.fiches].sort((a, b) => (b.discipline === disc) - (a.discipline === disc));
     return `<option value="">— Aucune fiche —</option>` + list.map((f) => `<option value="${f.id}" ${f.id === sel ? "selected" : ""}>${esc(f.titre)}${f.discipline ? ` (${esc(f.discipline)})` : ""}</option>`).join("");
   };
+  const peda = (c) => {
+    const rempli = c.objectif?.trim() || c.competences?.length || c.differenciation?.trim();
+    return `<details class="jt-peda${rempli ? "" : " vide"}" ${rempli ? "open" : ""}><summary>🎯 Objectif, compétences, différenciation</summary>
+      <label>Objectif<textarea data-p="objectif" rows="1" placeholder="À la fin de la séance, les élèves sauront…">${esc(c.objectif ?? "")}</textarea></label>
+      <div class="label-row"><span>Compétences</span><button type="button" class="ghost small no-print" data-addc>+ Insérer</button></div>
+      <div class="chips">${compChips(c.competences ?? [], true) || `<span class="hint no-print">Aucune.</span>`}</div>
+      <label>Différenciation<textarea data-p="differenciation" rows="1" placeholder="Aides, groupes, adaptations…">${esc(c.differenciation ?? "")}</textarea></label></details>`;
+  };
+  const cellule = (s, html) => (perso ? `<button class="jt-edit" data-slot="${s.id}" title="Modifier ce créneau pour ce jour">${html}</button>` : html);
   app.innerHTML = `
     <div class="toolbar no-print">
       <a class="round-btn ghost" href="#/journal/${addDays(date, -1)}" aria-label="Jour précédent">‹</a>
@@ -891,22 +962,27 @@ function viewJournal(dateISO) {
       <a class="round-btn ghost" href="#/journal/${addDays(date, 1)}" aria-label="Jour suivant">›</a>
       <a class="pill" href="#/journal/${isoLocal(new Date())}">Aujourd'hui</a>
       <span class="grow"></span>
-      <a class="btn ghost" href="#/partager/${date}">👥 Partager la journée</a><button class="ghost" id="pday">🖨️ Imprimer le jour</button><button class="ghost" id="pweek">🖨️ Imprimer la semaine</button>
+      <a class="btn ghost" href="#/partager/${date}">👥 Partager la journée</a><button class="ghost" id="dup">📋 Dupliquer</button><button class="ghost" id="pday">🖨️ Imprimer le jour</button><button class="ghost" id="pweek">🖨️ Imprimer la semaine</button>
     </div>
     <div class="sheet journal">
       <h2 class="journal-date">${capit(fmtLong(date))}</h2>
       ${st && st.type !== "weekend" ? `<div class="banner-soft">🏖️ ${esc(st.nom)}</div>` : ""}
       <div class="journal-meta">${state.eleves.length ? `<a href="#/appel/${date}" class="chip-link">👧 ${app_ ? `${state.eleves.length - absents.length} présent(s), ${absents.length} absent(s)${absents.length ? " : " + absents.map((e) => esc(e.prenom)).join(", ") : ""}` : "Faire l'appel"}</a>` : ""}</div>
+      ${slots.length || perso ? `<p class="hint jt-source no-print">${perso
+        ? `✏️ Horaires adaptés pour ce jour seulement. Touche un horaire pour le modifier. <button class="link" id="reset">Reprendre l'emploi du temps</button>`
+        : `Horaires repris de ton <a href="#/edt">emploi du temps</a>. <button class="link" id="adapt">Modifier pour ce jour</button>`}</p>` : ""}
       ${slots.length ? `<table class="jtable"><thead><tr><th>Horaire</th><th>Discipline</th><th>Fiche / contenu</th><th class="no-print">Fait</th></tr></thead><tbody>
         ${slots.map((s) => { const c = J.creneaux[s.id] ?? {}; const f = state.fiches.find((x) => x.id === c.ficheId);
-          return `<tr style="--c:${s.couleur}" class="${c.fait ? "done" : ""}">
-            <td class="jt-time">${esc(s.debut)}<br><span class="hint">${esc(s.fin)}</span></td>
-            <td class="jt-disc"><b>${esc(s.discipline)}</b>${s.libelle ? `<br><span class="hint">${esc(s.libelle)}</span>` : ""}</td>
+          return `<tr data-s="${s.id}" style="--c:${s.couleur}" class="${c.fait ? "done" : ""}">
+            <td class="jt-time">${cellule(s, `${esc(s.debut)}<br><span class="hint">${esc(s.fin)}</span>`)}</td>
+            <td class="jt-disc">${cellule(s, `<b>${esc(s.discipline)}</b>${s.libelle ? `<br><span class="hint">${esc(s.libelle)}</span>` : ""}`)}</td>
             <td><div class="row no-print"><select data-fiche="${s.id}">${ficheOpts(c.ficheId, s.discipline)}</select>${f ? `<a class="pill" href="#/fiches/${f.id}">Ouvrir</a>` : `<button class="pill" data-newfiche="${s.id}">+ Créer</button>`}</div>
-              ${f ? `<div class="print-only"><b>${esc(f.titre)}</b>${f.objectif ? ` — ${esc(f.objectif)}` : ""}</div>` : ""}
-              <textarea data-note="${s.id}" rows="2" placeholder="Contenu, remarques…">${esc(c.notes ?? "")}</textarea></td>
+              ${f ? `<div class="print-only"><b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? ` — ${esc(f.objectif)}` : ""}</div>` : ""}
+              <textarea data-note="${s.id}" rows="2" placeholder="Contenu, remarques…">${esc(c.notes ?? "")}</textarea>
+              ${peda(c)}</td>
             <td class="no-print jt-done"><input type="checkbox" data-fait="${s.id}" ${c.fait ? "checked" : ""} aria-label="Fait"></td></tr>`; }).join("")}
-        </tbody></table>` : `<div class="empty"><span>📅</span><p>${st?.type === "weekend" ? "C'est le week-end !" : `Aucun créneau le ${jour.toLowerCase()} dans ton emploi du temps.`}</p>${st?.type === "weekend" ? "" : `<a class="primary btn" href="#/edt">Compléter l'emploi du temps</a>`}</div>`}
+        </tbody></table>` : `<div class="empty"><span>📅</span><p>${st?.type === "weekend" && !perso ? "C'est le week-end !" : `Aucun créneau ${perso ? "pour ce jour" : `le ${jour.toLowerCase()} dans ton emploi du temps`}.`}</p>${st?.type === "weekend" || perso ? "" : `<a class="primary btn" href="#/edt">Compléter l'emploi du temps</a>`}</div>`}
+      ${perso || (!slots.length && st?.type !== "weekend") ? `<button class="ghost small no-print" id="addslot">+ Créneau pour ce jour seulement</button>` : ""}
       ${fichesDuJour.length ? `<p class="hint">Fiches datées de ce jour : ${fichesDuJour.map((f) => `<a href="#/fiches/${f.id}">${esc(f.titre)}</a>`).join(", ")}</p>` : ""}
       <div class="devoirs-box"><div class="label-row"><span>📚 Devoirs à donner pour le ${fmtCourt(prochainJourClasse(date))}</span><a class="link no-print" href="#/devoirs">Tous les devoirs</a></div>
         ${devoirsEditeur(prochainJourClasse(date))}</div>
@@ -915,37 +991,66 @@ function viewJournal(dateISO) {
     <div id="weekPrint" class="print-week"></div>`;
   $("#dp").onchange = (e) => { if (e.target.value) location.hash = `#/journal/${e.target.value}`; };
   const persist = () => save("journal");
-  brancherDevoirs(app, () => viewJournal(date));
+  const redraw = () => viewJournal(date);
+  const C = (id) => (J.creneaux[id] ??= {});
+  const adapter = () => { if (!J.slots) J.slots = structuredClone(slots); }; // copie les créneaux du jour depuis l'emploi du temps
+  const cibleJour = { jourFixe: true, liste: () => (adapter(), J.slots), apres: () => { persist(); redraw(); } };
+  brancherDevoirs(app, redraw);
   app.oninput = (e) => {
     const t = e.target;
     if (t.dataset.dv !== undefined) return;
-    if (t.dataset.note) { (J.creneaux[t.dataset.note] ??= {}).notes = t.value; persist(); }
+    if (t.dataset.note) { C(t.dataset.note).notes = t.value; persist(); }
+    if (t.dataset.p) { C(t.closest("tr").dataset.s)[t.dataset.p] = t.value; persist(); }
     if (t.id === "jn") { J.notes = t.value; persist(); }
   };
   app.onchange = (e) => {
     const t = e.target;
-    if (t.dataset.fiche) { (J.creneaux[t.dataset.fiche] ??= {}).ficheId = t.value || null; persist(); viewJournal(date); }
-    if (t.dataset.fait) { (J.creneaux[t.dataset.fait] ??= {}).fait = t.checked; persist(); t.closest("tr").classList.toggle("done", t.checked); }
+    if (t.dataset.fiche) {
+      const c = C(t.dataset.fiche); c.ficheId = t.value || null;
+      const f = state.fiches.find((x) => x.id === c.ficheId);
+      if (f) { // reprend ce que la fiche précise déjà, sans écraser ce qui est saisi ici
+        if (!c.objectif?.trim() && f.objectif) c.objectif = f.objectif;
+        if (!c.competences?.length && f.competences?.length) c.competences = [...f.competences];
+        if (!c.differenciation?.trim() && f.differenciation) c.differenciation = f.differenciation;
+      }
+      persist(); redraw();
+    }
+    if (t.dataset.fait) { C(t.dataset.fait).fait = t.checked; persist(); t.closest("tr").classList.toggle("done", t.checked); }
   };
   app.onclick = (e) => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.dvadd || t.dataset.dvrm) return;
+    const sid = t.closest("tr")?.dataset.s;
+    if (t.dataset.addc !== undefined) { const c = C(sid); pickCompetences(c.competences ?? [], (ids) => { c.competences = ids; persist(); redraw(); }); }
+    if (t.dataset.rmcomp) { const c = C(sid); c.competences = (c.competences ?? []).filter((x) => x !== t.dataset.rmcomp); persist(); redraw(); }
     if (t.dataset.newfiche) {
-      const s = state.edt.find((x) => x.id === t.dataset.newfiche);
-      const f = newFiche({ titre: `${s.discipline}${s.libelle ? " – " + s.libelle : ""}`, discipline: DISCIPLINES.includes(s.discipline) ? s.discipline : "", date });
-      (J.creneaux[s.id] ??= {}).ficheId = f.id; persist(); location.hash = `#/fiches/${f.id}`;
+      const s = slots.find((x) => x.id === t.dataset.newfiche), c = C(s.id);
+      const f = newFiche({ titre: `${s.discipline}${s.libelle ? " – " + s.libelle : ""}`, discipline: DISCIPLINES.includes(s.discipline) ? s.discipline : "", date,
+        objectif: c.objectif ?? "", competences: [...(c.competences ?? [])], differenciation: c.differenciation ?? "" });
+      c.ficheId = f.id; persist(); location.hash = `#/fiches/${f.id}`;
     }
+    if (t.id === "adapt") { adapter(); persist(); redraw(); }
+    if (t.id === "reset" && confirm("Reprendre les horaires de l'emploi du temps pour ce jour ? Les créneaux ajoutés seulement pour ce jour seront retirés.")) {
+      delete J.slots;
+      const ids = new Set(creneauxDuJour(date).map((s) => s.id));
+      for (const k of Object.keys(J.creneaux)) if (!ids.has(k)) delete J.creneaux[k];
+      persist(); redraw();
+    }
+    if (t.dataset.slot) editSlot(J.slots.find((s) => s.id === t.dataset.slot), cibleJour);
+    if (t.id === "addslot") editSlot({ jour }, cibleJour);
+    if (t.id === "dup") dupliquerJournal(date);
     if (t.id === "pday") { $("#weekPrint").innerHTML = ""; window.print(); }
     if (t.id === "pweek") { $("#weekPrint").innerHTML = semaineHTML(date); document.body.classList.add("print-week-mode"); window.print(); setTimeout(() => document.body.classList.remove("print-week-mode"), 500); }
   };
 }
 function semaineHTML(date) {
-  const d = new Date(date + "T12:00"); const lundi = addDays(date, -((d.getDay() + 6) % 7));
-  return [0, 1, 2, 3, 4, 5].map((i) => addDays(lundi, i)).filter((x) => state.edt.some((s) => s.jour === JOURS_JS[new Date(x + "T12:00").getDay()])).map((x) => {
-    const jour = JOURS_JS[new Date(x + "T12:00").getDay()], J = state.journal[x]?.creneaux ?? {};
+  const lundi = lundiDe(date);
+  return [0, 1, 2, 3, 4, 5].map((i) => addDays(lundi, i)).filter((x) => creneauxDuJour(x).length).map((x) => {
+    const J = state.journal[x]?.creneaux ?? {};
     const st = statutJour(x);
-    return `<section class="pw-day"><h2>${capit(fmtLong(x))}</h2>${st && st.type !== "weekend" ? `<p><b>${esc(st.nom)}</b></p>` : `<table class="jtable"><tbody>${state.edt.filter((s) => s.jour === jour).sort((a, b) => a.debut.localeCompare(b.debut)).map((s) => { const f = state.fiches.find((y) => y.id === J[s.id]?.ficheId);
-      return `<tr><td class="jt-time">${esc(s.debut)}–${esc(s.fin)}</td><td class="jt-disc"><b>${esc(s.discipline)}</b> ${esc(s.libelle ?? "")}</td><td>${f ? `<b>${esc(f.titre)}</b>${f.objectif ? " — " + esc(f.objectif) : ""}<br>` : ""}${esc(J[s.id]?.notes ?? "")}</td></tr>`; }).join("")}</tbody></table>`}${state.journal[x]?.notes ? `<p>${esc(state.journal[x].notes)}</p>` : ""}</section>`;
+    return `<section class="pw-day"><h2>${capit(fmtLong(x))}</h2>${st && st.type !== "weekend" ? `<p><b>${esc(st.nom)}</b></p>` : `<table class="jtable"><tbody>${creneauxDuJour(x).map((s) => { const c = J[s.id] ?? {}; const f = state.fiches.find((y) => y.id === c.ficheId);
+      const comp = (c.competences ?? []).map((id) => compById[id]?.texte).filter(Boolean);
+      return `<tr><td class="jt-time">${esc(s.debut)}–${esc(s.fin)}</td><td class="jt-disc"><b>${esc(s.discipline)}</b> ${esc(s.libelle ?? "")}</td><td>${f ? `<b>${esc(f.titre)}</b>${f.objectif && !c.objectif?.trim() ? " — " + esc(f.objectif) : ""}<br>` : ""}${c.objectif?.trim() ? `🎯 ${esc(c.objectif)}<br>` : ""}${comp.length ? `<span class="hint">${comp.map(esc).join(" · ")}</span><br>` : ""}${esc(c.notes ?? "")}${c.differenciation?.trim() ? `<br><i>Différenciation : ${esc(c.differenciation)}</i>` : ""}</td></tr>`; }).join("")}</tbody></table>`}${state.journal[x]?.notes ? `<p>${esc(state.journal[x].notes)}</p>` : ""}</section>`;
   }).join("");
 }
 
@@ -2044,7 +2149,7 @@ async function viewRessource(id) {
 }
 
 // ---------- partager ma journée (js/partage.js) ----------
-const ctxPartage = () => ({ app, state, save, esc, $, $$, fmtLong, fmtCourt, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, compte, qrcode });
+const ctxPartage = () => ({ app, state, save, esc, $, $$, fmtLong, fmtCourt, capit, addDays, isoLocal, JOURS_JS, prochainJourClasse, compte, qrcode, creneauxDuJour });
 
 // ---------- routeur ----------
 const TITLES = { accueil: "Aujourd'hui", outils: "En classe", imprimer: "À imprimer", edt: "Emploi du temps", programmations: "Programmations", fiches: "Fiches de préparation", evaluations: "Évaluations", classe: "Ma classe", competences: "Compétences", reglages: "Réglages", journal: "Cahier journal", appel: "Appel", calendrier: "Calendrier scolaire", telecommande: "Télécommande", lier: "Lier un appareil", devoirs: "Devoirs", suivi: "Suivi de la classe", aide: "Installer et projeter", remplacements: "Mes remplacements", ressources: "Mes ressources", partager: "Partager ma journée", voir: "Journée de classe", connexion: "Se connecter", inscription: "Créer mon compte", bienvenue: "Bienvenue", admin: "Administration" };
